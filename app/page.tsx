@@ -1,6 +1,50 @@
 ﻿'use client';
-// @ts-nocheck
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+
+type MustOrder = { item?: string; differentiator?: string; why?: string } | null;
+type AlsoTry = string | { dish?: string; note?: string } | null;
+type Restaurant = {
+  name: string; rank?: number; website_domain?: string; neighborhood?: string;
+  price_range?: string; venue_type?: string; dish_mentions?: number; hours?: string;
+  specials?: string; experience_note?: string; what_it_is?: string; win_reason?: string;
+  top_descriptors?: string[]; must_orders?: MustOrder[]; also_try?: AlsoTry[];
+  food_score?: number; verdict?: string; best_quote?: string;
+  warnings?: (string | null)[]; address?: string; cuisine?: string;
+};
+type DeepDiveData = {
+  name: string; neighborhood?: string; price_range?: string; venue_type?: string;
+  food_score?: number; hours?: string; specials?: string; experience_note?: string;
+  must_orders?: MustOrder[]; also_try?: AlsoTry[]; skip?: (string | null)[];
+  insider_tips?: (string | null)[]; vibe_tags?: string[]; verdict?: string;
+  address?: string; cuisine?: string;
+};
+type Vendor = {
+  name?: string; specialty?: string; food_score?: number; price_range?: string;
+  the_order?: string; why?: string; insider_note?: string;
+};
+type MarketData = {
+  market_name: string; location?: string; hours?: string; vibe?: string;
+  vendors?: (Vendor | null)[];
+};
+type Alternative = {
+  name?: string; neighborhood?: string; cuisine?: string; venue_type?: string;
+  food_score?: number; price_range?: string; verdict_vs_original?: string;
+  go_here_if?: string; must_order?: string; must_order_why?: string; address?: string;
+};
+type CompareData = {
+  original?: { name?: string; food_score?: number };
+  alternatives?: (Alternative | null)[];
+  search_area?: string; _mode?: string; _originalScore?: number;
+};
+type SearchMeta = { dish: string; city: string };
+type ConfirmMatch = { name: string; address?: string; city?: string; neighborhood?: string; cuisine?: string };
+type Fav = { name: string; neighborhood?: string; venue_type?: string; price_range?: string; food_score?: number };
+type NarrowQuestion = { question: string; options: string[] };
+type NavEntry = {
+  phase: string; restaurants: Restaurant[]; meta: SearchMeta | null;
+  searchedDish: string; deepData: DeepDiveData | null; compareData: CompareData | null;
+  marketData: MarketData | null; expanded: number | null; tab: string;
+};
 
 // ─── NEON THEME TOKENS ────────────────────────────────────────────────────────
 const T = {
@@ -19,7 +63,7 @@ const T = {
   blue:    "#4A9EFF",
   purple:  "#B56BFF",
 };
-const BROWSE = {
+const BROWSE: Record<string, Record<string, Record<string, string[]>>> = {
   "🕐 By Meal Time": {
     "🌅 Breakfast & Brunch": {
       "American":      ["Pancakes","Waffles","French Toast","Eggs Benedict","Omelets","Biscuits & Gravy","Chicken & Waffles","Shakshuka","Smoked Salmon Bagel","Avocado Toast","Monte Cristo","Steak & Eggs","Açaí Bowl"],
@@ -203,7 +247,7 @@ async function apiFetch(path: string, body: object) {
   if (data.error) throw new Error(data.error);
   return data;
 }
-const VENUE_META={
+const VENUE_META: Record<string,{icon:string;clr:string}>={
   "hole-in-the-wall":{icon:"🏚",clr:"#AAA"},
   "counter service":{icon:"🥡",clr:"#B56BFF"},
   "food truck":{icon:"🚚",clr:"#FFB800"},
@@ -212,13 +256,13 @@ const VENUE_META={
   "fine dining":{icon:"💎",clr:"#D4A8FF"},
 };
 const ACCENTS=["#FFB800","#B56BFF","#4A9EFF","#FF6B35","#2ECC71","#FF4444"];
-const DISH_MAP={burger:"🍔",pizza:"🍕",ramen:"🍜",taco:"🌮",sushi:"🍣",carnitas:"🌮",birria:"🌮",pasta:"🍝",steak:"🥩",chicken:"🍗",seafood:"🦞",dumpling:"🥟",curry:"🍛",pho:"🍜",pancake:"🥞",egg:"🍳",shrimp:"🍤",bbq:"🍖",lobster:"🦞",oyster:"🦪",donut:"🍩",cake:"🎂",crab:"🦀",fish:"🐟",rice:"🍚",noodle:"🍜",bread:"🍞",jerk:"🌶",oxtail:"🫙",poke:"🍣",chowder:"🍲",gumbo:"🫕",mole:"🌶"};
-const dEmoji=d=>{if(!d)return"🍽️";const l=d.toLowerCase();return Object.entries(DISH_MAP).find(([k])=>l.includes(k))?.[1]??"🍽️";};
-const gURL=(n,h,c)=>`https://www.google.com/search?q=${encodeURIComponent([n,h,c].filter(Boolean).join(" "))}`;
-const dirURL=(addr,n,c)=>`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr||`${n} ${c}`)}`;
+const DISH_MAP: Record<string,string>={burger:"🍔",pizza:"🍕",ramen:"🍜",taco:"🌮",sushi:"🍣",carnitas:"🌮",birria:"🌮",pasta:"🍝",steak:"🥩",chicken:"🍗",seafood:"🦞",dumpling:"🥟",curry:"🍛",pho:"🍜",pancake:"🥞",egg:"🍳",shrimp:"🍤",bbq:"🍖",lobster:"🦞",oyster:"🦪",donut:"🍩",cake:"🎂",crab:"🦀",fish:"🐟",rice:"🍚",noodle:"🍜",bread:"🍞",jerk:"🌶",oxtail:"🫙",poke:"🍣",chowder:"🍲",gumbo:"🫕",mole:"🌶"};
+const dEmoji=(d:string|null|undefined):string=>{if(!d)return"🍽️";const l=d.toLowerCase();return Object.entries(DISH_MAP).find(([k])=>l.includes(k))?.[1]??"🍽️";};
+const gURL=(n:string,h?:string,c?:string):string=>`https://www.google.com/search?q=${encodeURIComponent([n,h,c].filter(Boolean).join(" "))}`;
+const dirURL=(addr:string|undefined,n:string,c:string):string=>`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr||`${n} ${c}`)}`;
 
 // ─── ATOMS ────────────────────────────────────────────────────────────────────
-function ScoreRing({score,size=52}){
+function ScoreRing({score,size=52}:{score:number;size?:number}){
   const safeScore=typeof score==="number"&&!isNaN(score)?score:5;const r=size/2-4,circ=2*Math.PI*r,off=circ-(safeScore/10)*circ;
   const clr=safeScore>=8?"#2ECC71":safeScore>=7?"#FFB800":safeScore>=6?"#FF6B35":"#FF4444";
   const lbl=safeScore>=8?"Excellent":safeScore>=7?"Very Good":safeScore>=6?"Good":safeScore>=5?"Average":"Below Avg";
@@ -236,18 +280,18 @@ function ScoreRing({score,size=52}){
   );
 }
 
-const PriceTag=({price})=>{
+const PriceTag=({price}:{price?:string})=>{
   if(!price)return null;
   const a=["$","$$","$$$","$$$$"].indexOf(price);
   return <span>{[0,1,2,3].map(i=><span key={i} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.68rem",fontWeight:700,color:i<=a?T.neon:T.dim}}>$</span>)}</span>;
 };
 
-const VenueBadge=({type})=>{
+const VenueBadge=({type}:{type:string})=>{
   const m=VENUE_META[type]||{icon:"🍽",clr:T.muted};
   return <span style={{display:"inline-flex",alignItems:"center",gap:3,color:m.clr,border:`1px solid ${m.clr}44`,fontSize:"0.58rem",fontWeight:700,padding:"2px 8px",borderRadius:20,whiteSpace:"nowrap",background:`${m.clr}11`}}>{m.icon} {type}</span>;
 };
 
-function Photo({domain,name,rank,dish}){
+function Photo({domain,name,rank,dish}:{domain?:string;name?:string;rank:number;dish?:string}){
   const [f,setF]=useState(false);
   const clr=ACCENTS[rank%ACCENTS.length];
   const init=(name||"?").split(" ").slice(0,2).map(w=>w[0]||"").join("").toUpperCase();
@@ -264,8 +308,8 @@ function Photo({domain,name,rank,dish}){
   );
 }
 
-function PlacesPhotoThumb({name,city,fallback}){
-  const [src,setSrc]=useState(null);
+function PlacesPhotoThumb({name,city,fallback}:{name?:string;city?:string;fallback:ReactNode}){
+  const [src,setSrc]=useState<string|null>(null);
   useEffect(()=>{
     if(!name)return;
     fetch(`/api/photos?name=${encodeURIComponent(name)}&city=${encodeURIComponent(city||"")}`)
@@ -275,8 +319,8 @@ function PlacesPhotoThumb({name,city,fallback}){
   return <img src={src} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={()=>setSrc(null)}/>;
 }
 
-function PlacesPhotoStrip({name,city}){
-  const [photos,setPhotos]=useState([]);
+function PlacesPhotoStrip({name,city}:{name?:string;city?:string}){
+  const [photos,setPhotos]=useState<string[]>([]);
   useEffect(()=>{
     if(!name)return;
     fetch(`/api/photos?name=${encodeURIComponent(name)}&city=${encodeURIComponent(city||"")}`)
@@ -294,17 +338,17 @@ function PlacesPhotoStrip({name,city}){
 }
 
 // ─── BROWSE ───────────────────────────────────────────────────────────────────
-function Browse({onSelect,disabled}){
-  const [section,setSection]=useState(null); // "🕐 By Meal Time" | "🌍 International Cuisines"
-  const [cat,setCat]=useState(null);
-  const [sub,setSub]=useState(null);
+function Browse({onSelect,disabled}:{onSelect:(dish:string)=>void;disabled:boolean}){
+  const [section,setSection]=useState<string|null>(null);
+  const [cat,setCat]=useState<string|null>(null);
+  const [sub,setSub]=useState<string|null>(null);
 
   const sections=Object.keys(BROWSE);
   const cats=section?Object.keys(BROWSE[section]):[];
   const subs=section&&cat?Object.keys(BROWSE[section][cat]):[];
   const dishes=section&&cat&&sub?BROWSE[section][cat][sub]:[];
 
-  const btn=(label,active,onClick,isDish=false)=>(
+  const btn=(label:string,active:boolean,onClick:()=>void,isDish=false)=>(
     <button disabled={disabled} onClick={onClick} style={{border:`1.5px solid ${active?T.neon:T.border2}`,background:active?`${T.neon}18`:T.card2,color:active?T.neon:T.muted,fontFamily:"'Inter',sans-serif",fontSize:"0.76rem",fontWeight:active?700:500,padding:"6px 12px",cursor:"pointer",borderRadius:20,transition:"all .15s",whiteSpace:"nowrap",boxShadow:active?`0 0 8px ${T.neon}44`:"none"}}
       onMouseEnter={e=>{if(!active&&!isDish){e.currentTarget.style.borderColor=T.neon;e.currentTarget.style.color=T.neon;}if(isDish){e.currentTarget.style.borderColor=T.neon;e.currentTarget.style.background=T.neon;e.currentTarget.style.color="#000";}}}
       onMouseLeave={e=>{if(!active&&!isDish){e.currentTarget.style.borderColor=T.border2;e.currentTarget.style.color=T.muted;}if(isDish&&!active){e.currentTarget.style.borderColor=T.border2;e.currentTarget.style.background=T.card2;e.currentTarget.style.color=T.muted;}}}
@@ -336,7 +380,11 @@ function Browse({onSelect,disabled}){
 }
 
 // ─── SEARCH RESULT CARD ───────────────────────────────────────────────────────
-function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onToggleFav}){
+function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onToggleFav}:{
+  r:Restaurant;i:number;expanded:number|null;onToggle:(i:number)=>void;
+  onDeepDive:(name:string)=>void;meta:SearchMeta|null;searchedDish:string;
+  isFav:boolean;onToggleFav:(r:Restaurant)=>void;
+}){
   const isOpen=expanded===i;
   const mos=Array.isArray(r.must_orders)?r.must_orders:[];
   const also=Array.isArray(r.also_try)?r.also_try:[];
@@ -365,7 +413,7 @@ function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onTo
             <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
               {r.venue_type&&<VenueBadge type={r.venue_type}/>}
               <a href={gURL(r.name,r.neighborhood,meta?.city)} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{display:"inline-flex",alignItems:"center",gap:2,fontSize:"0.6rem",fontWeight:600,color:T.blue,textDecoration:"none",border:`1px solid ${T.blue}44`,background:`${T.blue}11`,padding:"2px 7px",borderRadius:20}}>📸 Photos</a>
-              <a href={dirURL(r.address,r.name,meta?.city)} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{display:"inline-flex",alignItems:"center",gap:2,fontSize:"0.6rem",fontWeight:600,color:T.green,textDecoration:"none",border:`1px solid ${T.green}44`,background:`${T.green}11`,padding:"2px 7px",borderRadius:20}}>🗺 Directions</a>
+              <a href={dirURL(r.address,r.name,meta?.city??"")} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{display:"inline-flex",alignItems:"center",gap:2,fontSize:"0.6rem",fontWeight:600,color:T.green,textDecoration:"none",border:`1px solid ${T.green}44`,background:`${T.green}11`,padding:"2px 7px",borderRadius:20}}>🗺 Directions</a>
             </div>
           </div>
           <ScoreRing score={r?.food_score??5}/>
@@ -428,7 +476,11 @@ function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onTo
 }
 
 // ─── DEEP DIVE RESULT — CHEAT SHEET STYLE ────────────────────────────────────
-function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}){
+function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}:{
+  data:DeepDiveData;city:string;isFav:boolean;onFav:()=>void;
+  onCompare:(radius:number,data:DeepDiveData,mode:string)=>void;
+  onMarket?:(name:string)=>void;
+}){
   const mos=Array.isArray(data.must_orders)?data.must_orders:[];
   const also=Array.isArray(data.also_try)?data.also_try:[];
   const skip=Array.isArray(data.skip)?data.skip:[];
@@ -453,7 +505,7 @@ function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}){
             </div>}
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
-            <ScoreRing score={data.food_score} size={58}/>
+            <ScoreRing score={data.food_score??5} size={58}/>
             <button onClick={onFav} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:0}}>{isFav?"❤️":"🤍"}</button>
           </div>
         </div>
@@ -492,9 +544,9 @@ function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}){
         {also.length>0&&<div>
           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.44rem",letterSpacing:3,color:T.muted,textTransform:"uppercase",marginBottom:7,fontWeight:600}}>Also Worth Ordering</div>
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {also.filter(a=>a!=null).map((a,j)=><div key={j} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:6,padding:"8px 11px"}}>
+            {also.filter((a):a is NonNullable<AlsoTry>=>a!=null).map((a,j)=><div key={j} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:6,padding:"8px 11px"}}>
               <div style={{fontSize:"0.82rem",fontWeight:700,color:T.text,marginBottom:2}}>{typeof a==="string"?a:((a&&a.dish)||"")}</div>
-              {a?.note&&<div style={{fontSize:"0.68rem",color:T.muted,lineHeight:1.45}}>{a.note}</div>}
+              {typeof a==="object"&&a.note&&<div style={{fontSize:"0.68rem",color:T.muted,lineHeight:1.45}}>{a.note}</div>}
             </div>)}
           </div>
         </div>}
@@ -585,9 +637,9 @@ function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}){
 }
 
 // ─── MARKET GUIDE RESULT ─────────────────────────────────────────────────────
-function MarketGuideResult({data}){
+function MarketGuideResult({data}:{data:MarketData}){
   const vendors=Array.isArray(data.vendors)?data.vendors:[];
-  const scoreClr=s=>s>=8?"#2ECC71":s>=7?"#FFB800":s>=6?"#FF6B35":"#FF4444";
+  const scoreClr=(s:number)=>s>=8?"#2ECC71":s>=7?"#FFB800":s>=6?"#FF6B35":"#FF4444";
 
   return(
     <div style={{background:T.bg}}>
@@ -614,7 +666,7 @@ function MarketGuideResult({data}){
           Best thing at each vendor — ranked by food quality
         </div>
 
-        {vendors.filter(v=>v!=null).map((v,i)=>(
+        {vendors.filter((v):v is Vendor=>v!=null).map((v,i)=>(
           <div key={i} style={{background:T.card,border:`1px solid ${i===0?T.green+"55":T.border}`,borderRadius:8,padding:"12px 13px",boxShadow:i===0?`0 0 12px ${T.green}0D`:"none"}}>
             {/* VENDOR HEADER */}
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:7}}>
@@ -626,8 +678,8 @@ function MarketGuideResult({data}){
                 <div style={{fontSize:"0.62rem",color:T.muted,letterSpacing:0.3}}>{v?.specialty||""}</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
-                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.82rem",fontWeight:700,color:scoreClr(v.food_score),lineHeight:1}}>{(v?.food_score??0).toFixed(1)}</div>
-                {v.price_range&&<div style={{display:"flex",gap:0}}>{["$","$","$","$"].map((_,pi)=><span key={pi} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.6rem",fontWeight:700,color:pi<["$","$$","$$$","$$$$"].indexOf(v.price_range)+1?T.neon:T.dim}}>$</span>)}</div>}
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.82rem",fontWeight:700,color:scoreClr(v.food_score??0),lineHeight:1}}>{(v?.food_score??0).toFixed(1)}</div>
+                {v.price_range&&<div style={{display:"flex",gap:0}}>{["$","$","$","$"].map((_,pi)=><span key={pi} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.6rem",fontWeight:700,color:pi<["$","$$","$$$","$$$$"].indexOf(v.price_range??"")+1?T.neon:T.dim}}>$</span>)}</div>}
               </div>
             </div>
 
@@ -648,9 +700,11 @@ function MarketGuideResult({data}){
 }
 
 // ─── COMPARE NEARBY RESULT ────────────────────────────────────────────────────
-function CompareResult({data,originalScore,onDeepDive}){
-  const alts=(Array.isArray(data.alternatives)?data.alternatives:[]).filter(a=>a!=null);
-  const scoreClr=s=>s>=8?"#2ECC71":s>=7?"#FFB800":s>=6?"#FF6B35":"#FF4444";
+function CompareResult({data,originalScore,onDeepDive}:{
+  data:CompareData;originalScore?:number;onDeepDive:(name:string,city:string)=>void;
+}){
+  const alts=(Array.isArray(data.alternatives)?data.alternatives:[]).filter((a):a is Alternative=>a!=null);
+  const scoreClr=(s:number)=>s>=8?"#2ECC71":s>=7?"#FFB800":s>=6?"#FF6B35":"#FF4444";
   const isAny=data._mode==="any";
   const accentClr=isAny?T.green:T.blue;
 
@@ -666,7 +720,7 @@ function CompareResult({data,originalScore,onDeepDive}){
         <div style={{display:"inline-flex",alignItems:"center",gap:8,background:`${accentClr}11`,border:`1px solid ${accentClr}33`,borderRadius:6,padding:"7px 12px"}}>
           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.38rem",letterSpacing:2,color:accentClr,textTransform:"uppercase"}}>You're looking at</div>
           <div style={{fontSize:"0.85rem",fontWeight:700,color:T.text}}>{data.original?.name}</div>
-          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.75rem",fontWeight:700,color:scoreClr(originalScore)}}>{(originalScore??0).toFixed(1)}</div>
+          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.75rem",fontWeight:700,color:scoreClr(originalScore??0)}}>{(originalScore??0).toFixed(1)}</div>
         </div>
       </div>
 
@@ -678,7 +732,7 @@ function CompareResult({data,originalScore,onDeepDive}){
         {alts.map((a,i)=>{
           const delta=a?.food_score!=null&&originalScore!=null?a.food_score-originalScore:null;
           const deltaStr=delta!=null?(delta>0.2?`+${delta.toFixed(1)} better`:delta<-0.2?`${delta.toFixed(1)} lower`:"≈ similar"):"";
-          const deltaClr=delta>0.2?T.green:delta<-0.2?T.red:T.muted;
+          const deltaClr=(delta??0)>0.2?T.green:(delta??0)<-0.2?T.red:T.muted;
           return(
             <div key={i} style={{background:T.card,border:`1px solid ${i===0?T.blue+"44":T.border}`,borderRadius:8,padding:"12px 13px",boxShadow:i===0?`0 0 12px ${T.blue}11`:"none"}}>
               {/* TOP ROW */}
@@ -697,7 +751,7 @@ function CompareResult({data,originalScore,onDeepDive}){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0}}>
                   <ScoreRing score={a?.food_score??5} size={48}/>
-                  <a href={gURL(a?.name,a?.neighborhood,"")} target="_blank" rel="noopener noreferrer"
+                  <a href={gURL(a?.name??"",a?.neighborhood,"")} target="_blank" rel="noopener noreferrer"
                     style={{fontSize:"0.52rem",color:T.blue,textDecoration:"none",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:1}}>📸</a>
                 </div>
               </div>
@@ -723,10 +777,10 @@ function CompareResult({data,originalScore,onDeepDive}){
 
               {/* ACTIONS */}
               <div style={{display:"flex",gap:7}}>
-                <button onClick={()=>onDeepDive(a?.name,"")} style={{flex:1,background:`${T.blue}15`,border:`1px solid ${T.blue}44`,color:T.blue,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,textTransform:"uppercase",padding:"7px 10px",borderRadius:5,cursor:"pointer"}}>
+                <button onClick={()=>onDeepDive(a?.name??"","")} style={{flex:1,background:`${T.blue}15`,border:`1px solid ${T.blue}44`,color:T.blue,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,textTransform:"uppercase",padding:"7px 10px",borderRadius:5,cursor:"pointer"}}>
                   📍 Deep Dive
                 </button>
-                {(a?.address||a?.name)&&<a href={dirURL(a?.address,a?.name,"")} target="_blank" rel="noopener noreferrer"
+                {(a?.address||a?.name)&&<a href={dirURL(a?.address,a?.name??"","")} target="_blank" rel="noopener noreferrer"
                   style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:`${T.green}11`,border:`1px solid ${T.green}33`,color:T.green,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,textTransform:"uppercase",padding:"7px 10px",borderRadius:5,textDecoration:"none"}}>
                   🗺 Directions
                 </a>}
@@ -739,13 +793,15 @@ function CompareResult({data,originalScore,onDeepDive}){
   );
 }
 
-function NarrowingFlow({questions,dish,onComplete}){
+function NarrowingFlow({questions,dish,onComplete}:{
+  questions:NarrowQuestion[];dish:string;onComplete:(refined:string)=>void;
+}){
   const [stepIdx,setStepIdx]=useState(0);
-  const [answers,setAnswers]=useState([]);
+  const [answers,setAnswers]=useState<string[]>([]);
   const current=questions[stepIdx];
   if(!current)return null;
 
-  const pick=(opt)=>{
+  const pick=(opt:string)=>{
     const next=[...answers,opt];
     setAnswers(next);
     if(stepIdx<questions.length-1) setStepIdx(stepIdx+1);
@@ -782,7 +838,9 @@ function NarrowingFlow({questions,dish,onComplete}){
 }
 
 
-function FavsPanel({favs,onDeepDive,onRemove}){
+function FavsPanel({favs,onDeepDive,onRemove}:{
+  favs:Fav[];onDeepDive:(name:string)=>void;onRemove:(name:string)=>void;
+}){
   if(!favs.length)return(
     <div style={{padding:"50px 16px",textAlign:"center"}}>
       <div style={{fontSize:"2rem",marginBottom:10}}>🤍</div>
@@ -821,28 +879,28 @@ export default function DishIntel(){
   const [radius,setRadius]=useState(5);
   const [ddName,setDdName]=useState("");
   const [ddCity,setDdCity]=useState("San Diego");
-  const [confirmMatches,setConfirmMatches]=useState(null);
+  const [confirmMatches,setConfirmMatches]=useState<ConfirmMatch[]|null>(null);
   const [confirming,setConfirming]=useState(false);
   const [phase,setPhase]=useState("idle");
-  const [narrowQuestions,setNarrowQuestions]=useState(null);
-  const [restaurants,setRestaurants]=useState([]);
-  const [meta,setMeta]=useState(null);
+  const [narrowQuestions,setNarrowQuestions]=useState<NarrowQuestion[]|null>(null);
+  const [restaurants,setRestaurants]=useState<Restaurant[]>([]);
+  const [meta,setMeta]=useState<SearchMeta|null>(null);
   const [searchedDish,setSearchedDish]=useState("");
-  const [deepData,setDeepData]=useState(null);
-  const [compareData,setCompareData]=useState(null);
-  const [marketData,setMarketData]=useState(null);
+  const [deepData,setDeepData]=useState<DeepDiveData|null>(null);
+  const [compareData,setCompareData]=useState<CompareData|null>(null);
+  const [marketData,setMarketData]=useState<MarketData|null>(null);
   const [confirmIsMarket,setConfirmIsMarket]=useState(false);
   const [loadingMore,setLoadingMore]=useState(false);
   const [errMsg,setErrMsg]=useState("");
-  const [expanded,setExpanded]=useState(null);
+  const [expanded,setExpanded]=useState<number|null>(null);
   const [lstep,setLstep]=useState(0);
-  const [favs,setFavs]=useState([]);
-  const [navStack,setNavStack]=useState([]);
+  const [favs,setFavs]=useState<Fav[]>([]);
+  const [navStack,setNavStack]=useState<NavEntry[]>([]);
 
   useEffect(()=>{try{const r=localStorage.getItem("di-favs");if(r)setFavs(JSON.parse(r));}catch{}},[]);
-  const saveFavs=(next)=>{setFavs(next);try{localStorage.setItem("di-favs",JSON.stringify(next));}catch{}};
-  const isFav=name=>favs.some(f=>f.name===name);
-  const toggleFav=r=>{const next=isFav(r.name)?favs.filter(f=>f.name!==r.name):[...favs,{name:r.name,neighborhood:r.neighborhood,venue_type:r.venue_type,price_range:r.price_range,food_score:r.food_score}];saveFavs(next);};
+  const saveFavs=(next:Fav[])=>{setFavs(next);try{localStorage.setItem("di-favs",JSON.stringify(next));}catch{}};
+  const isFav=(name:string)=>favs.some(f=>f.name===name);
+  const toggleFav=(r:{name:string;neighborhood?:string;venue_type?:string;price_range?:string;food_score?:number})=>{const next=isFav(r.name)?favs.filter(f=>f.name!==r.name):[...favs,{name:r.name,neighborhood:r.neighborhood,venue_type:r.venue_type,price_range:r.price_range,food_score:r.food_score}];saveFavs(next);};
 
   const pushNav=()=>{
     if(["done","deepdone","marketdone","comparedone"].includes(phase)){
@@ -869,18 +927,18 @@ export default function DishIntel(){
 
   const reset=()=>{setPhase("idle");setNarrowQuestions(null);setRestaurants([]);setMeta(null);setSearchedDish("");setDeepData(null);setCompareData(null);setMarketData(null);setConfirmIsMarket(false);setErrMsg("");setExpanded(null);setConfirmMatches(null);setNavStack([]);};
   const locStr=()=>locMode==="area"&&area.trim()?`within ${radius} miles of ${area.trim()}`:`in ${city}`;
-  const buildQ=(d,excl=[])=>`Best places for "${d}" ${locStr()}.${excl.length?` Exclude: ${excl.join(", ")}.`:""} Return JSON.`;
+  const buildQ=(d:string,excl:string[]=[])=>`Best places for "${d}" ${locStr()}.${excl.length?` Exclude: ${excl.join(", ")}.`:""} Return JSON.`;
 
-  const runSearch=async(d)=>{
+  const runSearch=async(d:string)=>{
     pushNav();
     setPhase("analyzing");setExpanded(null);setLstep(0);setSearchedDish(d);setNarrowQuestions(null);
     const iv=setInterval(()=>setLstep(s=>(s+1)%STEPS.length),3200);
     try{
       const data=await apiFetch("/api/search",{mode:"search",dish:d,city,area,locMode,radius,exclude:[]});
       clearInterval(iv);setMeta({dish:data.dish,city:data.city});
-      const res=Array.isArray(data.results)?data.results:[];
+      const res=(Array.isArray(data.results)?data.results:[]) as Restaurant[];
       setRestaurants(res.map((r,i)=>({...r,rank:i+1})));setPhase("done");
-    }catch(e){clearInterval(iv);setErrMsg(e.message||"Analysis failed");setPhase("error");}
+    }catch(e){clearInterval(iv);setErrMsg(e instanceof Error?e.message:"Analysis failed");setPhase("error");}
   };
 
   const loadMore=async()=>{
@@ -889,11 +947,11 @@ export default function DishIntel(){
     try{
       const data=await apiFetch("/api/search",{mode:"search",dish:searchedDish,city,area,locMode,radius,exclude:excl});
       const start=restaurants.length+1;
-      const more=Array.isArray(data.results)?data.results:[];setRestaurants(p=>[...p,...more.map((r,i)=>({...r,rank:start+i}))]);
+      const more=(Array.isArray(data.results)?data.results:[]) as Restaurant[];setRestaurants(p=>[...p,...more.map((r,i)=>({...r,rank:start+i}))]);
     }catch{}finally{setLoadingMore(false);}
   };
 
-  const handleCompare=async(radius,currentData,mode="similar")=>{
+  const handleCompare=async(radius:number,currentData:DeepDiveData,mode="similar")=>{
     pushNav();
     setPhase("analyzing");setLstep(0);setCompareData(null);setNarrowQuestions(null);
     const loc=currentData?.address||currentData?.neighborhood
@@ -908,7 +966,7 @@ export default function DishIntel(){
       clearInterval(iv);
       setCompareData({...data,_originalScore:currentData?.food_score,_mode:mode});
       setPhase("comparedone");
-    }catch(e){clearInterval(iv);setErrMsg(e.message||"Comparison failed");setPhase("error");}
+    }catch(e){clearInterval(iv);setErrMsg(e instanceof Error?e.message:"Comparison failed");setPhase("error");}
   };
 
   const handleSearch=async()=>{
@@ -921,7 +979,7 @@ export default function DishIntel(){
     }catch{await runSearch(dish);}
   };
 
-  const handleBrowse=d=>{setDish(d);setNarrowQuestions(null);runSearch(d);};
+  const handleBrowse=(d:string)=>{setDish(d);setNarrowQuestions(null);runSearch(d);};
 
   const handleConfirm=async()=>{
     if(!ddName.trim())return;setConfirming(true);setConfirmMatches(null);setConfirmIsMarket(false);
@@ -933,24 +991,24 @@ export default function DishIntel(){
     finally{setConfirming(false);}
   };
 
-  const handleMarketGuide=async(name,cityStr)=>{
+  const handleMarketGuide=async(name:string|undefined,cityStr?:string)=>{
     pushNav();
     const c=cityStr||ddCity;setConfirmMatches(null);setPhase("analyzing");setLstep(0);setTab("deepdive");setNarrowQuestions(null);
     const iv=setInterval(()=>setLstep(s=>(s+1)%STEPS.length),3200);
     try{
       const data=await apiFetch("/api/market",{name,city:c});
       clearInterval(iv);setMarketData({...data,vendors:Array.isArray(data.vendors)?data.vendors:[]});setPhase("marketdone");
-    }catch(e){clearInterval(iv);setErrMsg(e.message||"Market guide failed");setPhase("error");}
+    }catch(e){clearInterval(iv);setErrMsg(e instanceof Error?e.message:"Market guide failed");setPhase("error");}
   };
 
-  const handleDeepDive=async(name,cityStr)=>{
+  const handleDeepDive=async(name:string,cityStr?:string)=>{
     pushNav();
     const c=cityStr||ddCity;setConfirmMatches(null);setPhase("analyzing");setLstep(0);setTab("deepdive");setNarrowQuestions(null);
     const iv=setInterval(()=>setLstep(s=>(s+1)%STEPS.length),3200);
     try{
       const data=await apiFetch("/api/deepdive",{mode:"deepdive",name,city:c});
       clearInterval(iv);setDeepData(data);setPhase("deepdone");
-    }catch(e){clearInterval(iv);setErrMsg(e.message||"Deep dive failed");setPhase("error");}
+    }catch(e){clearInterval(iv);setErrMsg(e instanceof Error?e.message:"Deep dive failed");setPhase("error");}
   };
 
   const isIdle=["idle","done","error","deepdone","marketdone","comparedone"].includes(phase);
