@@ -6,5 +6,6 @@ export async function GET() {
     anthropic_key_prefix: process.env.ANTHROPIC_API_KEY?.slice(0, 10) ?? "NOT SET",
     google_key_set: !!process.env.GOOGLE_PLACES_API_KEY,
     google_key_prefix: process.env.GOOGLE_PLACES_API_KEY?.slice(0, 10) ?? "NOT SET",
+    all_env_keys: Object.keys(process.env).filter(k => k.includes("GOOGLE")),
   });
 }
