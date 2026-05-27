@@ -1,5 +1,8 @@
 ﻿'use client';
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+import type { User, Session } from "@supabase/supabase-js";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type MustOrder = { item?: string; differentiator?: string; why?: string } | null;
 type AlsoTry = string | { dish?: string; note?: string } | null;
@@ -45,6 +48,9 @@ type NavEntry = {
   searchedDish: string; deepData: DeepDiveData | null; compareData: CompareData | null;
   marketData: MarketData | null; expanded: number | null; tab: string;
 };
+type UserType = User | null;
+type UserList = { id: string; name: string };
+type AddToListTarget = { name: string; neighborhood?: string; venue_type?: string; price_range?: string; food_score?: number; cuisine?: string };
 
 // ─── NEON THEME TOKENS ────────────────────────────────────────────────────────
 const T = {
@@ -247,6 +253,15 @@ async function apiFetch(path: string, body: object) {
   if (data.error) throw new Error(data.error);
   return data;
 }
+
+let _sb: ReturnType<typeof createBrowserClient> | null = null;
+const sb = () => {
+  if (!_sb) _sb = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  return _sb;
+};
 const VENUE_META: Record<string,{icon:string;clr:string}>={
   "hole-in-the-wall":{icon:"🏚",clr:"#AAA"},
   "counter service":{icon:"🥡",clr:"#B56BFF"},
@@ -380,15 +395,23 @@ function Browse({onSelect,disabled}:{onSelect:(dish:string)=>void;disabled:boole
 }
 
 // ─── SEARCH RESULT CARD ───────────────────────────────────────────────────────
-function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onToggleFav}:{
+function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onToggleFav,onAddToList}:{
   r:Restaurant;i:number;expanded:number|null;onToggle:(i:number)=>void;
   onDeepDive:(name:string)=>void;meta:SearchMeta|null;searchedDish:string;
   isFav:boolean;onToggleFav:(r:Restaurant)=>void;
+  onAddToList?:(r:Restaurant)=>void;
 }){
   const isOpen=expanded===i;
   const mos=Array.isArray(r.must_orders)?r.must_orders:[];
   const also=Array.isArray(r.also_try)?r.also_try:[];
   const sep=<span style={{color:T.border2,fontSize:"0.45rem"}}>·</span>;
+  const [cardPhotoSrc,setCardPhotoSrc]=useState<string|null>(null);
+  const [lightboxSrc,setLightboxSrc]=useState<string|null>(null);
+  useEffect(()=>{
+    if(!r.name)return;
+    fetch(`/api/photos?name=${encodeURIComponent(r.name)}&city=${encodeURIComponent(meta?.city||"")}`)
+      .then(res=>res.json()).then(d=>{if(d.photos?.[0])setCardPhotoSrc(`/api/photo?name=${encodeURIComponent(d.photos[0])}`);}).catch(()=>{});
+  },[r.name,meta?.city]);
 
   return(
     <div style={{background:T.card,borderBottom:`1px solid ${T.border}`,width:"100%"}}>
@@ -433,15 +456,22 @@ function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onTo
         {Array.isArray(r.top_descriptors)&&r.top_descriptors.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:7}}>{r.top_descriptors.map((d,j)=><span key={j} style={{background:T.card2,color:T.muted,border:`1px solid ${T.border}`,fontSize:"0.6rem",padding:"2px 7px",borderRadius:4,fontWeight:500}}>{d}</span>)}</div>}
 
         {mos.length>0&&<div style={{marginBottom:7}}>{mos.filter(mo=>mo!=null).map((mo,j)=>(
-          <div key={j} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:7,padding:"9px 11px",marginBottom:5}}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:7,marginBottom:3}}>
-              <div style={{fontSize:"0.92rem",fontWeight:800,color:T.neon,lineHeight:1.2,wordBreak:"break-word"}}>{mo?.item||""}</div>
-              <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.34rem",letterSpacing:3,color:T.neon,textTransform:"uppercase",fontWeight:700,whiteSpace:"nowrap",flexShrink:0,marginTop:1,opacity:.7}}>⭐ Must Order</div>
+          <div key={j} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:7,padding:"9px 11px",marginBottom:5,display:"flex",gap:10,alignItems:"flex-start"}}>
+            {cardPhotoSrc&&<img src={cardPhotoSrc} alt={r.name} onClick={()=>setLightboxSrc(cardPhotoSrc)} style={{width:80,height:80,objectFit:"cover",borderRadius:6,flexShrink:0,cursor:"pointer",border:`1px solid ${T.border2}`}} onError={()=>setCardPhotoSrc(null)}/>}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:7,marginBottom:3}}>
+                <div style={{fontSize:"0.92rem",fontWeight:800,color:T.neon,lineHeight:1.2,wordBreak:"break-word"}}>{mo?.item||""}</div>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.34rem",letterSpacing:3,color:T.neon,textTransform:"uppercase",fontWeight:700,whiteSpace:"nowrap",flexShrink:0,marginTop:1,opacity:.7}}>⭐ Must Order</div>
+              </div>
+              {mo?.differentiator&&<div style={{fontSize:"0.65rem",color:`${T.neon}99`,lineHeight:1.5,marginBottom:2,fontStyle:"italic"}}>{mo.differentiator}</div>}
+              {mo?.why&&<div style={{fontSize:"0.63rem",color:T.muted,lineHeight:1.5}}>{mo.why}</div>}
             </div>
-            {mo?.differentiator&&<div style={{fontSize:"0.65rem",color:`${T.neon}99`,lineHeight:1.5,marginBottom:2,fontStyle:"italic"}}>{mo.differentiator}</div>}
-            {mo?.why&&<div style={{fontSize:"0.63rem",color:T.muted,lineHeight:1.5}}>{mo.why}</div>}
           </div>
         ))}</div>}
+        {lightboxSrc&&<div onClick={()=>setLightboxSrc(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#000D",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+          <img src={lightboxSrc} alt={r.name} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:10}} onClick={e=>e.stopPropagation()}/>
+          <button onClick={()=>setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"#1C1C1C",border:"1px solid #383838",color:"#F0EDE8",fontSize:"1.1rem",width:36,height:36,borderRadius:"50%",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>
+        </div>}
 
         {also.length>0&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"6px 0 10px",borderTop:`1px solid ${T.border}`}}>
           <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.38rem",letterSpacing:3,color:T.dim,textTransform:"uppercase",flexShrink:0}}>Also try</span>
@@ -458,6 +488,10 @@ function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onTo
         <button onClick={()=>onDeepDive(r.name)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"8px",gap:4,background:"none",border:"none",cursor:"pointer"}}>
           <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.4rem",letterSpacing:2,color:T.blue,textTransform:"uppercase"}}>📍 Deep Dive</span>
         </button>
+        {onAddToList&&<><div style={{width:1,background:T.border}}/>
+        <button onClick={()=>onAddToList(r)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"8px",gap:4,background:"none",border:"none",cursor:"pointer"}}>
+          <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.4rem",letterSpacing:2,color:T.purple,textTransform:"uppercase"}}>📋 List</span>
+        </button></>}
       </div>
 
       {isOpen&&<div style={{padding:"0 16px 13px",borderTop:`1px solid ${T.border}`,animation:"up .18s ease"}}>
@@ -476,16 +510,24 @@ function RestCard({r,i,expanded,onToggle,onDeepDive,meta,searchedDish,isFav,onTo
 }
 
 // ─── DEEP DIVE RESULT — CHEAT SHEET STYLE ────────────────────────────────────
-function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}:{
+function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket,onAddToList}:{
   data:DeepDiveData;city:string;isFav:boolean;onFav:()=>void;
   onCompare:(radius:number,data:DeepDiveData,mode:string)=>void;
   onMarket?:(name:string)=>void;
+  onAddToList?:(target:AddToListTarget)=>void;
 }){
   const mos=Array.isArray(data.must_orders)?data.must_orders:[];
   const also=Array.isArray(data.also_try)?data.also_try:[];
   const skip=Array.isArray(data.skip)?data.skip:[];
   const tips=Array.isArray(data.insider_tips)?data.insider_tips:[];
   const vibes=Array.isArray(data.vibe_tags)?data.vibe_tags:[];
+  const [ddPhotos,setDdPhotos]=useState<string[]>([]);
+  const [ddLightbox,setDdLightbox]=useState<string|null>(null);
+  useEffect(()=>{
+    if(!data.name)return;
+    fetch(`/api/photos?name=${encodeURIComponent(data.name)}&city=${encodeURIComponent(city||"")}`)
+      .then(r=>r.json()).then(d=>{if(d.photos?.length)setDdPhotos(d.photos.slice(0,3).map((p:string)=>`/api/photo?name=${encodeURIComponent(p)}`));}).catch(()=>{});
+  },[data.name,city]);
 
   return(
     <div style={{background:T.bg}}>
@@ -506,7 +548,10 @@ function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}:{
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
             <ScoreRing score={data.food_score??5} size={58}/>
-            <button onClick={onFav} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:0}}>{isFav?"❤️":"🤍"}</button>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={onFav} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:0}}>{isFav?"❤️":"🤍"}</button>
+              {onAddToList&&<button onClick={()=>onAddToList({name:data.name,neighborhood:data.neighborhood,venue_type:data.venue_type,price_range:data.price_range,food_score:data.food_score,cuisine:data.cuisine})} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.95rem",padding:0}} title="Add to list">📋</button>}
+            </div>
           </div>
         </div>
         <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
@@ -534,10 +579,15 @@ function DeepDiveResult({data,city,isFav,onFav,onCompare,onMarket}:{
           </div>
           {mos.filter(mo=>mo!=null).map((mo,j)=>(
             <div key={j} style={{background:T.card,border:`1px solid ${T.neon}33`,borderRadius:8,padding:"12px 14px",marginBottom:7,boxShadow:`0 0 12px ${T.neon}0D`}}>
+              {ddPhotos[j]&&<img src={ddPhotos[j]} alt={mo?.item||""} onClick={()=>setDdLightbox(ddPhotos[j])} style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:6,marginBottom:10,cursor:"pointer",display:"block"}} onError={()=>setDdPhotos(prev=>{const n=[...prev];n[j]="";return n;})}/>}
               <div style={{fontSize:"1.05rem",fontWeight:800,color:T.neon,lineHeight:1.2,marginBottom:5,wordBreak:"break-word"}}>{mo?.item||""}</div>
               <div style={{fontSize:"0.72rem",color:T.text,lineHeight:1.6}}>{mo?.why||""}</div>
             </div>
           ))}
+        </div>}
+        {ddLightbox&&<div onClick={()=>setDdLightbox(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#000D",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+          <img src={ddLightbox} alt={data.name} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:10}} onClick={e=>e.stopPropagation()}/>
+          <button onClick={()=>setDdLightbox(null)} style={{position:"absolute",top:16,right:16,background:"#1C1C1C",border:"1px solid #383838",color:"#F0EDE8",fontSize:"1.1rem",width:36,height:36,borderRadius:"50%",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>
         </div>}
 
         {/* ALSO WORTH IT */}
@@ -871,6 +921,8 @@ const STEPS=["Searching restaurants","Pulling reviews","Filtering noise","Extrac
 
 
 export default function DishIntel(){
+  const router=useRouter();
+  const searchParams=useSearchParams();
   const [tab,setTab]=useState("search");
   const [dish,setDish]=useState("");
   const [city,setCity]=useState("San Diego");
@@ -896,8 +948,41 @@ export default function DishIntel(){
   const [lstep,setLstep]=useState(0);
   const [favs,setFavs]=useState<Fav[]>([]);
   const [navStack,setNavStack]=useState<NavEntry[]>([]);
+  const [user,setUser]=useState<UserType>(null);
+  const [showUserMenu,setShowUserMenu]=useState(false);
+  const [addToListTarget,setAddToListTarget]=useState<AddToListTarget|null>(null);
+  const [userLists,setUserLists]=useState<UserList[]>([]);
+  const [loadingLists,setLoadingLists]=useState(false);
+  const [newListName,setNewListName]=useState("");
+  const [savingList,setSavingList]=useState(false);
+  const menuRef=useRef<HTMLDivElement>(null);
 
   useEffect(()=>{try{const r=localStorage.getItem("di-favs");if(r)setFavs(JSON.parse(r));}catch{}},[]);
+
+  useEffect(()=>{
+    const client=sb();
+    client.auth.getUser().then((res:{data:{user:User|null}})=>setUser(res.data.user));
+    const {data:{subscription}}=client.auth.onAuthStateChange((_event:string,session:Session|null)=>setUser(session?.user??null));
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  // Handle URL params from re-search (dashboard searches page)
+  const autoSearchFired=useRef(false);
+  useEffect(()=>{
+    if(autoSearchFired.current)return;
+    const d=searchParams.get("dish"),c=searchParams.get("city"),lm=searchParams.get("locMode"),a=searchParams.get("area"),r=searchParams.get("radius"),auto=searchParams.get("autoSearch");
+    if(!d||!auto)return;
+    autoSearchFired.current=true;
+    if(c)setCity(c);if(lm)setLocMode(lm);if(a)setArea(a);if(r)setRadius(Number(r));
+    setDish(d);
+    setTimeout(()=>runSearch(d),100);
+  },[searchParams]);
+
+  // Close user menu on outside click
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{if(menuRef.current&&!menuRef.current.contains(e.target as Node))setShowUserMenu(false);};
+    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[]);
   const saveFavs=(next:Fav[])=>{setFavs(next);try{localStorage.setItem("di-favs",JSON.stringify(next));}catch{}};
   const isFav=(name:string)=>favs.some(f=>f.name===name);
   const toggleFav=(r:{name:string;neighborhood?:string;venue_type?:string;price_range?:string;food_score?:number})=>{const next=isFav(r.name)?favs.filter(f=>f.name!==r.name):[...favs,{name:r.name,neighborhood:r.neighborhood,venue_type:r.venue_type,price_range:r.price_range,food_score:r.food_score}];saveFavs(next);};
@@ -926,6 +1011,46 @@ export default function DishIntel(){
   };
 
   const reset=()=>{setPhase("idle");setNarrowQuestions(null);setRestaurants([]);setMeta(null);setSearchedDish("");setDeepData(null);setCompareData(null);setMarketData(null);setConfirmIsMarket(false);setErrMsg("");setExpanded(null);setConfirmMatches(null);setNavStack([]);};
+
+  const openAddToList=(target:AddToListTarget)=>{
+    if(!user){router.push("/auth/signin");return;}
+    setAddToListTarget(target);setNewListName("");
+    if(userLists.length===0){
+      setLoadingLists(true);
+      sb().from("lists").select("id,name").order("created_at",{ascending:false}).limit(20)
+        .then((res:{data:UserList[]|null})=>{setUserLists(res.data??[]);setLoadingLists(false);},(()=>setLoadingLists(false)));
+    }
+  };
+
+  const addToList=async(listId:string)=>{
+    if(!addToListTarget)return;
+    setSavingList(true);
+    const {data:{user:u}}=await sb().auth.getUser();
+    if(!u){setSavingList(false);return;}
+    await sb().from("list_items").upsert({
+      list_id:listId,user_id:u.id,
+      restaurant_name:addToListTarget.name,
+      neighborhood:addToListTarget.neighborhood||null,
+      venue_type:addToListTarget.venue_type||null,
+      price_range:addToListTarget.price_range||null,
+      food_score:addToListTarget.food_score||null,
+      cuisine:addToListTarget.cuisine||null,
+    },{onConflict:"list_id,restaurant_name"});
+    setSavingList(false);setAddToListTarget(null);
+  };
+
+  const createAndAdd=async()=>{
+    if(!newListName.trim()||!addToListTarget)return;
+    setSavingList(true);
+    const {data:{user:u}}=await sb().auth.getUser();
+    if(!u){setSavingList(false);return;}
+    const {data:list}=await sb().from("lists").insert({name:newListName.trim()}).select().single();
+    if(list){
+      setUserLists(prev=>[{id:list.id,name:list.name},...prev]);
+      await addToList(list.id);
+    }
+    setSavingList(false);setAddToListTarget(null);setNewListName("");
+  };
   const locStr=()=>locMode==="area"&&area.trim()?`within ${radius} miles of ${area.trim()}`:`in ${city}`;
   const buildQ=(d:string,excl:string[]=[])=>`Best places for "${d}" ${locStr()}.${excl.length?` Exclude: ${excl.join(", ")}.`:""} Return JSON.`;
 
@@ -1051,6 +1176,26 @@ export default function DishIntel(){
           <div style={{width:1,height:18,background:T.border2,flexShrink:0}}/>
           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,color:T.dim,textTransform:"uppercase",lineHeight:1.9,flex:1}}>Where the food stands out</div>
           <button onClick={()=>{if(phase==="done"||phase==="deepdone")pushNav();setPhase("idle");setTab("favs");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.95rem",padding:0,lineHeight:1}} title="Saved spots">{favs.length>0?"❤️":"🤍"}</button>
+          {user?(
+            <div ref={menuRef} style={{position:"relative",flexShrink:0}}>
+              <button onClick={()=>setShowUserMenu(v=>!v)} style={{background:`${T.neon}18`,border:`1px solid ${T.neon}44`,borderRadius:"50%",width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.72rem",fontWeight:700,color:T.neon,fontFamily:"'IBM Plex Mono',monospace"}}>
+                {(user.email?.[0]||"U").toUpperCase()}
+              </button>
+              {showUserMenu&&<div style={{position:"absolute",top:38,right:0,background:T.card,border:`1px solid ${T.border2}`,borderRadius:8,width:180,zIndex:100,boxShadow:`0 4px 24px #000A`,overflow:"hidden"}}>
+                <div style={{padding:"8px 12px",borderBottom:`1px solid ${T.border}`,fontSize:"0.62rem",color:T.muted,fontFamily:"'IBM Plex Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.email}</div>
+                {[["My Searches","🔍","/dashboard/searches"],["My Lists","📋","/dashboard/lists"]].map(([label,icon,href])=>(
+                  <button key={href} onClick={()=>{setShowUserMenu(false);router.push(href);}} style={{width:"100%",background:"none",border:"none",borderBottom:`1px solid ${T.border}`,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.text,fontSize:"0.78rem",textAlign:"left"}}>
+                    <span>{icon}</span><span>{label}</span>
+                  </button>
+                ))}
+                <button onClick={async()=>{await sb().auth.signOut();setShowUserMenu(false);setUser(null);}} style={{width:"100%",background:"none",border:"none",padding:"10px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.red,fontSize:"0.78rem",textAlign:"left"}}>
+                  <span>🚪</span><span>Sign Out</span>
+                </button>
+              </div>}
+            </div>
+          ):(
+            <button onClick={()=>router.push("/auth/signin")} style={{background:"none",border:`1px solid ${T.border2}`,borderRadius:5,color:T.muted,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,textTransform:"uppercase",padding:"5px 9px",cursor:"pointer",flexShrink:0}}>Sign In</button>
+          )}
         </div>
 
         {/* HERO */}
@@ -1176,7 +1321,7 @@ export default function DishIntel(){
             {hasBack&&<BackBtn/>}
             <button onClick={reset} style={{marginLeft:hasBack?"0":"auto",background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.4rem",letterSpacing:2,textTransform:"uppercase",padding:"4px 8px",borderRadius:4,cursor:"pointer"}}>New search</button>
           </div>
-          {restaurants.filter(r=>r!=null).map((r,i)=><RestCard key={i} r={r} i={i} expanded={expanded} onToggle={j=>setExpanded(expanded===j?null:j)} onDeepDive={name=>handleDeepDive(name,meta.city)} meta={meta} searchedDish={searchedDish} isFav={isFav(r.name)} onToggleFav={toggleFav}/>)}
+          {restaurants.filter(r=>r!=null).map((r,i)=><RestCard key={i} r={r} i={i} expanded={expanded} onToggle={j=>setExpanded(expanded===j?null:j)} onDeepDive={name=>handleDeepDive(name,meta.city)} meta={meta} searchedDish={searchedDish} isFav={isFav(r.name)} onToggleFav={toggleFav} onAddToList={openAddToList}/>)}
           <div style={{padding:"16px",display:"flex",justifyContent:"center"}}>
             <button onClick={loadMore} disabled={loadingMore} style={{background:T.card,border:`1.5px solid ${T.border2}`,color:T.muted,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.5rem",letterSpacing:2,textTransform:"uppercase",padding:"10px 24px",borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",gap:7,transition:"all .15s"}}>
               {loadingMore?<><div className="spin"/>Loading...</>:"Load 5 more results"}
@@ -1191,7 +1336,7 @@ export default function DishIntel(){
             {hasBack&&<BackBtn/>}
             <button onClick={()=>{reset();setTab("search");}} style={{marginLeft:hasBack?"0":"auto",background:"transparent",border:`1px solid ${T.border2}`,color:T.dim,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.4rem",letterSpacing:2,textTransform:"uppercase",padding:"4px 8px",borderRadius:4,cursor:"pointer"}}>New search</button>
           </div>
-          <DeepDiveResult data={deepData} city={ddCity} isFav={isFav(deepData?.name)} onFav={()=>toggleFav({name:deepData?.name,neighborhood:deepData?.neighborhood,venue_type:deepData?.venue_type,price_range:deepData?.price_range,food_score:deepData?.food_score})} onCompare={handleCompare} onMarket={name=>handleMarketGuide(name,ddCity)}/>
+          <DeepDiveResult data={deepData} city={ddCity} isFav={isFav(deepData?.name)} onFav={()=>toggleFav({name:deepData?.name,neighborhood:deepData?.neighborhood,venue_type:deepData?.venue_type,price_range:deepData?.price_range,food_score:deepData?.food_score})} onCompare={handleCompare} onMarket={name=>handleMarketGuide(name,ddCity)} onAddToList={openAddToList}/>
         </>}
 
         {phase==="comparedone"&&compareData&&<>
@@ -1212,6 +1357,42 @@ export default function DishIntel(){
           <MarketGuideResult data={marketData}/>
         </>}
       </div>
+
+      {/* ADD TO LIST MODAL */}
+      {addToListTarget&&<div onClick={()=>setAddToListTarget(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#000A",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:T.card,borderRadius:"14px 14px 0 0",width:"100%",maxWidth:480,padding:"20px 16px",border:`1px solid ${T.border2}`,maxHeight:"80vh",overflowY:"auto"}}>
+          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.46rem",letterSpacing:3,color:T.neon,textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Add to List</div>
+          <div style={{fontSize:"0.82rem",fontWeight:700,color:T.text,marginBottom:14}}>{addToListTarget.name}</div>
+
+          {/* NEW LIST INPUT */}
+          <div style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,padding:"11px 12px",marginBottom:10}}>
+            <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.4rem",letterSpacing:2,color:T.dim,textTransform:"uppercase",marginBottom:7}}>Create new list</div>
+            <div style={{display:"flex",gap:8}}>
+              <input value={newListName} onChange={e=>setNewListName(e.target.value)} placeholder="List name..." onKeyDown={e=>e.key==="Enter"&&newListName.trim()&&createAndAdd()}
+                style={{flex:1,background:T.card,border:`1.5px solid ${T.border2}`,borderRadius:5,padding:"8px 10px",color:T.text,fontFamily:"'Inter',sans-serif",fontSize:"0.82rem",outline:"none"}}/>
+              <button onClick={createAndAdd} disabled={!newListName.trim()||savingList}
+                style={{background:T.neon,border:"none",borderRadius:5,color:"#000",fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.44rem",letterSpacing:2,fontWeight:700,textTransform:"uppercase",padding:"8px 12px",cursor:"pointer",opacity:!newListName.trim()||savingList?.5:1}}>
+                {savingList?"...":"Create"}
+              </button>
+            </div>
+          </div>
+
+          {/* EXISTING LISTS */}
+          {loadingLists&&<div style={{fontSize:"0.72rem",color:T.muted,padding:"8px 0"}}>Loading lists...</div>}
+          {!loadingLists&&userLists.length>0&&<>
+            <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.4rem",letterSpacing:2,color:T.dim,textTransform:"uppercase",marginBottom:8}}>Add to existing list</div>
+            {userLists.map(l=>(
+              <button key={l.id} onClick={()=>addToList(l.id)} disabled={savingList}
+                style={{width:"100%",background:T.card2,border:`1px solid ${T.border}`,borderRadius:7,padding:"10px 12px",marginBottom:6,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:T.text,fontSize:"0.82rem",textAlign:"left",opacity:savingList?.6:1}}>
+                <span>{l.name}</span><span style={{color:T.muted,fontSize:"0.7rem"}}>+</span>
+              </button>
+            ))}
+          </>}
+          {!loadingLists&&userLists.length===0&&!newListName&&<div style={{fontSize:"0.72rem",color:T.dim,padding:"4px 0"}}>No lists yet — create one above.</div>}
+
+          <button onClick={()=>setAddToListTarget(null)} style={{marginTop:10,width:"100%",background:"none",border:`1px solid ${T.border2}`,borderRadius:6,color:T.dim,fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,textTransform:"uppercase",padding:"9px",cursor:"pointer"}}>Cancel</button>
+        </div>
+      </div>}
     </>
   );
 }

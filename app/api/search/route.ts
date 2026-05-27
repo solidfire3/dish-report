@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient as createSupabase } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
 
 const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad, provide up to 3 sequential narrowing questions with 5-12 options each to help get specific.
 
@@ -45,11 +47,16 @@ function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
   return JSON.parse(match[0]);
 }
 
+function makeCacheKey(dish: string, city: string, locMode: string, area: string, radius: number): string {
+  const base = dish.toLowerCase().trim();
+  if (locMode === "area" && area) return `${base}|area|${area.toLowerCase().trim()}|${radius}`;
+  return `${base}|city|${city.toLowerCase().trim()}`;
+}
+
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
-    const { mode, dish, city, area, locMode, radius, exclude = [] } =
-      await req.json();
+    const { mode, dish, city, area, locMode, radius, exclude = [] } = await req.json();
 
     if (mode === "classify") {
       const msg = await client.messages.create({
@@ -61,7 +68,29 @@ export async function POST(req: Request) {
       return NextResponse.json(extractJson(msg.content));
     }
 
-    // mode === "search"
+    // mode === "search" — check cache first (only when not excluding)
+    const svc = createSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    if (exclude.length === 0) {
+      const cacheKey = makeCacheKey(dish, city, locMode, area, radius);
+      const { data: cached } = await svc
+        .from("searches")
+        .select("results")
+        .eq("dish_key", cacheKey)
+        .gt("expires_at", new Date().toISOString())
+        .limit(1)
+        .single();
+
+      if (cached?.results) {
+        // Log user search (fire-and-forget)
+        logUserSearch(req, dish, city, area, locMode, radius).catch(() => {});
+        return NextResponse.json(cached.results);
+      }
+    }
+
     const locStr =
       locMode === "area" && area
         ? `within ${radius} miles of ${area}`
@@ -79,9 +108,62 @@ export async function POST(req: Request) {
       messages: [{ role: "user", content: userMsg }],
     });
 
-    return NextResponse.json(extractJson(msg.content));
+    const result = extractJson(msg.content);
+
+    // Cache result if this is a fresh search (not a "load more")
+    if (exclude.length === 0) {
+      const cacheKey = makeCacheKey(dish, city, locMode, area, radius);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      svc.from("searches").upsert({
+        dish_key: cacheKey,
+        city: city || area || "",
+        loc_mode: locMode || "city",
+        area: area || null,
+        radius: radius || null,
+        results: result,
+        expires_at: expiresAt,
+      }, { onConflict: "dish_key" }).then(() => {}, () => {});
+    }
+
+    // Log user search (fire-and-forget)
+    logUserSearch(req, dish, city, area, locMode, radius).catch(() => {});
+
+    return NextResponse.json(result);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Search failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+async function logUserSearch(
+  req: Request,
+  dish: string,
+  city: string,
+  area: string,
+  locMode: string,
+  radius: number
+) {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const svc = createSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    await svc.from("user_searches").insert({
+      user_id: user.id,
+      dish,
+      city: city || "",
+      area: area || null,
+      loc_mode: locMode || "city",
+      radius: radius || null,
+    });
+  } catch {}
 }
