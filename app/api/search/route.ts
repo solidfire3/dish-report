@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad, provide up to 3 sequential narrowing questions with 5-12 options each to help get specific.
 
@@ -47,6 +46,7 @@ function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
 }
 
 export async function POST(req: Request) {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { mode, dish, city, area, locMode, radius, exclude = [] } =
       await req.json();

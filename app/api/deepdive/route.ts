@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const CONFIRM_PROMPT = `You are a location finder. Find top 1-3 matching businesses OR public markets/food courts for the user's query.
 Also detect if the location is a food market, food court, public market, or multi-vendor food destination.
@@ -37,6 +36,7 @@ function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
 }
 
 export async function POST(req: Request) {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { mode, name, city } = await req.json();
 

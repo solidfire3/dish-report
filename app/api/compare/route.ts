@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const COMPARE_PROMPT = `You are a food comparison analyst. A user just looked at a specific restaurant and wants to know if there's something similar — or better — nearby. Search for comparable restaurants within the specified radius and compare them on food quality only.
 
@@ -51,6 +50,7 @@ function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
 }
 
 export async function POST(req: Request) {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { name, foodScore, cuisine, radius, location, mode } =
       await req.json();
