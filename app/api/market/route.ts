@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
-const client = new Anthropic();
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const MARKET_PROMPT = `You are a food market guide generator. The user is visiting a food court, public market, or multi-vendor food destination. Your job: find every vendor at this location and identify THE one thing worth ordering at each — using only food-quality signal from reviews, blogs, and social media.
 
