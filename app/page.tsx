@@ -920,7 +920,7 @@ const RADII=[2,5,10,25];
 const STEPS=["Searching restaurants","Pulling reviews","Filtering noise","Extracting food signal","Scoring & ranking"];
 
 
-export default function DishIntel(){
+function DishIntel(){
   const router=useRouter();
   const searchParams=useSearchParams();
   const [tab,setTab]=useState("search");
@@ -1394,5 +1394,14 @@ export default function DishIntel(){
         </div>
       </div>}
     </>
+  );
+}
+
+import { Suspense } from "react";
+export default function Page() {
+  return (
+    <Suspense fallback={<div style={{background:"#0C0C0C",minHeight:"100vh"}}/>}>
+      <DishIntel/>
+    </Suspense>
   );
 }
