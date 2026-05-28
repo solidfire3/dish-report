@@ -38,7 +38,7 @@ export default function SignInPage() {
     <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ marginBottom: 28, textAlign: "center" }}>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: 3, color: T.neon, textShadow: `0 0 16px ${T.neon}66`, marginBottom: 6 }}>DISH INTEL</div>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2rem", letterSpacing: 3, color: T.neon, textShadow: `0 0 16px ${T.neon}66`, marginBottom: 6 }}>DISH REPORT</div>
           <div style={{ fontSize: "0.72rem", color: T.muted }}>Sign in to save searches, favorites, and lists</div>
         </div>
 

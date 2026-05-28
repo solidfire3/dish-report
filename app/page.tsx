@@ -1172,7 +1172,7 @@ function DishIntel(){
         {/* HEADER */}
         <div style={{background:T.card,padding:"0 16px",display:"flex",alignItems:"center",gap:11,height:50,borderBottom:`1px solid ${T.neon}44`,boxShadow:`0 0 20px ${T.neon}22`}}>
           {hasBack&&<BackBtn/>}
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.5rem",letterSpacing:3,color:T.neon,lineHeight:1,flexShrink:0,textShadow:`0 0 12px ${T.neon}88`}}>DISH INTEL</div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.5rem",letterSpacing:3,color:T.neon,lineHeight:1,flexShrink:0,textShadow:`0 0 12px ${T.neon}88`}}>DISH REPORT</div>
           <div style={{width:1,height:18,background:T.border2,flexShrink:0}}/>
           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:"0.42rem",letterSpacing:2,color:T.dim,textTransform:"uppercase",lineHeight:1.9,flex:1}}>Where the food stands out</div>
           <button onClick={()=>{if(phase==="done"||phase==="deepdone")pushNav();setPhase("idle");setTab("favs");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.95rem",padding:0,lineHeight:1}} title="Saved spots">{favs.length>0?"❤️":"🤍"}</button>
