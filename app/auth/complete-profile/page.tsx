@@ -3,14 +3,134 @@ import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+
 const AGE_RANGES = ["Under 25", "25-34", "35-44", "45-54", "55 and over"] as const;
 
+const CUISINES = [
+  "American", "Mexican", "Japanese", "Italian", "Korean", "Chinese",
+  "Thai", "Vietnamese", "Indian", "Mediterranean", "BBQ", "Seafood",
+  "Pizza", "Burgers", "Breakfast", "Desserts",
+];
+
+const DINING_STYLES = [
+  "Dine-in", "Takeout", "Delivery", "Late night",
+  "Brunch", "Happy hour", "Special occasions", "Quick lunch",
+];
+
+const GROUP_SIZES = ["Solo", "Couple", "Small group (3–4)", "Large group (5+)"];
+
+const PRICE_OPTIONS = ["Under $15", "$15–30", "$30–60", "$60+"];
+
+// ─── SHARED STYLES ────────────────────────────────────────────────────────────
+
+const labelStyle: React.CSSProperties = {
+  display: "block", marginBottom: 4,
+  fontFamily: "'Inter', sans-serif", fontSize: "0.72rem",
+  fontWeight: 600, color: "#6B6560",
+  textTransform: "uppercase", letterSpacing: "0.08em",
+};
+
+const subtextStyle: React.CSSProperties = {
+  fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+  color: "#A89F99", marginBottom: 12,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%", background: "#FFFFFF",
+  border: "1.5px solid #E8E3DC", borderRadius: 8,
+  padding: "11px 14px", color: "#1C1917",
+  fontFamily: "'Inter', sans-serif", fontSize: "1rem",
+  outline: "none", boxSizing: "border-box",
+  transition: "border-color 0.15s, box-shadow 0.15s",
+};
+
+const divider: React.CSSProperties = {
+  borderTop: "1px solid #E8E3DC", margin: "4px 0",
+};
+
+// ─── PILL COMPONENTS ─────────────────────────────────────────────────────────
+
+function MultiPill({
+  label, selected, onToggle,
+}: { label: string; selected: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      style={{
+        padding: "9px 16px", minHeight: 44,
+        borderRadius: 24, cursor: "pointer",
+        fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
+        fontWeight: selected ? 600 : 400,
+        border: `1.5px solid ${selected ? "#C8860A" : "#E8E3DC"}`,
+        background: selected ? "#C8860A" : "#FFFFFF",
+        color: selected ? "#FFFFFF" : "#6B6560",
+        transition: "all 0.15s",
+        whiteSpace: "nowrap",
+      }}
+      onMouseEnter={e => {
+        if (!selected) {
+          e.currentTarget.style.borderColor = "#D4CBC0";
+          e.currentTarget.style.color = "#1C1917";
+        }
+      }}
+      onMouseLeave={e => {
+        if (!selected) {
+          e.currentTarget.style.borderColor = "#E8E3DC";
+          e.currentTarget.style.color = "#6B6560";
+        }
+      }}
+    >{label}</button>
+  );
+}
+
+function SinglePill({
+  label, selected, onSelect,
+}: { label: string; selected: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      style={{
+        padding: "9px 16px", minHeight: 44,
+        borderRadius: 24, cursor: "pointer",
+        fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
+        fontWeight: selected ? 600 : 400,
+        border: `1.5px solid ${selected ? "#C8860A" : "#E8E3DC"}`,
+        background: selected ? "#C8860A" : "#FFFFFF",
+        color: selected ? "#FFFFFF" : "#6B6560",
+        transition: "all 0.15s",
+        whiteSpace: "nowrap",
+      }}
+      onMouseEnter={e => {
+        if (!selected) {
+          e.currentTarget.style.borderColor = "#D4CBC0";
+          e.currentTarget.style.color = "#1C1917";
+        }
+      }}
+      onMouseLeave={e => {
+        if (!selected) {
+          e.currentTarget.style.borderColor = "#E8E3DC";
+          e.currentTarget.style.color = "#6B6560";
+        }
+      }}
+    >{label}</button>
+  );
+}
+
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
+
 export default function CompleteProfilePage() {
-  const [fullName,  setFullName]  = useState("");
-  const [city,      setCity]      = useState("");
-  const [ageRange,  setAgeRange]  = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState("");
+  const [fullName,         setFullName]         = useState("");
+  const [city,             setCity]             = useState("");
+  const [ageRange,         setAgeRange]         = useState("");
+  const [favoriteCuisines, setFavoriteCuisines] = useState<string[]>([]);
+  const [diningStyle,      setDiningStyle]      = useState<string[]>([]);
+  const [typicalGroupSize, setTypicalGroupSize] = useState("");
+  const [pricePreference,  setPricePreference]  = useState("");
+  const [loading,          setLoading]          = useState(false);
+  const [error,            setError]            = useState("");
   const router = useRouter();
 
   const supabase = createBrowserClient(
@@ -24,6 +144,9 @@ export default function CompleteProfilePage() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const toggleMulti = (list: string[], setList: (v: string[]) => void, item: string) =>
+    setList(list.includes(item) ? list.filter(x => x !== item) : [...list, item]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) { setError("Full name is required."); return; }
@@ -31,39 +154,27 @@ export default function CompleteProfilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/auth/signin"); return; }
     const { error } = await supabase.from("profiles").upsert({
-      id: user.id,
-      full_name: fullName.trim(),
-      city: city.trim() || null,
-      age_range: ageRange || null,
+      id:                   user.id,
+      full_name:            fullName.trim(),
+      city:                 city.trim() || null,
+      age_range:            ageRange || null,
+      favorite_cuisines:    favoriteCuisines.length ? favoriteCuisines : null,
+      dining_style:         diningStyle.length ? diningStyle : null,
+      typical_group_size:   typicalGroupSize || null,
+      price_preference:     pricePreference || null,
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
     router.push("/");
   };
 
-  const inputStyle = {
-    width: "100%", background: "#FFFFFF",
-    border: "1.5px solid #E8E3DC",
-    borderRadius: 8, padding: "11px 14px",
-    color: "#1C1917", fontFamily: "'Inter', sans-serif",
-    fontSize: "1rem", outline: "none", boxSizing: "border-box" as const,
-    transition: "border-color 0.15s, box-shadow 0.15s",
-  };
-
-  const labelStyle = {
-    display: "block" as const, marginBottom: 6,
-    fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
-    fontWeight: 600 as const, color: "#6B6560",
-    textTransform: "uppercase" as const, letterSpacing: "0.06em",
-  };
-
   return (
     <div style={{
       background: "#F7F4F0", minHeight: "100vh",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16, fontFamily: "'Inter', -apple-system, sans-serif",
+      padding: "40px 16px 60px",
+      fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
-      <div style={{ width: "100%", maxWidth: 440 }}>
+      <div style={{ width: "100%", maxWidth: 480, margin: "0 auto" }}>
 
         {/* Wordmark */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -72,7 +183,7 @@ export default function CompleteProfilePage() {
             fontSize: "2rem", fontWeight: 700, color: "#C8860A", marginBottom: 8,
           }}>Dish Report</div>
           <div style={{ fontSize: "0.875rem", color: "#6B6560" }}>
-            One more step before you start exploring.
+            Tell us a bit about yourself so we can sharpen your results.
           </div>
         </div>
 
@@ -84,16 +195,18 @@ export default function CompleteProfilePage() {
           <div style={{
             fontFamily: "'Playfair Display', serif", fontSize: "1.25rem",
             fontWeight: 700, color: "#1C1917", marginBottom: 4,
-          }}>Tell us about yourself</div>
-          <div style={{ fontSize: "0.875rem", color: "#6B6560", marginBottom: 24, lineHeight: 1.5 }}>
-            This helps us personalize your results.
+          }}>Your profile</div>
+          <div style={{ fontSize: "0.875rem", color: "#6B6560", marginBottom: 28, lineHeight: 1.5 }}>
+            All fields except your name are optional.
           </div>
 
-          <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-            {/* Full name */}
+            {/* ── Full name ──────────────────────────────────────────── */}
             <div>
-              <label style={labelStyle}>Full name <span style={{ color: "#C8860A" }}>*</span></label>
+              <label style={labelStyle}>
+                Full name <span style={{ color: "#C8860A" }}>*</span>
+              </label>
               <input
                 type="text" value={fullName}
                 onChange={e => setFullName(e.target.value)}
@@ -105,7 +218,7 @@ export default function CompleteProfilePage() {
               />
             </div>
 
-            {/* City */}
+            {/* ── City ───────────────────────────────────────────────── */}
             <div>
               <label style={labelStyle}>City</label>
               <input
@@ -118,7 +231,7 @@ export default function CompleteProfilePage() {
               />
             </div>
 
-            {/* Age range */}
+            {/* ── Age range ──────────────────────────────────────────── */}
             <div>
               <label style={labelStyle}>Age range</label>
               <select
@@ -138,6 +251,96 @@ export default function CompleteProfilePage() {
               </select>
             </div>
 
+            <div style={divider} />
+
+            {/* ── Favorite cuisines ──────────────────────────────────── */}
+            <div>
+              <label style={labelStyle}>Favorite cuisines</label>
+              <p style={subtextStyle}>Select all that apply</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {CUISINES.map(c => (
+                  <MultiPill
+                    key={c} label={c}
+                    selected={favoriteCuisines.includes(c)}
+                    onToggle={() => toggleMulti(favoriteCuisines, setFavoriteCuisines, c)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div style={divider} />
+
+            {/* ── Dining style ───────────────────────────────────────── */}
+            <div>
+              <label style={labelStyle}>How do you usually eat?</label>
+              <p style={subtextStyle}>Select all that apply</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {DINING_STYLES.map(s => (
+                  <MultiPill
+                    key={s} label={s}
+                    selected={diningStyle.includes(s)}
+                    onToggle={() => toggleMulti(diningStyle, setDiningStyle, s)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div style={divider} />
+
+            {/* ── Typical group size ─────────────────────────────────── */}
+            <div>
+              <label style={labelStyle}>Usually dining with</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                {GROUP_SIZES.map(g => (
+                  <SinglePill
+                    key={g} label={g}
+                    selected={typicalGroupSize === g}
+                    onSelect={() => setTypicalGroupSize(typicalGroupSize === g ? "" : g)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div style={divider} />
+
+            {/* ── Price preference ───────────────────────────────────── */}
+            <div>
+              <label style={labelStyle}>Typical budget per person</label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 10 }}>
+                {PRICE_OPTIONS.map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPricePreference(pricePreference === p ? "" : p)}
+                    style={{
+                      padding: "11px 4px", minHeight: 44,
+                      borderRadius: 8, cursor: "pointer",
+                      fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+                      fontWeight: pricePreference === p ? 600 : 400,
+                      border: `1.5px solid ${pricePreference === p ? "#C8860A" : "#E8E3DC"}`,
+                      background: pricePreference === p ? "#C8860A" : "#FFFFFF",
+                      color: pricePreference === p ? "#FFFFFF" : "#6B6560",
+                      transition: "all 0.15s",
+                      textAlign: "center",
+                    }}
+                    onMouseEnter={e => {
+                      if (pricePreference !== p) {
+                        e.currentTarget.style.borderColor = "#D4CBC0";
+                        e.currentTarget.style.color = "#1C1917";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (pricePreference !== p) {
+                        e.currentTarget.style.borderColor = "#E8E3DC";
+                        e.currentTarget.style.color = "#6B6560";
+                      }
+                    }}
+                  >{p}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Error ──────────────────────────────────────────────── */}
             {error && (
               <div style={{
                 fontSize: "0.8rem", color: "#991B1B",
@@ -146,6 +349,7 @@ export default function CompleteProfilePage() {
               }}>{error}</div>
             )}
 
+            {/* ── Submit ─────────────────────────────────────────────── */}
             <button
               type="submit"
               disabled={loading || !fullName.trim()}
@@ -163,6 +367,7 @@ export default function CompleteProfilePage() {
             >
               {loading ? "Saving..." : "Continue to Dish Report"}
             </button>
+
           </form>
         </div>
       </div>
