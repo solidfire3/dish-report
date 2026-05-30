@@ -3,11 +3,6 @@ import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 
-const T = {
-  bg:"#0C0C0C",card:"#141414",card2:"#1C1C1C",border:"#2A2A2A",border2:"#383838",
-  text:"#F0EDE8",muted:"#888",dim:"#444",neon:"#FFB800",green:"#2ECC71",blue:"#4A9EFF",red:"#FF4444",purple:"#B56BFF",
-};
-
 type ListItem = {
   id: string;
   restaurant_name: string;
@@ -27,14 +22,22 @@ type UserList = {
   items?: ListItem[];
 };
 
+const scoreColor = (s: number | null) => {
+  if (!s) return "#A89F99";
+  if (s >= 8) return "#1A7A3C";
+  if (s >= 7) return "#C8860A";
+  if (s >= 6) return "#B45309";
+  return "#9B1C1C";
+};
+
 export default function ListsPage() {
-  const [lists, setLists] = useState<UserList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [lists, setLists]           = useState<UserList[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [creating, setCreating]     = useState(false);
+  const [newName, setNewName]       = useState("");
+  const [newDesc, setNewDesc]       = useState("");
+  const [saving, setSaving]         = useState(false);
   const router = useRouter();
 
   const supabase = createBrowserClient(
@@ -47,22 +50,19 @@ export default function ListsPage() {
       if (!user) { router.push("/auth/signin"); return; }
       loadLists();
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadLists = async () => {
     const { data } = await supabase
       .from("lists")
       .select("id, name, description, created_at")
       .order("created_at", { ascending: false });
-    setLists(data ?? []);
-    setLoading(false);
+    setLists(data ?? []); setLoading(false);
   };
 
   const loadItems = async (listId: string) => {
     const { data } = await supabase
-      .from("list_items")
-      .select("*")
-      .eq("list_id", listId)
+      .from("list_items").select("*").eq("list_id", listId)
       .order("created_at", { ascending: false });
     setLists(prev => prev.map(l => l.id === listId ? { ...l, items: data ?? [] } : l));
   };
@@ -70,8 +70,7 @@ export default function ListsPage() {
   const toggleExpand = (id: string) => {
     if (expandedId === id) { setExpandedId(null); return; }
     setExpandedId(id);
-    const list = lists.find(l => l.id === id);
-    if (!list?.items) loadItems(id);
+    if (!lists.find(l => l.id === id)?.items) loadItems(id);
   };
 
   const createList = async () => {
@@ -80,8 +79,7 @@ export default function ListsPage() {
     const { data } = await supabase
       .from("lists")
       .insert({ name: newName.trim(), description: newDesc.trim() || null })
-      .select()
-      .single();
+      .select().single();
     setSaving(false);
     if (data) {
       setLists(prev => [{ ...data, items: [] }, ...prev]);
@@ -90,6 +88,7 @@ export default function ListsPage() {
   };
 
   const deleteList = async (id: string) => {
+    if (!confirm(`Delete this list?`)) return;
     await supabase.from("lists").delete().eq("id", id);
     setLists(prev => prev.filter(l => l.id !== id));
     if (expandedId === id) setExpandedId(null);
@@ -102,79 +101,233 @@ export default function ListsPage() {
     ));
   };
 
-  const scoreColor = (s: number | null) =>
-    !s ? T.muted : s >= 8 ? T.green : s >= 7 ? T.neon : s >= 6 ? "#FF6B35" : T.red;
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "#FFFFFF", border: "1.5px solid #E8E3DC",
+    borderRadius: 8, padding: "10px 12px", color: "#1C1917",
+    fontFamily: "'Inter', sans-serif", fontSize: "0.9rem", outline: "none",
+    transition: "border-color 0.15s",
+  };
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
-      {/* HEADER */}
-      <div style={{ background: T.card, padding: "0 16px", display: "flex", alignItems: "center", gap: 12, height: 50, borderBottom: `1px solid ${T.neon}44`, boxShadow: `0 0 20px ${T.neon}22` }}>
-        <button onClick={() => router.push("/")} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1 }}>←</button>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", letterSpacing: 3, color: T.neon, flex: 1 }}>My Lists</div>
-        <button onClick={() => setCreating(true)} style={{ background: T.neon, border: "none", borderRadius: 5, color: "#000", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.44rem", letterSpacing: 2, fontWeight: 700, textTransform: "uppercase", padding: "6px 11px", cursor: "pointer" }}>
-          + New List
+    <div style={{ background: "#F7F4F0", minHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
+
+      {/* Header */}
+      <div style={{
+        background: "#F7F4F0", borderBottom: "1px solid #E8E3DC",
+        padding: "0 16px", display: "flex", alignItems: "center", gap: 12, height: 56,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
+        position: "sticky", top: 0, zIndex: 100,
+      }}>
+        <button
+          onClick={() => router.back()}
+          aria-label="Go back"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+            background: "transparent", border: "1px solid #D4CBC0",
+            color: "#6B6560", cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = "#C8860A"; e.currentTarget.style.borderColor = "#C8860A"; }}
+          onMouseLeave={e => { e.currentTarget.style.color = "#6B6560"; e.currentTarget.style.borderColor = "#D4CBC0"; }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
         </button>
+
+        <div style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: "1.2rem", fontWeight: 700, color: "#1C1917", flex: 1,
+        }}>My Lists</div>
+
+        <button
+          onClick={() => setCreating(true)}
+          style={{
+            background: "#C8860A", border: "none", borderRadius: 8,
+            color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+            fontSize: "0.8rem", fontWeight: 600,
+            padding: "8px 16px", cursor: "pointer",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#A86E08"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "#C8860A"; }}
+        >New List</button>
       </div>
 
-      {/* CREATE FORM */}
+      {/* Create form */}
       {creating && (
-        <div style={{ background: T.card2, borderBottom: `1px solid ${T.border}`, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.44rem", letterSpacing: 3, color: T.neon, textTransform: "uppercase", fontWeight: 700 }}>New List</div>
-          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="List name" autoFocus
-            style={{ background: T.card, border: `1.5px solid ${T.border2}`, borderRadius: 6, padding: "9px 11px", color: T.text, fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", outline: "none" }}/>
-          <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Description (optional)"
-            style={{ background: T.card, border: `1.5px solid ${T.border2}`, borderRadius: 6, padding: "9px 11px", color: T.text, fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", outline: "none" }}/>
+        <div style={{
+          background: "#FFFFFF", borderBottom: "1px solid #E8E3DC",
+          padding: "16px", display: "flex", flexDirection: "column", gap: 12,
+          maxWidth: 680, margin: "0 auto",
+        }}>
+          <div style={{
+            fontFamily: "'Inter', sans-serif", fontSize: "0.72rem",
+            fontWeight: 600, color: "#6B6560",
+            textTransform: "uppercase", letterSpacing: "0.08em",
+          }}>New List</div>
+          <input
+            value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder="List name" autoFocus
+            style={inputStyle}
+            onFocus={e => { e.currentTarget.style.borderColor = "#C8860A"; }}
+            onBlur={e => { e.currentTarget.style.borderColor = "#E8E3DC"; }}
+          />
+          <input
+            value={newDesc} onChange={e => setNewDesc(e.target.value)}
+            placeholder="Description (optional)"
+            style={inputStyle}
+            onFocus={e => { e.currentTarget.style.borderColor = "#C8860A"; }}
+            onBlur={e => { e.currentTarget.style.borderColor = "#E8E3DC"; }}
+          />
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={createList} disabled={saving || !newName.trim()} style={{ flex: 1, background: T.neon, border: "none", borderRadius: 5, color: "#000", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.48rem", letterSpacing: 2, fontWeight: 700, textTransform: "uppercase", padding: "9px", cursor: "pointer", opacity: saving || !newName.trim() ? 0.5 : 1 }}>
-              {saving ? "Creating..." : "Create"}
-            </button>
-            <button onClick={() => { setCreating(false); setNewName(""); setNewDesc(""); }} style={{ background: "none", border: `1px solid ${T.border2}`, color: T.dim, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.44rem", letterSpacing: 2, textTransform: "uppercase", padding: "9px 13px", borderRadius: 5, cursor: "pointer" }}>
-              Cancel
-            </button>
+            <button
+              onClick={createList}
+              disabled={saving || !newName.trim()}
+              style={{
+                flex: 1, background: "#C8860A", border: "none", borderRadius: 8,
+                color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+                fontSize: "0.875rem", fontWeight: 600, padding: "11px",
+                cursor: saving || !newName.trim() ? "not-allowed" : "pointer",
+                opacity: saving || !newName.trim() ? 0.5 : 1,
+              }}
+            >{saving ? "Creating..." : "Create"}</button>
+            <button
+              onClick={() => { setCreating(false); setNewName(""); setNewDesc(""); }}
+              style={{
+                background: "none", border: "1px solid #D4CBC0", borderRadius: 8,
+                color: "#6B6560", fontFamily: "'Inter', sans-serif",
+                fontSize: "0.875rem", padding: "11px 18px", cursor: "pointer",
+              }}
+            >Cancel</button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: "60px 16px", textAlign: "center", color: T.muted, fontSize: "0.8rem" }}>Loading...</div>
+        <div style={{ padding: "60px 16px", textAlign: "center", color: "#A89F99", fontSize: "0.875rem" }}>
+          Loading...
+        </div>
       ) : lists.length === 0 ? (
-        <div style={{ padding: "60px 16px", textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: "0.8rem", color: T.muted, lineHeight: 1.7 }}>No lists yet.<br />Create lists to organize your must-visit spots.</div>
-          <button onClick={() => setCreating(true)} style={{ marginTop: 18, background: T.neon, border: "none", borderRadius: 6, color: "#000", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.5rem", letterSpacing: 2, fontWeight: 700, textTransform: "uppercase", padding: "10px 18px", cursor: "pointer" }}>Create First List</button>
+        <div style={{ padding: "60px 16px", textAlign: "center", maxWidth: 400, margin: "0 auto" }}>
+          <div style={{
+            fontFamily: "'Playfair Display', serif", fontSize: "1.25rem",
+            fontWeight: 700, color: "#1C1917", marginBottom: 8,
+          }}>No lists yet</div>
+          <div style={{ fontSize: "0.875rem", color: "#6B6560", lineHeight: 1.65, marginBottom: 24 }}>
+            Create lists to organize your must-visit spots.
+          </div>
+          <button
+            onClick={() => setCreating(true)}
+            style={{
+              background: "#C8860A", border: "none", borderRadius: 10,
+              color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+              fontSize: "0.875rem", fontWeight: 600,
+              padding: "12px 24px", cursor: "pointer",
+            }}
+          >Create First List</button>
         </div>
       ) : (
-        <div>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
           {lists.map(list => (
-            <div key={list.id} style={{ borderBottom: `1px solid ${T.border}` }}>
-              {/* LIST HEADER ROW */}
-              <div style={{ background: T.card, padding: "13px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => toggleExpand(list.id)}>
+            <div key={list.id} style={{ borderBottom: "1px solid #E8E3DC" }}>
+
+              {/* List header row */}
+              <div
+                style={{
+                  background: "#FFFFFF", padding: "14px 16px",
+                  display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onClick={() => toggleExpand(list.id)}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "#FDFCFB"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "#FFFFFF"; }}
+              >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.93rem", fontWeight: 700, color: T.text }}>{list.name}</div>
-                  {list.description && <div style={{ fontSize: "0.67rem", color: T.muted, marginTop: 2 }}>{list.description}</div>}
+                  <div style={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontSize: "1rem", fontWeight: 700, color: "#1C1917",
+                  }}>{list.name}</div>
+                  {list.description && (
+                    <div style={{ fontSize: "0.8rem", color: "#6B6560", marginTop: 2 }}>
+                      {list.description}
+                    </div>
+                  )}
                 </div>
-                <span style={{ fontSize: "0.5rem", color: expandedId === list.id ? T.neon : T.dim, transition: "transform .2s", transform: expandedId === list.id ? "rotate(180deg)" : "none", display: "block" }}>▼</span>
-                <button onClick={e => { e.stopPropagation(); if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
-                  style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", fontSize: "0.8rem", padding: "4px", marginLeft: 4 }}>🗑</button>
+
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke={expandedId === list.id ? "#C8860A" : "#A89F99"}
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transition: "transform 0.2s", transform: expandedId === list.id ? "rotate(180deg)" : "none", flexShrink: 0 }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+
+                <button
+                  onClick={e => { e.stopPropagation(); deleteList(list.id); }}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "#A89F99", padding: "4px 6px",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#991B1B"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#A89F99"; }}
+                  aria-label="Delete list"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4h6v2" />
+                  </svg>
+                </button>
               </div>
 
-              {/* LIST ITEMS */}
+              {/* List items */}
               {expandedId === list.id && (
-                <div style={{ background: T.bg, padding: "8px 16px 12px" }}>
+                <div style={{ background: "#FDFCFB", padding: "8px 16px 14px", borderTop: "1px solid #E8E3DC" }}>
                   {!list.items ? (
-                    <div style={{ padding: "12px 0", fontSize: "0.72rem", color: T.muted }}>Loading...</div>
+                    <div style={{ padding: "14px 0", fontSize: "0.8rem", color: "#A89F99" }}>Loading...</div>
                   ) : list.items.length === 0 ? (
-                    <div style={{ padding: "14px 0", fontSize: "0.72rem", color: T.dim }}>No spots in this list yet. Add them from search results.</div>
+                    <div style={{ padding: "16px 0", fontSize: "0.8rem", color: "#A89F99" }}>
+                      No spots in this list yet. Add them from search results.
+                    </div>
                   ) : list.items.map(item => (
-                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "10px 0", borderBottom: "1px solid #E8E3DC",
+                      }}
+                    >
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "0.87rem", fontWeight: 700, color: T.text }}>{item.restaurant_name}</div>
-                        <div style={{ fontSize: "0.63rem", color: T.muted }}>{[item.neighborhood, item.cuisine, item.price_range].filter(Boolean).join(" · ")}</div>
+                        <div style={{
+                          fontFamily: "'Playfair Display', serif",
+                          fontSize: "0.95rem", fontWeight: 700, color: "#1C1917",
+                        }}>{item.restaurant_name}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#6B6560", marginTop: 2 }}>
+                          {[item.neighborhood, item.cuisine, item.price_range].filter(Boolean).join(" · ")}
+                        </div>
                       </div>
                       {item.food_score != null && (
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem", fontWeight: 700, color: scoreColor(item.food_score) }}>{item.food_score.toFixed(1)}</span>
+                        <span style={{
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontSize: "0.875rem", fontWeight: 700,
+                          color: scoreColor(item.food_score), flexShrink: 0,
+                        }}>{item.food_score.toFixed(1)}</span>
                       )}
-                      <button onClick={() => removeItem(list.id, item.id)} style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", fontSize: "0.75rem", padding: "4px" }}>✕</button>
+                      <button
+                        onClick={() => removeItem(list.id, item.id)}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          color: "#A89F99", padding: "4px", flexShrink: 0,
+                          transition: "color 0.15s",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = "#991B1B"; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = "#A89F99"; }}
+                        aria-label="Remove from list"
+                      >×</button>
                     </div>
                   ))}
                 </div>

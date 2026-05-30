@@ -261,6 +261,16 @@ function DishIntel() {
     setPhase("idle");
   };
 
+  // Proportional stage timing: 8%, 8%, 15%, 15%, 25%, 25% of ~20s call
+  // Step 6 ("Building your report") is only set when the API returns.
+  function startStageTimer(onStep: (s: number) => void): () => void {
+    const cumulativeMs = [1400, 2800, 5600, 8600, 13400, 18000];
+    const ids = cumulativeMs.map((ms, i) =>
+      setTimeout(() => onStep(i + 1), ms)
+    );
+    return () => ids.forEach(clearTimeout);
+  }
+
   const runSearch = async (
     d: string,
     searchCity = city,
@@ -275,7 +285,7 @@ function DishIntel() {
     pushNav();
     setPhase("analyzing"); setExpanded(null); setLstep(0);
     setSearchedDish(d); setNarrowQuestions(null);
-    const iv = setInterval(() => setLstep(s => Math.min(s + 1, 6)), 3200);
+    const stopTimer = startStageTimer(s => setLstep(s));
 
     try {
       const data = await apiFetch(
@@ -283,7 +293,8 @@ function DishIntel() {
         { mode: "search", dish: d, city: searchCity, area: searchArea, locMode: searchLocMode, radius: searchRadius, exclude: [] },
         ctrl.signal
       );
-      clearInterval(iv);
+      stopTimer();
+      setLstep(6); // advance to final stage only on API return
       setMeta({ dish: data.dish, city: data.city });
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
       setRestaurants(res.map((r, i) => ({ ...r, rank: i + 1 })));
@@ -291,7 +302,7 @@ function DishIntel() {
       setPhase("done");
       abortRef.current = null;
     } catch (e) {
-      clearInterval(iv);
+      stopTimer();
       abortRef.current = null;
       if (e instanceof Error && e.name === "AbortError") return;
       setErrMsg(e instanceof Error ? e.message : "Analysis failed");
@@ -349,38 +360,38 @@ function DishIntel() {
     const loc = currentData?.address || currentData?.neighborhood
       ? `within ${r} miles of ${currentData?.address || currentData?.neighborhood}`
       : `within ${r} miles`;
-    const iv = setInterval(() => setLstep(s => Math.min(s + 1, 6)), 3200);
+    const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/compare", {
         name: currentData?.name, foodScore: currentData?.food_score,
         cuisine: currentData?.cuisine || "various", radius: r, location: loc, mode,
       });
-      clearInterval(iv);
+      stopTimer(); setLstep(6);
       setCompareData({ ...data, _originalScore: currentData?.food_score, _mode: mode });
       setPhase("comparedone");
-    } catch (e) { clearInterval(iv); setErrMsg(e instanceof Error ? e.message : "Comparison failed"); setPhase("error"); }
+    } catch (e) { stopTimer(); setErrMsg(e instanceof Error ? e.message : "Comparison failed"); setPhase("error"); }
   };
 
   const handleMarketGuide = async (name: string | undefined, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
     setConfirmMatches(null); setPhase("analyzing"); setLstep(0); setNarrowQuestions(null);
-    const iv = setInterval(() => setLstep(s => Math.min(s + 1, 6)), 3200);
+    const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/market", { name, city: c });
-      clearInterval(iv);
+      stopTimer(); setLstep(6);
       setMarketData({ ...data, vendors: Array.isArray(data.vendors) ? data.vendors : [] });
       setPhase("marketdone");
-    } catch (e) { clearInterval(iv); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
+    } catch (e) { stopTimer(); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
   };
 
   const handleDeepDive = async (name: string, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
     setConfirmMatches(null); setPhase("analyzing"); setLstep(0); setNarrowQuestions(null);
-    const iv = setInterval(() => setLstep(s => Math.min(s + 1, 6)), 3200);
+    const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
-      clearInterval(iv); setDeepData(data); setPhase("deepdone");
-    } catch (e) { clearInterval(iv); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
+      stopTimer(); setLstep(6); setDeepData(data); setPhase("deepdone");
+    } catch (e) { stopTimer(); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
   };
 
   const handleConfirm = async () => {
@@ -459,17 +470,7 @@ function DishIntel() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { overflow-x: hidden; }
-        /* Legacy classes for NarrowingFlow / DeepDiveInputs (not yet redesigned) */
-        .slbl{font-family:'IBM Plex Mono',monospace;font-size:0.44rem;letter-spacing:3px;color:#444;text-transform:uppercase;margin-bottom:8px;font-weight:600}
-        .prow{display:flex;gap:6px;flex-wrap:wrap}
-        .inp{background:#141414;border:1.5px solid #383838;color:#F0EDE8;font-family:'Inter',sans-serif;font-size:0.88rem;font-weight:500;padding:10px 12px;outline:none;border-radius:6px;transition:border-color .15s;width:100%}
-        .inp:focus{border-color:#FFB800}
-        .inp::placeholder{color:#444;font-weight:400}
-        .btn{background:#FFB800;color:#000;border:none;font-family:'Inter',sans-serif;font-size:0.9rem;font-weight:600;padding:0 18px;height:42px;cursor:pointer;border-radius:6px;transition:all .15s;flex-shrink:0}
-        .btn:hover:not(:disabled){background:#FFC933}
-        .btn:disabled{opacity:.35;cursor:not-allowed}
         @keyframes spin{to{transform:rotate(360deg)}}
-        .spin{width:12px;height:12px;border:2px solid #383838;border-top-color:#FFB800;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
         @keyframes up{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -526,6 +527,7 @@ function DishIntel() {
                 questions={narrowQuestions}
                 dish={searchedDish}
                 onComplete={refined => runSearch(refined)}
+                dark={dark}
               />
             </div>
           )}
@@ -607,6 +609,7 @@ function DishIntel() {
                       confirmMatches={confirmMatches} onClearMatches={() => setConfirmMatches(null)}
                       confirmIsMarket={confirmIsMarket}
                       onDeepDive={handleDeepDive} onMarketGuide={handleMarketGuide}
+                      dark={dark}
                     />
                   </div>
                 )}

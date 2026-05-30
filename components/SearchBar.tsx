@@ -592,16 +592,31 @@ export function SearchBar({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function NarrowingFlow({
-  questions, dish, onComplete,
+  questions, dish, onComplete, dark = false,
 }: {
   questions: NarrowQuestion[];
   dish: string;
   onComplete: (refined: string) => void;
+  dark?: boolean;
 }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const current = questions[stepIdx];
   if (!current) return null;
+
+  const accent      = dark ? "#FFB800" : "#C8860A";
+  const accentLight = dark ? "rgba(255,184,0,0.1)" : "#FDF3E3";
+  const accentBdr   = dark ? "rgba(255,184,0,0.25)" : "#F0D5A0";
+  const cardBg      = dark ? "#1A1A1A" : "#FFFFFF";
+  const borderColor = dark ? "#2A2A2A" : "#E8E3DC";
+  const optBg       = dark ? "#232323" : "#FDFCFB";
+  const optBdr      = dark ? "#3A3A3A" : "#D4CBC0";
+  const textColor   = dark ? "#F0EDE8" : "#1C1917";
+  const mutedColor  = dark ? "#9A9390" : "#6B6560";
+  const dimColor    = dark ? "#6B6866" : "#A89F99";
+  const infoColor   = dark ? "#4A9EFF" : "#1E40AF";
+  const infoBg      = dark ? "rgba(74,158,255,0.08)" : "rgba(30,64,175,0.06)";
+  const infoBdr     = dark ? "rgba(74,158,255,0.25)" : "rgba(30,64,175,0.2)";
 
   const pick = (opt: string) => {
     const next = [...answers, opt];
@@ -611,37 +626,49 @@ export function NarrowingFlow({
   };
 
   return (
-    <div style={{ padding: "14px 16px", background: T.card, borderBottom: `1px solid ${T.border}` }}>
+    <div style={{ padding: "14px 16px", background: cardBg, borderBottom: `1px solid ${borderColor}` }}>
       {answers.length > 0 && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 11 }}>
           {answers.map((a, i) => (
             <span key={i} style={{
-              background: `${T.neon}18`, border: `1px solid ${T.neon}44`,
-              color: T.neon, fontSize: "0.62rem", fontWeight: 600,
-              padding: "2px 8px", borderRadius: 20,
+              background: accentLight, border: `1px solid ${accentBdr}`,
+              color: accent, fontSize: "0.75rem", fontWeight: 600,
+              padding: "3px 10px", borderRadius: 20,
             }}>{a}</span>
           ))}
         </div>
       )}
-      <div style={{ fontSize: "0.9rem", fontWeight: 700, color: T.text, marginBottom: 12 }}>
-        <span style={{ color: T.neon }}>→ </span>{current.question}
+      <div style={{
+        fontSize: "0.9rem", fontWeight: 600, color: textColor, marginBottom: 12,
+        display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap",
+      }}>
+        <span>{current.question}</span>
         <span style={{
-          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.42rem",
-          letterSpacing: 2, color: T.dim, textTransform: "uppercase", marginLeft: 10,
-        }}>step {stepIdx + 1} of {questions.length}</span>
+          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem",
+          color: dimColor, fontWeight: 400,
+        }}>Step {stepIdx + 1} of {questions.length}</span>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
         {(Array.isArray(current.options) ? current.options : []).map((opt, i) => (
           <button
             key={i}
             onClick={() => pick(opt)}
             style={{
-              border: `1.5px solid ${T.border2}`, background: T.card2, color: T.muted,
-              fontFamily: "'Inter',sans-serif", fontSize: "0.78rem", fontWeight: 500,
-              padding: "7px 13px", cursor: "pointer", borderRadius: 20, transition: "all .15s",
+              border: `1.5px solid ${optBdr}`, background: optBg, color: mutedColor,
+              fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500,
+              padding: "8px 16px", cursor: "pointer", borderRadius: 24,
+              transition: "all .15s", minHeight: 40,
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = T.neon; e.currentTarget.style.color = T.neon; e.currentTarget.style.background = `${T.neon}18`; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = T.border2; e.currentTarget.style.color = T.muted; e.currentTarget.style.background = T.card2; }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = accent;
+              e.currentTarget.style.color = accent;
+              e.currentTarget.style.background = accentLight;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = optBdr;
+              e.currentTarget.style.color = mutedColor;
+              e.currentTarget.style.background = optBg;
+            }}
           >{opt}</button>
         ))}
       </div>
@@ -649,20 +676,23 @@ export function NarrowingFlow({
         <button
           onClick={() => onComplete([dish, ...answers].filter(Boolean).join(" "))}
           style={{
-            border: `1px solid ${T.blue}44`, background: `${T.blue}11`, color: T.blue,
-            fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.44rem",
-            letterSpacing: 2, textTransform: "uppercase",
-            padding: "6px 12px", cursor: "pointer", borderRadius: 20,
+            border: `1px solid ${infoBdr}`, background: infoBg, color: infoColor,
+            fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", fontWeight: 500,
+            padding: "7px 14px", cursor: "pointer", borderRadius: 20,
+            transition: "background 0.15s",
           }}
         >Skip — Search now</button>
         {stepIdx > 0 && (
           <button
             onClick={() => { setStepIdx(stepIdx - 1); setAnswers(answers.slice(0, -1)); }}
             style={{
-              border: "none", background: "none", color: T.dim,
-              fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.44rem",
-              letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", padding: "6px 0",
+              border: "none", background: "none", color: dimColor,
+              fontFamily: "'Inter',sans-serif", fontSize: "0.8rem",
+              cursor: "pointer", padding: "7px 0",
+              transition: "color 0.15s",
             }}
+            onMouseEnter={e => { e.currentTarget.style.color = mutedColor; }}
+            onMouseLeave={e => { e.currentTarget.style.color = dimColor; }}
           >Back a step</button>
         )}
       </div>
@@ -675,6 +705,7 @@ export function DeepDiveInputs({
   isIdle, confirming, onConfirm,
   confirmMatches, onClearMatches, confirmIsMarket,
   onDeepDive, onMarketGuide,
+  dark = false,
 }: {
   ddName: string; onDdNameChange: (n: string) => void;
   ddCity: string; onDdCityChange: (c: string) => void;
@@ -683,82 +714,145 @@ export function DeepDiveInputs({
   confirmIsMarket: boolean;
   onDeepDive: (name: string, city: string) => void;
   onMarketGuide: (name: string, city: string) => void;
+  dark?: boolean;
 }) {
+  const accent      = dark ? "#FFB800" : "#C8860A";
+  const accentHov   = dark ? "#FFC933" : "#A86E08";
+  const accentLight = dark ? "#2A2010" : "#FDF3E3";
+  const accentBdr   = dark ? "#4A3810" : "#F0D5A0";
+  const cardBg      = dark ? "#1A1A1A" : "#FFFFFF";
+  const elevBg      = dark ? "#232323" : "#FDFCFB";
+  const borderColor = dark ? "#2A2A2A" : "#E8E3DC";
+  const borderStrong= dark ? "#3A3A3A" : "#D4CBC0";
+  const textColor   = dark ? "#F0EDE8" : "#1C1917";
+  const mutedColor  = dark ? "#9A9390" : "#6B6560";
+  const dimColor    = dark ? "#6B6866" : "#A89F99";
+  const focusBdr    = dark ? "#FFB800" : "#C8860A";
+  const focusShadow = dark ? "0 0 0 3px #2A2010" : "0 0 0 3px #FDF3E3";
+  const successColor= dark ? "#52D68A" : "#166534";
+  const successBg   = dark ? "rgba(46,204,113,0.08)" : "rgba(22,101,52,0.06)";
+  const successBdr  = dark ? "rgba(46,204,113,0.25)" : "rgba(22,101,52,0.2)";
+
+  const inputStyle: React.CSSProperties = {
+    flex: 1, background: cardBg,
+    border: `1.5px solid ${borderStrong}`,
+    color: textColor, fontFamily: "'Inter', sans-serif",
+    fontSize: "0.9rem", fontWeight: 500,
+    padding: "10px 12px", outline: "none", borderRadius: 8,
+    transition: "border-color 0.15s, box-shadow 0.15s", width: "100%",
+  };
+
+  const onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = focusBdr;
+    e.currentTarget.style.boxShadow = focusShadow;
+  };
+  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = borderStrong;
+    e.currentTarget.style.boxShadow = "none";
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: "0.76rem", color: T.muted, lineHeight: 1.55 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: "0.875rem", color: mutedColor, lineHeight: 1.55 }}>
         Know where you're going? Enter a restaurant for a food cheat sheet, or a food court / public market for a vendor-by-vendor guide.
       </div>
-      <div style={{ display: "flex", gap: 7 }}>
+      <div style={{ display: "flex", gap: 8 }}>
         <input
-          className="inp"
           placeholder="Restaurant name..."
           value={ddName}
           onChange={e => onDdNameChange(e.target.value)}
           onKeyDown={e => e.key === "Enter" && ddName.trim() && onConfirm()}
+          onFocus={onFocus} onBlur={onBlur}
           disabled={!isIdle || confirming}
-          style={{ flex: 2 }}
+          style={{ ...inputStyle, flex: 2 }}
         />
         <input
-          className="inp"
           placeholder="City"
           value={ddCity}
           onChange={e => onDdCityChange(e.target.value)}
+          onFocus={onFocus} onBlur={onBlur}
           disabled={!isIdle || confirming}
-          style={{ flex: 1 }}
+          style={{ ...inputStyle, flex: 1 }}
         />
       </div>
       <button
-        className="btn"
         onClick={onConfirm}
         disabled={!ddName.trim() || !isIdle || confirming}
-        style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6 }}
+        style={{
+          alignSelf: "flex-start",
+          display: "flex", alignItems: "center", gap: 8,
+          background: accent, border: "none", borderRadius: 8,
+          color: dark ? "#000" : "#FFFFFF",
+          fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
+          fontWeight: 600, padding: "10px 20px", height: 42,
+          cursor: !ddName.trim() || !isIdle || confirming ? "not-allowed" : "pointer",
+          opacity: !ddName.trim() || !isIdle || confirming ? 0.4 : 1,
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={e => { if (ddName.trim() && isIdle && !confirming) e.currentTarget.style.background = accentHov; }}
+        onMouseLeave={e => { e.currentTarget.style.background = accent; }}
       >
-        {confirming ? <><div className="spin" />Finding...</> : "CONFIRM SPOT"}
+        {confirming ? (
+          <>
+            <div style={{
+              width: 12, height: 12, borderRadius: "50%",
+              border: `2px solid ${dark ? "#000" : "#FFFFFF"}44`,
+              borderTopColor: dark ? "#000" : "#FFFFFF",
+              animation: "spin 0.7s linear infinite", flexShrink: 0,
+            }} />
+            Finding...
+          </>
+        ) : "Confirm Spot"}
       </button>
 
       {Array.isArray(confirmMatches) && confirmMatches.length > 0 && (
         <div style={{ marginTop: 4 }}>
           <div style={{
-            fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.44rem",
-            letterSpacing: 3, color: T.dim, textTransform: "uppercase", marginBottom: 9,
+            fontFamily: "'Inter', sans-serif", fontSize: "0.72rem",
+            fontWeight: 600, color: dimColor,
+            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10,
           }}>Is this the right spot?</div>
           {confirmMatches.map((m, i) => (
             <div key={i} style={{
-              background: T.card2, border: `1.5px solid ${T.border2}`,
-              borderRadius: 7, padding: "11px 13px", marginBottom: 8,
+              background: elevBg, border: `1px solid ${borderColor}`,
+              borderRadius: 10, padding: "12px 14px", marginBottom: 8,
             }}>
-              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: T.text, marginBottom: 3 }}>{m.name}</div>
-              <div style={{ fontSize: "0.69rem", color: T.muted, marginBottom: 8 }}>
+              <div style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "1rem", fontWeight: 700, color: textColor, marginBottom: 4,
+              }}>{m.name}</div>
+              <div style={{ fontSize: "0.8rem", color: mutedColor, marginBottom: 8 }}>
                 {[m.address, m.neighborhood, m.city].filter(Boolean).join(" · ")}
               </div>
-              {m.cuisine && <div style={{ fontSize: "0.64rem", color: T.dim, marginBottom: 10 }}>{m.cuisine}</div>}
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {m.cuisine && (
+                <div style={{ fontSize: "0.75rem", color: dimColor, marginBottom: 12 }}>{m.cuisine}</div>
+              )}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
                   onClick={() => onDeepDive(m.name, m.city || ddCity)}
                   style={{
-                    flex: 1, minWidth: 120, background: `${T.neon}15`,
-                    border: `1px solid ${T.neon}55`, color: T.neon,
-                    fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.44rem",
-                    letterSpacing: 2, textTransform: "uppercase",
-                    padding: "8px 10px", borderRadius: 5, cursor: "pointer",
-                    textAlign: "center", lineHeight: 1.4,
+                    flex: 1, minWidth: 130, background: accentLight,
+                    border: `1px solid ${accentBdr}`, color: accent,
+                    fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+                    fontWeight: 600, padding: "9px 12px", borderRadius: 8,
+                    cursor: "pointer", textAlign: "center", transition: "background 0.15s",
                   }}
-                >Restaurant Deep Dive</button>
+                  onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#F0D5A0"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = accentLight; }}
+                >Deep Dive</button>
                 <button
                   onClick={() => onMarketGuide(m.name, m.city || ddCity)}
                   style={{
-                    flex: 1, minWidth: 120, background: `${T.green}15`,
-                    border: `1px solid ${T.green}55`, color: T.green,
-                    fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.44rem",
-                    letterSpacing: 2, textTransform: "uppercase",
-                    padding: "8px 10px", borderRadius: 5, cursor: "pointer",
-                    textAlign: "center", lineHeight: 1.4,
+                    flex: 1, minWidth: 130, background: successBg,
+                    border: `1px solid ${successBdr}`, color: successColor,
+                    fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+                    fontWeight: 600, padding: "9px 12px", borderRadius: 8,
+                    cursor: "pointer", textAlign: "center", transition: "background 0.15s",
                   }}
-                >Market Guide — All Vendors</button>
+                >Market Guide</button>
               </div>
               {confirmIsMarket && (
-                <div style={{ marginTop: 7, fontSize: "0.6rem", color: T.green, fontFamily: "'IBM Plex Mono',monospace", letterSpacing: 1 }}>
+                <div style={{ marginTop: 8, fontSize: "0.75rem", color: successColor, fontWeight: 500 }}>
                   Looks like a market or multi-vendor spot
                 </div>
               )}
@@ -768,10 +862,13 @@ export function DeepDiveInputs({
             onClick={onClearMatches}
             style={{
               background: "none", border: "none",
-              fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.42rem",
-              letterSpacing: 2, color: T.dim, textTransform: "uppercase",
-              cursor: "pointer", padding: 0,
+              fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+              color: dimColor, cursor: "pointer", padding: 0,
+              textDecoration: "underline", textUnderlineOffset: "2px",
+              transition: "color 0.15s",
             }}
+            onMouseEnter={e => { e.currentTarget.style.color = mutedColor; }}
+            onMouseLeave={e => { e.currentTarget.style.color = dimColor; }}
           >Try a different name</button>
         </div>
       )}

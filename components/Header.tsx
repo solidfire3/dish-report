@@ -4,12 +4,6 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────
-const SearchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-  </svg>
-);
 
 const SunIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -123,44 +117,12 @@ export function Header({ user, onSignOut, hasBack, onBack, dark: darkProp, onTog
   const borderStrong = dark ? "#3A3A3A" : "#D4CBC0";
   const text        = dark ? "#F0EDE8" : "#1C1917";
   const secondary   = dark ? "#9A9390" : "#6B6560";
-  const tertiary    = dark ? "#6B6866" : "#A89F99";
   const accent      = dark ? "#FFB800" : "#C8860A";
   const accentLight = dark ? "#2A2010" : "#FDF3E3";
   const accentBorder = dark ? "#4A3810" : "#F0D5A0";
-  const inputBg     = dark ? "#232323" : "#FFFFFF";
-  const inputBorder = dark ? "#3A3A3A" : "#E8E3DC";
   const shadow      = dark
     ? "0 1px 3px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.20)"
     : "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)";
-
-  // ── Compressed search bar preview (placeholder only) ────────────────────────
-  const SearchPreview = (
-    <div
-      aria-hidden="true"
-      style={{
-        display: "flex", alignItems: "center", gap: 8, flex: 1,
-        background: inputBg, border: `1.5px solid ${inputBorder}`,
-        borderRadius: 10, height: 38, padding: "0 14px",
-        cursor: "text", maxWidth: 520,
-        boxShadow: dark
-          ? "0 1px 3px rgba(0,0,0,0.30)"
-          : "0 1px 3px rgba(0,0,0,0.06)",
-      }}
-    >
-      <span style={{ color: tertiary, display: "flex", flexShrink: 0 }}>
-        <SearchIcon />
-      </span>
-      <span style={{
-        fontFamily: "'Inter', -apple-system, sans-serif",
-        fontSize: "0.9rem", fontWeight: 400,
-        color: dark ? "#4A4846" : "#C8C2BC",
-        userSelect: "none", letterSpacing: "0.01em",
-        whiteSpace: "nowrap", overflow: "hidden",
-      }}>
-        Search a dish, cuisine, or restaurant...
-      </span>
-    </div>
-  );
 
   // ── Right-side controls ──────────────────────────────────────────────────────
   const RightControls = (
@@ -278,32 +240,17 @@ export function Header({ user, onSignOut, hasBack, onBack, dark: darkProp, onTog
       position: "sticky", top: 0, zIndex: 100,
       width: "100%",
     }}>
-      {/*
-        Responsive layout:
-        Desktop (>640px): single 56px row — [back?][wordmark][search flex][controls]
-        Mobile (≤640px):  row 1 52px — [back?][wordmark][controls]
-                          row 2 — [search bar full width]
-      */}
       <style>{`
         .dr-row1 {
           display: flex; align-items: center; gap: 12px;
           padding: 0 16px; height: 56px;
         }
-        .dr-search-center {
-          display: flex; flex: 1; justify-content: center; padding: 0 16px;
-        }
-        .dr-row2 { display: none; }
-
         @media (max-width: 640px) {
           .dr-row1 { height: 52px; }
-          .dr-search-center { display: none; }
-          .dr-row2 {
-            display: flex; padding: 0 16px 10px;
-          }
         }
       `}</style>
 
-      {/* Row 1 */}
+      {/* Single row: [back?][wordmark][spacer][controls] */}
       <div className="dr-row1">
         {hasBack && onBack && <BackBtn onBack={onBack} dark={dark} />}
 
@@ -317,18 +264,11 @@ export function Header({ user, onSignOut, hasBack, onBack, dark: darkProp, onTog
           Dish Report
         </div>
 
-        {/* Center search bar — desktop only */}
-        <div className="dr-search-center">
-          {SearchPreview}
-        </div>
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
 
         {/* Right controls — always visible */}
         {RightControls}
-      </div>
-
-      {/* Row 2 — mobile search bar */}
-      <div className="dr-row2">
-        {SearchPreview}
       </div>
     </header>
   );

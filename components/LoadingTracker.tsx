@@ -440,14 +440,25 @@ export function LoadingTracker({
 }: LoadingTrackerProps) {
   const activeStep = Math.min(6, Math.max(0, step ?? lstep ?? 0));
   const totalSteps = STEP_DATA.length;
-  const progress   = Math.round(((activeStep + 1) / totalSteps) * 100);
+  // Proportional progress: stages 1-2 = 8% each, 3-4 = 15%, 5-6 = 25%, final = 100%
+  const STEP_PROGRESS = [8, 16, 31, 46, 71, 96, 100];
+  const progress = STEP_PROGRESS[activeStep];
 
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [stalled, setStalled] = useState(false);
   const wasHidden = useRef(false);
 
   // Track completed steps as step advances
   useEffect(() => {
     setCompletedSteps(Array.from({ length: activeStep }, (_, i) => i));
+    setStalled(false); // reset stall flag whenever step changes
+  }, [activeStep]);
+
+  // Show "Still analyzing..." if stuck on step 5 for more than 10s
+  useEffect(() => {
+    if (activeStep !== 5) return;
+    const t = setTimeout(() => setStalled(true), 10000);
+    return () => clearTimeout(t);
   }, [activeStep]);
 
   // Background persistence — track if tab was ever hidden during search
@@ -612,6 +623,19 @@ export function LoadingTracker({
               }}>
                 {current.detail}
               </div>
+
+              {/* Stall indicator */}
+              {stalled && (
+                <div style={{
+                  marginTop: 16,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: "0.72rem", color: "#6B6866",
+                  letterSpacing: "0.05em",
+                  animation: "dr-ticker-enter 0.4s ease-out both",
+                }}>
+                  Still analyzing...
+                </div>
+              )}
             </div>
 
             {/* ── Completed steps ticker ───────────────────────────────── */}

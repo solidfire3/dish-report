@@ -3,11 +3,6 @@ import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 
-const T = {
-  bg:"#0C0C0C",card:"#141414",card2:"#1C1C1C",border:"#2A2A2A",border2:"#383838",
-  text:"#F0EDE8",muted:"#888",dim:"#444",neon:"#FFB800",neonGlow:"#FFB80033",blue:"#4A9EFF",red:"#FF4444",
-};
-
 type SavedSearch = {
   id: string;
   dish: string;
@@ -38,13 +33,11 @@ export default function SavedSearchesPage() {
         .limit(20)
         .then(({ data }) => { setSearches(data ?? []); setLoading(false); });
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleResearch = (s: SavedSearch) => {
     const params = new URLSearchParams({
-      dish: s.dish,
-      city: s.city,
-      locMode: s.loc_mode,
+      dish: s.dish, city: s.city, locMode: s.loc_mode,
       ...(s.area ? { area: s.area } : {}),
       ...(s.radius ? { radius: String(s.radius) } : {}),
       autoSearch: "1",
@@ -69,42 +62,110 @@ export default function SavedSearchesPage() {
     if (m < 60) return `${m}m ago`;
     const h = Math.floor(m / 60);
     if (h < 24) return `${h}h ago`;
-    const d = Math.floor(h / 24);
-    return `${d}d ago`;
+    return `${Math.floor(h / 24)}d ago`;
   };
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
-      {/* HEADER */}
-      <div style={{ background: T.card, padding: "0 16px", display: "flex", alignItems: "center", gap: 12, height: 50, borderBottom: `1px solid ${T.neon}44`, boxShadow: `0 0 20px ${T.neon}22` }}>
-        <button onClick={() => router.push("/")} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: "1rem", padding: 0, lineHeight: 1 }}>←</button>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", letterSpacing: 3, color: T.neon }}>My Searches</div>
+    <div style={{ background: "#F7F4F0", minHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
+
+      {/* Header */}
+      <div style={{
+        background: "#F7F4F0", borderBottom: "1px solid #E8E3DC",
+        padding: "0 16px", display: "flex", alignItems: "center", gap: 12, height: 56,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
+        position: "sticky", top: 0, zIndex: 100,
+      }}>
+        <button
+          onClick={() => router.back()}
+          aria-label="Go back"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+            background: "transparent", border: "1px solid #D4CBC0",
+            color: "#6B6560", cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = "#C8860A"; e.currentTarget.style.borderColor = "#C8860A"; }}
+          onMouseLeave={e => { e.currentTarget.style.color = "#6B6560"; e.currentTarget.style.borderColor = "#D4CBC0"; }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: "1.2rem", fontWeight: 700, color: "#1C1917",
+        }}>My Searches</div>
       </div>
 
       {loading ? (
-        <div style={{ padding: "60px 16px", textAlign: "center", color: T.muted, fontSize: "0.8rem" }}>Loading...</div>
+        <div style={{ padding: "60px 16px", textAlign: "center", color: "#A89F99", fontSize: "0.875rem" }}>
+          Loading...
+        </div>
       ) : searches.length === 0 ? (
-        <div style={{ padding: "60px 16px", textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", marginBottom: 12 }}>🔍</div>
-          <div style={{ fontSize: "0.8rem", color: T.muted, lineHeight: 1.7 }}>No saved searches yet.<br />Your recent dish searches will appear here.</div>
-          <button onClick={() => router.push("/")} style={{ marginTop: 18, background: T.neon, border: "none", borderRadius: 6, color: "#000", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.5rem", letterSpacing: 2, fontWeight: 700, textTransform: "uppercase", padding: "10px 18px", cursor: "pointer" }}>Start Searching</button>
+        <div style={{ padding: "60px 16px", textAlign: "center", maxWidth: 400, margin: "0 auto" }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", fontWeight: 700, color: "#1C1917", marginBottom: 8 }}>
+            No searches yet
+          </div>
+          <div style={{ fontSize: "0.875rem", color: "#6B6560", lineHeight: 1.65, marginBottom: 24 }}>
+            Your recent dish searches will appear here.
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            style={{
+              background: "#C8860A", border: "none", borderRadius: 10,
+              color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+              fontSize: "0.875rem", fontWeight: 600,
+              padding: "12px 24px", cursor: "pointer",
+            }}
+          >Start Searching</button>
         </div>
       ) : (
-        <div>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
           {searches.map(s => (
-            <div key={s.id} style={{ background: T.card, borderBottom: `1px solid ${T.border}`, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              key={s.id}
+              style={{
+                background: "#FFFFFF", borderBottom: "1px solid #E8E3DC",
+                padding: "14px 16px", display: "flex", alignItems: "center", gap: 12,
+              }}
+            >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "0.93rem", fontWeight: 700, color: T.text, marginBottom: 3 }}>{s.dish}</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.67rem", color: T.muted }}>{locLabel(s)}</span>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.42rem", letterSpacing: 1, color: T.dim }}>{timeAgo(s.created_at)}</span>
+                <div style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: "1rem", fontWeight: 700, color: "#1C1917", marginBottom: 4,
+                }}>{s.dish}</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.8rem", color: "#6B6560" }}>{locLabel(s)}</span>
+                  <span style={{
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: "0.72rem", color: "#A89F99",
+                  }}>{timeAgo(s.created_at)}</span>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
-                <button onClick={() => handleResearch(s)} style={{ background: `${T.neon}15`, border: `1px solid ${T.neon}44`, color: T.neon, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.4rem", letterSpacing: 2, textTransform: "uppercase", padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
-                  Re-search
-                </button>
-                <button onClick={() => handleDelete(s.id)} style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", fontSize: "0.8rem", padding: "4px" }}>✕</button>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={() => handleResearch(s)}
+                  style={{
+                    background: "#FDF3E3", border: "1px solid #F0D5A0",
+                    color: "#C8860A", fontFamily: "'Inter', sans-serif",
+                    fontSize: "0.8rem", fontWeight: 600,
+                    padding: "7px 14px", borderRadius: 8, cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#F0D5A0"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "#FDF3E3"; }}
+                >Search again</button>
+                <button
+                  onClick={() => handleDelete(s.id)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "#A89F99", fontSize: "1rem", padding: "4px 8px",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#991B1B"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#A89F99"; }}
+                  aria-label="Delete search"
+                >×</button>
               </div>
             </div>
           ))}
