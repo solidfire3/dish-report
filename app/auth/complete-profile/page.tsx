@@ -162,7 +162,7 @@ export default function CompleteProfilePage() {
       dining_style:         diningStyle.length ? diningStyle : null,
       typical_group_size:   typicalGroupSize || null,
       price_preference:     pricePreference || null,
-    });
+    }, { onConflict: 'id' });
     setLoading(false);
     if (error) { setError(error.message); return; }
     router.push("/");
