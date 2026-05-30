@@ -49,6 +49,31 @@ function generateSuggestions(locationLabel: string): string[] {
   return [`Open late near ${locationLabel}`, `Late night food near you`];
 }
 
+// ─── SUGGEST PILL ─────────────────────────────────────────────────────────────
+function SuggestPill({ label, accent, accentBg, accentBdr, onClick }: {
+  label: string; accent: string; accentBg: string; accentBdr: string; onClick: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background:   hov ? "#F5E6C8" : accentBg,
+        border:       `1.5px solid ${hov ? "#C8860A" : accentBdr}`,
+        color:        accent, fontFamily: "'Inter', sans-serif",
+        fontSize:     "0.875rem", fontWeight: 600,
+        height:       40, padding: "0 18px",
+        borderRadius: 20, cursor: "pointer",
+        whiteSpace:   "nowrap", flexShrink: 0,
+        display:      "flex", alignItems: "center",
+        transition:   "background 0.15s, border-color 0.15s",
+      }}
+    >{label}</button>
+  );
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 function DishIntel() {
   const router        = useRouter();
@@ -409,7 +434,7 @@ function DishIntel() {
   const showIdle   = phase === "idle" && !showFavs;
 
   // ─── THEME ────────────────────────────────────────────────────────────────
-  const bg       = dark ? "#0A0A0A" : "#F2EEE8";
+  const bg       = dark ? "#0A0A0A" : "#EDE8E0";
   const cardBg   = dark ? "#161616" : "#FFFFFF";
   const border   = dark ? "#2C2C2C" : "#E8E3DC";
   const text     = dark ? "#F0EDE8" : "#1C1917";
@@ -510,7 +535,7 @@ function DishIntel() {
         </div>
 
         {/* ── Main content ────────────────────────────────────────────── */}
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: "0 20px" }}>
+        <main style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px" }}>
 
           {/* ── Classifying ──────────────────────────────────────────── */}
           {phase === "classifying" && (
@@ -554,31 +579,25 @@ function DishIntel() {
             <>
               {/* GPS suggested searches */}
               {suggestions.length > 0 && (
-                <div style={{ paddingTop: 20, marginBottom: 8 }}>
-                  <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+                <div style={{ paddingTop: 40, marginBottom: 0 }}>
+                  <div style={{
+                    fontFamily: "'Sevastopol', Georgia, serif",
+                    fontSize: "0.625rem", fontWeight: 400,
+                    color: accent, textTransform: "uppercase",
+                    letterSpacing: "0.12em", marginBottom: 10,
+                  }}>
                     Near you now
                   </div>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" as const, paddingBottom: 4 }}>
                     {suggestions.map(s => (
-                      <button
-                        key={s}
-                        onClick={() => handleBrowse(s)}
-                        style={{
-                          background: accentBg, border: `1px solid ${accentBdr}`,
-                          color: accent, fontFamily: "'Inter',sans-serif",
-                          fontSize: "0.8rem", fontWeight: 500,
-                          padding: "8px 16px", borderRadius: 20,
-                          cursor: "pointer", whiteSpace: "nowrap",
-                          flexShrink: 0, minHeight: 36,
-                        }}
-                      >{s}</button>
+                      <SuggestPill key={s} label={s} accent={accent} accentBg={accentBg} accentBdr={accentBdr} onClick={() => handleBrowse(s)} />
                     ))}
                   </div>
                 </div>
               )}
 
               {/* Category browse */}
-              <div style={{ paddingTop: suggestions.length ? 8 : 20, paddingBottom: 24 }}>
+              <div style={{ paddingTop: suggestions.length ? 24 : 20, paddingBottom: 24 }}>
                 <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
               </div>
 

@@ -10,7 +10,7 @@ import { ScoreRing, PriceTag, VenueBadge } from "@/components/RestaurantCard";
 // ─── THEME ────────────────────────────────────────────────────────────────────
 function th(dark: boolean) {
   return {
-    bg:           dark ? "#0A0A0A" : "#F2EEE8",
+    bg:           dark ? "#0A0A0A" : "#EDE8E0",
     card:         dark ? "#161616" : "#FFFFFF",
     card2:        dark ? "#1F1F1F" : "#FDFCFB",
     border:       dark ? "#2C2C2C" : "#E8E3DC",

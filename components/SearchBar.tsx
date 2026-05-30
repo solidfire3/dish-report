@@ -56,11 +56,11 @@ function spellCheck(q: string): string | null {
 function th(dark: boolean) {
   return {
     inputBg:       dark ? "#232323" : "#FFFFFF",
-    inputBorder:   dark ? "#3A3A3A" : "#E8E3DC",
+    inputBorder:   dark ? "#3A3A3A" : "#D4CBC0",
     focusBorder:   dark ? "#FFB800" : "#C8860A",
     focusShadow:   dark ? "0 0 0 3px #2A2010" : "0 0 0 3px #FDF3E3",
     text:          dark ? "#F0EDE8" : "#1C1917",
-    placeholder:   dark ? "#4A4846" : "#C8C2BC",
+    placeholder:   dark ? "#4A4846" : "#8B8380",
     secondary:     dark ? "#9A9390" : "#6B6560",
     tertiary:      dark ? "#6B6866" : "#A89F99",
     accent:        dark ? "#FFB800" : "#C8860A",
@@ -84,7 +84,7 @@ function th(dark: boolean) {
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
 const SearchIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
@@ -430,10 +430,9 @@ export function SearchBar({
   return (
     <div style={{ width: "100%", position: "relative" }}>
 
-      {/* ── Placeholder color + desktop height ─────────────────────────── */}
+      {/* ── Placeholder color ────────────────────────────────────────────── */}
       <style>{`
         .dr-search-input::placeholder { color: ${t.placeholder}; }
-        @media (min-width: 641px) { .dr-search-bar { min-height: 56px !important; } }
       `}</style>
 
       {/* ── Bar row (bar + ANALYZING indicator) ─────────────────────────── */}
@@ -448,8 +447,10 @@ export function SearchBar({
           background: t.inputBg,
           border: `1.5px solid ${borderColor}`,
           borderRadius: 12,
-          boxShadow,
-          minHeight: 52,
+          boxShadow: focused
+            ? boxShadow
+            : `0 2px 8px rgba(0,0,0,0.06)${dark ? ", 0 1px 2px rgba(0,0,0,0.12)" : ""}`,
+          minHeight: 58,
           transition: "border-color 0.15s, box-shadow 0.15s",
           overflow: "hidden",
         }}
