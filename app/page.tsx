@@ -409,13 +409,13 @@ function DishIntel() {
   const showIdle   = phase === "idle" && !showFavs;
 
   // ─── THEME ────────────────────────────────────────────────────────────────
-  const bg       = dark ? "#0F0F0F" : "#F7F4F0";
-  const cardBg   = dark ? "#1A1A1A" : "#FFFFFF";
+  const bg       = dark ? "#0A0A0A" : "#F2EEE8";
+  const cardBg   = dark ? "#161616" : "#FFFFFF";
   const border   = dark ? "#2C2C2C" : "#E8E3DC";
   const text     = dark ? "#F0EDE8" : "#1C1917";
   const secondary= dark ? "#9A9390" : "#6B6560";
   const tertiary = dark ? "#6B6866" : "#A89F99";
-  const accent   = dark ? "#FFB800" : "#C8860A";
+  const accent   = dark ? "#FFB800" : "#B8780A";
   const accentBg = dark ? "#2A2010" : "#FDF3E3";
   const accentBdr= dark ? "#4A3810" : "#F0D5A0";
   const redColor = dark ? "#EF4444" : "#9B1C1C";
@@ -499,7 +499,7 @@ function DishIntel() {
           position: "sticky", top: 56, zIndex: 90,
           background: bg,
           borderBottom: `1px solid ${border}`,
-          padding: "12px 16px 12px",
+          padding: "12px 20px",
         }}>
           <SearchBar
             onSearch={handleSearchFromBar}
@@ -510,7 +510,7 @@ function DishIntel() {
         </div>
 
         {/* ── Main content ────────────────────────────────────────────── */}
-        <main style={{ maxWidth: 680, margin: "0 auto", padding: "0 16px" }}>
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: "0 20px" }}>
 
           {/* ── Classifying ──────────────────────────────────────────── */}
           {phase === "classifying" && (
@@ -647,7 +647,7 @@ function DishIntel() {
 
           {/* ── Results ──────────────────────────────────────────────── */}
           {phase === "done" && meta && (
-            <div style={{ paddingTop: 16 }}>
+            <div style={{ paddingTop: 32 }}>
               {/* Results header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
                 <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0 }}>
@@ -664,7 +664,7 @@ function DishIntel() {
               </div>
 
               {/* Cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {restaurants.filter(r => r != null).map((r, i) => (
                   <RestCard
                     key={i} r={r} i={i} expanded={expanded}

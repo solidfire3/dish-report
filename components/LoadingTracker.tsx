@@ -506,8 +506,8 @@ export function LoadingTracker({
 
       {/* Content column */}
       <div style={{
-        width: "100%", maxWidth: 520,
-        padding: "48px 24px 100px",
+        width: "100%", maxWidth: 560,
+        padding: "48px 40px 100px",
         display: "flex", flexDirection: "column",
         alignItems: "center",
         flex: 1,
@@ -518,37 +518,28 @@ export function LoadingTracker({
           <>
             {/* ── Brand mark ───────────────────────────────────────────── */}
             <div style={{ textAlign: "center", marginBottom: 28, userSelect: "none" }}>
-              {/* DISH */}
+              {/* DISH REPORT */}
               <div style={{
                 fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                fontSize: "2.625rem", fontWeight: 900, lineHeight: 1,
-                color: "#FFB800", letterSpacing: "0.06em",
+                fontSize: "2.75rem", fontWeight: 900, lineHeight: 1,
+                color: "#FFB800", letterSpacing: "0.05em",
                 textShadow: "0 0 16px rgba(255,184,0,0.5)",
-              }}>DISH</div>
+              }}>DISH REPORT</div>
 
               {/* Amber divider */}
               <div style={{
                 height: 1, background: "#FFB800",
-                margin: "4px 0",
-                boxShadow: "0 0 6px #FFB800",
+                margin: "6px 0",
+                boxShadow: "0 0 6px rgba(255,184,0,0.6)",
               }} />
 
-              {/* REPORT */}
-              <div style={{
-                fontFamily: "'CityLight', Georgia, serif",
-                fontSize: "0.875rem", fontWeight: 400,
-                color: "#9A9390", letterSpacing: "0.3em",
-                textTransform: "uppercase", lineHeight: 1.4,
-              }}>REPORT</div>
-
-              {/* ANALYTICAL SYSTEMS // FOOD INTELLIGENCE */}
+              {/* FOOD INTELLIGENCE */}
               <div style={{
                 fontFamily: "'Sevastopol', Georgia, serif",
-                fontSize: "0.56rem", fontWeight: 400,
-                color: "rgba(255,184,0,0.6)",
+                fontSize: "0.625rem", fontWeight: 400,
+                color: "rgba(255,184,0,0.65)",
                 textTransform: "uppercase", letterSpacing: "0.35em",
-                marginTop: 3,
-              }}>ANALYTICAL SYSTEMS // FOOD INTELLIGENCE</div>
+              }}>FOOD INTELLIGENCE</div>
             </div>
 
             {/* ── Query display ────────────────────────────────────────── */}
@@ -571,11 +562,11 @@ export function LoadingTracker({
 
             {/* ── Progress bar ─────────────────────────────────────────── */}
             <div style={{ width: "100%", marginBottom: 48 }}>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
                 <span style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: "0.72rem", color: "#FFB800",
-                  letterSpacing: "0.05em",
+                  fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                  fontSize: "1.75rem", fontWeight: 700, color: "#FFB800",
+                  letterSpacing: "0.02em", lineHeight: 1,
                 }}>{progress}%</span>
               </div>
               <div style={{ height: 3, background: "#2C2C2C", borderRadius: 2, overflow: "hidden" }}>
@@ -626,20 +617,20 @@ export function LoadingTracker({
                 padding: "14px 16px 14px 20px",
                 textAlign: "left",
               }}>
-                {/* Step label — Orbitron */}
+                {/* Step label — Orbitron 18px */}
                 <div style={{
                   fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                  fontSize: "0.875rem", fontWeight: 400,
+                  fontSize: "1.125rem", fontWeight: 400,
                   color: "#F0EDE8", lineHeight: 1.3,
-                  marginBottom: 10, letterSpacing: "0.02em",
+                  marginBottom: 12, letterSpacing: "0.02em",
                 }}>
                   {current.action}
                 </div>
 
-                {/* Detail — DM Sans italic */}
+                {/* Detail — DM Sans 15px italic */}
                 <div style={{
                   fontFamily: "'DM Sans', 'Inter', sans-serif",
-                  fontSize: "0.8125rem", color: "#9A9390",
+                  fontSize: "0.9375rem", color: "#9A9390",
                   lineHeight: 1.65, fontStyle: "italic",
                 }}>
                   {current.detail}

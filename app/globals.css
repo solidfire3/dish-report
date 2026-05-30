@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ─────────────────────────────────────────── */
+:root {
+  /* Brand font stacks (for reference — next/font handles loading) */
+  --font-sevastopol: 'Sevastopol', Georgia, serif;
+  --font-citylight:  'CityLight', sans-serif;
+
+  /* Light mode color tokens */
+  --accent:          #B8780A;
+  --accent-bright:   #C8860A;
+  --bg-page:         #F2EEE8;
+  --score-excellent: #166534;
+  --score-good:      #C8860A;
+  --score-average:   #9A3412;
+}
+
 /* ── Local brand fonts ─────────────────────────────────────── */
 @font-face {
   font-family: 'CityLight';

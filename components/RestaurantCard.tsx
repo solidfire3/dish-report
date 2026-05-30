@@ -6,27 +6,27 @@ import { gURL, dirURL } from "@/lib/dish-shared";
 // ─── THEME ────────────────────────────────────────────────────────────────────
 function th(dark: boolean) {
   return {
-    card:       dark ? "#1A1A1A" : "#FFFFFF",
-    card2:      dark ? "#232323" : "#FDFCFB",
+    card:       dark ? "#161616" : "#FFFFFF",
+    card2:      dark ? "#1F1F1F" : "#FDFCFB",
     border:     dark ? "#2C2C2C" : "#E8E3DC",
     border2:    dark ? "#3A3A3A" : "#D4CBC0",
     text:       dark ? "#F0EDE8" : "#1C1917",
     secondary:  dark ? "#9A9390" : "#6B6560",
     tertiary:   dark ? "#6B6866" : "#A89F99",
     disabled:   dark ? "#4A4846" : "#C8C2BC",
-    accent:     dark ? "#FFB800" : "#C8860A",
-    accentHover:dark ? "#FFC933" : "#A86E08",
+    accent:     dark ? "#FFB800" : "#B8780A",
+    accentHover:dark ? "#FFC933" : "#9A6209",
     accentLight:dark ? "#2A2010" : "#FDF3E3",
     errorText:  dark ? "#EF4444" : "#9B1C1C",
     s1: dark
-      ? "0 1px 3px rgba(0,0,0,0.30),0 1px 2px rgba(0,0,0,0.20)"
-      : "0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)",
+      ? "0 2px 8px rgba(0,0,0,0.40),0 1px 3px rgba(0,0,0,0.30)"
+      : "0 2px 8px rgba(0,0,0,0.08),0 1px 3px rgba(0,0,0,0.05)",
     s2: dark
-      ? "0 4px 12px rgba(0,0,0,0.40),0 2px 4px rgba(0,0,0,0.30)"
-      : "0 4px 12px rgba(0,0,0,0.10),0 2px 4px rgba(0,0,0,0.06)",
+      ? "0 4px 16px rgba(0,0,0,0.50),0 2px 6px rgba(0,0,0,0.30)"
+      : "0 4px 12px rgba(0,0,0,0.12),0 2px 4px rgba(0,0,0,0.07)",
     s3: dark
-      ? "0 8px 24px rgba(0,0,0,0.50),0 4px 8px rgba(0,0,0,0.30)"
-      : "0 8px 24px rgba(0,0,0,0.12),0 4px 8px rgba(0,0,0,0.08)",
+      ? "0 8px 28px rgba(0,0,0,0.60),0 4px 10px rgba(0,0,0,0.35)"
+      : "0 8px 24px rgba(0,0,0,0.14),0 4px 8px rgba(0,0,0,0.08)",
   };
 }
 
@@ -38,9 +38,9 @@ function scoreColor(score: number, dark: boolean): string {
     if (score >= 6) return "#F59E0B";
     return "#EF4444";
   }
-  if (score >= 8) return "#1A7A3C";
+  if (score >= 8) return "#166534";
   if (score >= 7) return "#C8860A";
-  if (score >= 6) return "#B45309";
+  if (score >= 6) return "#9A3412";
   return "#9B1C1C";
 }
 
@@ -101,7 +101,7 @@ export function ScoreRing({ score, size = 52, dark: darkProp }: { score: number;
       <div style={{ position: "relative", display: "inline-block" }}>
         {/* Border box */}
         <div style={{
-          fontFamily: "'IBM Plex Mono',monospace", fontSize: fs, fontWeight: 700,
+          fontFamily: "var(--font-orbitron), 'Courier New', monospace", fontSize: fs, fontWeight: 700,
           color: clr, lineHeight: 1,
           border: `1px solid ${clr}`,
           padding: "4px 8px", borderRadius: 2,
@@ -160,9 +160,9 @@ export function VenueBadge({ type, dark: darkProp }: { type: string; dark?: bool
     <span style={{
       display: "inline-flex", alignItems: "center",
       color: t.tertiary, border: `1px solid ${t.border}`,
-      fontFamily: "'Inter',sans-serif", fontSize: "0.72rem", fontWeight: 500,
+      fontFamily: "'CityLight', sans-serif", fontSize: "0.75rem",
       padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap",
-      textTransform: "uppercase", letterSpacing: "0.05em",
+      textTransform: "uppercase", letterSpacing: "0.06em",
     }}>{type}</span>
   );
 }
@@ -449,24 +449,24 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
           {r.rank != null && (
             <div style={{
               position: "absolute", top: 8, left: 8,
-              background: "#C8860A", color: "#FFFFFF",
-              fontFamily: "'IBM Plex Mono',monospace",
-              fontSize: "0.68rem", fontWeight: 700,
-              padding: "3px 9px", borderRadius: 12,
-              lineHeight: 1.4,
+              background: "#B8780A", color: "#FFFFFF",
+              fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+              fontSize: "0.7rem", fontWeight: 700,
+              padding: "3px 10px", borderRadius: 12,
+              lineHeight: 1.4, letterSpacing: "0.04em",
             }}>{r.rank}</div>
           )}
         </div>
 
         {/* ── Content area (tap to expand) ──────────────────────────────── */}
         <div style={{ cursor: "pointer" }} onClick={() => onToggle(i)}>
-          <div style={{ padding: 16 }}>
+          <div style={{ padding: 20 }}>
 
             {/* Row 1 — Name + Score */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
               <div style={{
                 fontFamily: "'Playfair Display',Georgia,serif",
-                fontSize: "1.375rem", fontWeight: 700,
+                fontSize: "1.5rem", fontWeight: 700,
                 color: t.text, lineHeight: 1.2, flex: 1, minWidth: 0,
                 overflow: "hidden", display: "-webkit-box",
                 WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
@@ -479,12 +479,12 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
                     <div style={{
                       fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.45rem", color: clr,
+                      fontSize: "0.5rem", color: clr,
                       textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 1,
                     }}>ANALYTICAL SCORE</div>
                     <div style={{ position: "relative", display: "inline-block" }}>
                       <div style={{
-                        fontFamily: "'IBM Plex Mono',monospace", fontSize: "2rem", fontWeight: 700,
+                        fontFamily: "var(--font-orbitron), 'Courier New', monospace", fontSize: "2.25rem", fontWeight: 700,
                         color: clr, lineHeight: 1,
                         border: `1px solid ${clr}`, padding: "4px 8px", borderRadius: 2,
                       }}>{(r.food_score ?? 5).toFixed(1)}</div>
@@ -499,7 +499,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                     </div>
                     <div style={{
                       fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.45rem", color: t.tertiary,
+                      fontSize: "0.5rem", color: t.tertiary,
                       textTransform: "uppercase", letterSpacing: "0.15em", lineHeight: 1,
                     }}>/ 10.0 MAX</div>
                   </div>

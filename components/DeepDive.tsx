@@ -10,17 +10,17 @@ import { ScoreRing, PriceTag, VenueBadge } from "@/components/RestaurantCard";
 // ─── THEME ────────────────────────────────────────────────────────────────────
 function th(dark: boolean) {
   return {
-    bg:           dark ? "#0F0F0F" : "#F7F4F0",
-    card:         dark ? "#1A1A1A" : "#FFFFFF",
-    card2:        dark ? "#232323" : "#FDFCFB",
+    bg:           dark ? "#0A0A0A" : "#F2EEE8",
+    card:         dark ? "#161616" : "#FFFFFF",
+    card2:        dark ? "#1F1F1F" : "#FDFCFB",
     border:       dark ? "#2C2C2C" : "#E8E3DC",
     border2:      dark ? "#3A3A3A" : "#D4CBC0",
     text:         dark ? "#F0EDE8" : "#1C1917",
     secondary:    dark ? "#9A9390" : "#6B6560",
     tertiary:     dark ? "#6B6866" : "#A89F99",
     disabled:     dark ? "#4A4846" : "#C8C2BC",
-    accent:       dark ? "#FFB800" : "#C8860A",
-    accentHover:  dark ? "#FFC933" : "#A86E08",
+    accent:       dark ? "#FFB800" : "#B8780A",
+    accentHover:  dark ? "#FFC933" : "#9A6209",
     accentLight:  dark ? "#2A2010" : "#FDF3E3",
     accentBorder: dark ? "#4A3810" : "#F0D5A0",
     blue:         dark ? "#93C5FD" : "#1E40AF",
@@ -30,9 +30,9 @@ function th(dark: boolean) {
     greenBg:      dark ? "rgba(22,101,52,0.12)" : "#F0FDF4",
     greenBorder:  dark ? "rgba(22,101,52,0.35)" : "#86EFAC",
     red:          dark ? "#EF4444" : "#9B1C1C",
-    s1:  dark ? "0 1px 3px rgba(0,0,0,.30),0 1px 2px rgba(0,0,0,.20)" : "0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)",
-    s2:  dark ? "0 4px 12px rgba(0,0,0,.40),0 2px 4px rgba(0,0,0,.30)" : "0 4px 12px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06)",
-    s3:  dark ? "0 8px 24px rgba(0,0,0,.50),0 4px 8px rgba(0,0,0,.30)" : "0 8px 24px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.08)",
+    s1:  dark ? "0 2px 8px rgba(0,0,0,.40),0 1px 3px rgba(0,0,0,.30)" : "0 2px 8px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05)",
+    s2:  dark ? "0 4px 16px rgba(0,0,0,.50),0 2px 6px rgba(0,0,0,.30)" : "0 4px 12px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.07)",
+    s3:  dark ? "0 8px 28px rgba(0,0,0,.60),0 4px 10px rgba(0,0,0,.35)" : "0 8px 24px rgba(0,0,0,.14),0 4px 8px rgba(0,0,0,.08)",
   };
 }
 
@@ -43,9 +43,9 @@ function scoreColor(score: number, dark: boolean): string {
     if (score >= 6) return "#F59E0B";
     return "#EF4444";
   }
-  if (score >= 8) return "#1A7A3C";
+  if (score >= 8) return "#166534";
   if (score >= 7) return "#C8860A";
-  if (score >= 6) return "#B45309";
+  if (score >= 6) return "#9A3412";
   return "#9B1C1C";
 }
 
@@ -181,9 +181,9 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
 
   const SL = (text: string, color?: string) => (
     <div style={{
-      fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600,
+      fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400,
       color: color || t.tertiary, textTransform: "uppercase",
-      letterSpacing: "0.1em", marginBottom: 16,
+      letterSpacing: "0.2em", marginBottom: 16,
     }}>{text}</div>
   );
 
@@ -321,7 +321,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               {/* Score number in targeting box */}
               <div style={{ position: "relative", display: "inline-block" }}>
                 <div style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "var(--font-orbitron), 'Courier New', monospace",
                   fontSize: "3.5rem", fontWeight: 700,
                   color: clr, lineHeight: 1,
                   border: `1px solid ${clr}`,
@@ -476,7 +476,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                     borderLeft: `2px solid ${t.accent}`,
                     borderRadius: "0 6px 6px 0", color: t.text, marginTop: 4,
                   }}>
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: t.accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>Heads up</div>
+                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>Heads up</div>
                     {data.experience_note}
                   </div>
                 )}
@@ -617,7 +617,7 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
       {/* Header */}
       <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "24px 16px" }}>
         <div style={{
-          fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600,
+          fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400,
           color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
         }}>Market Guide</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -631,7 +631,7 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
             borderRadius: 10, padding: "10px 14px", textAlign: "center", flexShrink: 0,
           }}>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "1.75rem", fontWeight: 700, color: t.green, lineHeight: 1 }}>{vendors.length}</div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>Vendors</div>
+            <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>Vendors</div>
           </div>
         </div>
         {data.vibe && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.6, marginTop: 12, padding: "10px 12px", background: t.card2, borderRadius: 8 }}>{data.vibe}</div>}
@@ -639,7 +639,7 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
 
       {/* Vendor list */}
       <div style={{ padding: "16px 16px 60px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
           Best thing at each vendor — ranked by food quality
         </div>
         {vendors.map((v, i) => {
@@ -649,14 +649,14 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
             <div key={i} style={{ background: t.card, border: `1px solid ${i === 0 ? t.greenBorder : t.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: i === 0 ? t.s2 : t.s1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {i === 0 && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Top Pick</div>}
+                  {i === 0 && <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Top Pick</div>}
                   <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: t.text, lineHeight: 1.2, marginBottom: 3 }}>{v.name || ""}</div>
                   <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: t.secondary }}>{v.specialty || ""}</div>
                 </div>
                 <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: clr, lineHeight: 1 }}>{sc.toFixed(1)}</div>
               </div>
               <div style={{ background: t.card2, borderRadius: 8, padding: "10px 12px", marginBottom: v.insider_note ? 8 : 0 }}>
-                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: t.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Order this</div>
+                <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Order this</div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: t.text, marginBottom: 4, lineHeight: 1.2 }}>{v.the_order || ""}</div>
                 <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.825rem", color: t.secondary, lineHeight: 1.55 }}>{v.why || ""}</div>
               </div>
@@ -698,7 +698,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
     <div style={{ background: t.bg, minHeight: "100vh" }}>
       {/* Header */}
       <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "24px 16px" }}>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: accentClr, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
           {isAny ? "Best Food Nearby" : "Similar Spots"}
         </div>
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.5rem", fontWeight: 700, color: t.text, lineHeight: 1.15, marginBottom: 6 }}>
@@ -708,7 +708,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
         {data.search_area && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, marginBottom: 12 }}>{data.search_area}</div>}
         {/* Original score reference */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: accentBg, border: `1px solid ${accentBorder}`, borderRadius: 8, padding: "8px 12px" }}>
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: accentClr, textTransform: "uppercase", letterSpacing: "0.08em" }}>You're comparing</div>
+          <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.08em" }}>You're comparing</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.9rem", fontWeight: 700, color: t.text }}>{data.original?.name}</div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "1rem", fontWeight: 700, color: scoreColor(originalScore ?? 0, dark) }}>{(originalScore ?? 0).toFixed(1)}</div>
         </div>
@@ -716,7 +716,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
 
       {/* Alternatives */}
       <div style={{ padding: "16px 16px 60px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
           {isAny ? "All cuisines — ranked by food quality" : "Same cuisine — ranked by food quality"}
         </div>
         {alts.map((a, i) => {
@@ -727,7 +727,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
 
           return (
             <div key={i} style={{ background: t.card, border: `1px solid ${i === 0 ? accentBorder : t.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: i === 0 ? t.s2 : t.s1 }}>
-              {i === 0 && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: accentClr, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Top alternative</div>}
+              {i === 0 && <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Top alternative</div>}
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -743,7 +743,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
 
               {a.verdict_vs_original && (
                 <div style={{ background: t.card2, borderRadius: 8, padding: "8px 10px", marginBottom: a.go_here_if || a.must_order ? 10 : 0 }}>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>vs {data.original?.name}</div>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>vs {data.original?.name}</div>
                   <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.825rem", color: t.text, lineHeight: 1.55 }}>{a.verdict_vs_original}</div>
                 </div>
               )}
@@ -757,7 +757,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
 
               {a.must_order && (
                 <div style={{ background: t.card2, borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.6rem", fontWeight: 600, color: t.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Order this</div>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Order this</div>
                   <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: t.text, marginBottom: 3 }}>{a.must_order}</div>
                   {a.must_order_why && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.8rem", color: t.secondary, lineHeight: 1.5 }}>{a.must_order_why}</div>}
                 </div>

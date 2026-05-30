@@ -255,39 +255,37 @@ export function Header({ user, onSignOut, hasBack, onBack, dark: darkProp, onTog
         {hasBack && onBack && <BackBtn onBack={onBack} dark={dark} />}
 
         {/* Brand mark */}
-        <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, userSelect: "none", gap: 1 }}>
-          {/* DISH */}
+        <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, userSelect: "none" }}>
+          <style>{`
+            .dr-brand-tagline { font-size: 9px; }
+            @media (max-width: 640px) { .dr-brand-tagline { font-size: 11px; } }
+          `}</style>
+
+          {/* DISH REPORT */}
           <div style={{
             fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-            fontSize: "1.55rem", fontWeight: 900, lineHeight: 1,
+            fontSize: "1.625rem", fontWeight: 900, lineHeight: 1,
             color: dark ? "#FFB800" : "#1C1917",
             letterSpacing: "0.04em",
-            textShadow: dark ? "0 0 12px rgba(255,184,0,0.35)" : "none",
-          }}>DISH</div>
+            textShadow: dark ? "0 0 14px rgba(255,184,0,0.4)" : "none",
+          }}>DISH REPORT</div>
 
           {/* Amber divider */}
           <div style={{
-            height: 1, background: accent, borderRadius: 1,
-            boxShadow: dark ? "0 0 6px #FFB800" : "none",
+            height: 1, background: dark ? "#FFB800" : "#B8780A",
+            opacity: dark ? 0.6 : 0.5,
+            margin: "4px 0",
+            boxShadow: dark ? "0 0 4px rgba(255,184,0,0.5)" : "none",
           }} />
 
-          {/* REPORT */}
-          <div style={{
-            fontFamily: "'CityLight', Georgia, serif",
-            fontSize: "0.62rem", fontWeight: 400,
-            color: dark ? "#9A9390" : "#6B6560",
-            textTransform: "uppercase", letterSpacing: "0.3em",
-            lineHeight: 1.2,
-          }}>REPORT</div>
-
-          {/* ANALYTICAL SYSTEMS */}
-          <div style={{
+          {/* FOOD INTELLIGENCE */}
+          <div className="dr-brand-tagline" style={{
             fontFamily: "'Sevastopol', Georgia, serif",
-            fontSize: "0.45rem", fontWeight: 400,
-            color: dark ? "#6B6866" : "#A89F99",
-            textTransform: "uppercase", letterSpacing: "0.4em",
+            fontWeight: 400,
+            color: dark ? "rgba(255,184,0,0.7)" : "#B8780A",
+            textTransform: "uppercase", letterSpacing: "0.35em",
             lineHeight: 1,
-          }}>ANALYTICAL SYSTEMS</div>
+          }}>FOOD INTELLIGENCE</div>
         </div>
 
         {/* Spacer */}
