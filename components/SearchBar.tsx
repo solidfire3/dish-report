@@ -436,11 +436,15 @@ export function SearchBar({
         @media (min-width: 641px) { .dr-search-bar { min-height: 56px !important; } }
       `}</style>
 
+      {/* ── Bar row (bar + ANALYZING indicator) ─────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
       {/* ── Main bar ────────────────────────────────────────────────────── */}
       <div
         className="dr-search-bar"
         style={{
           display: "flex", alignItems: "center",
+          flex: 1,
           background: t.inputBg,
           border: `1.5px solid ${borderColor}`,
           borderRadius: 12,
@@ -530,6 +534,20 @@ export function SearchBar({
           </button>
         )}
       </div>
+
+      {/* ── ANALYZING // indicator ──────────────────────────────────────── */}
+      {isSearching && (
+        <div style={{
+          fontFamily: "'Sevastopol', Georgia, serif",
+          fontSize: "0.56rem", fontWeight: 400,
+          color: dark ? "#FFB800" : "#C8860A",
+          textTransform: "uppercase", letterSpacing: "0.2em",
+          whiteSpace: "nowrap", flexShrink: 0,
+          animation: "dr-blink 1.5s ease-in-out infinite",
+        }}>ANALYZING //</div>
+      )}
+
+      </div>{/* end bar row */}
 
       {/* ── Spellcheck suggestion ───────────────────────────────────────── */}
       {suggestion && (

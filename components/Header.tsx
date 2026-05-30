@@ -254,14 +254,40 @@ export function Header({ user, onSignOut, hasBack, onBack, dark: darkProp, onTog
       <div className="dr-row1">
         {hasBack && onBack && <BackBtn onBack={onBack} dark={dark} />}
 
-        {/* Wordmark */}
-        <div style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: "1.3rem", fontWeight: 700,
-          color: accent, lineHeight: 1, flexShrink: 0,
-          letterSpacing: "0.01em", userSelect: "none",
-        }}>
-          Dish Report
+        {/* Brand mark */}
+        <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, userSelect: "none", gap: 1 }}>
+          {/* DISH */}
+          <div style={{
+            fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+            fontSize: "1.55rem", fontWeight: 900, lineHeight: 1,
+            color: dark ? "#FFB800" : "#1C1917",
+            letterSpacing: "0.04em",
+            textShadow: dark ? "0 0 12px rgba(255,184,0,0.35)" : "none",
+          }}>DISH</div>
+
+          {/* Amber divider */}
+          <div style={{
+            height: 1, background: accent, borderRadius: 1,
+            boxShadow: dark ? "0 0 6px #FFB800" : "none",
+          }} />
+
+          {/* REPORT */}
+          <div style={{
+            fontFamily: "'CityLight', Georgia, serif",
+            fontSize: "0.62rem", fontWeight: 400,
+            color: dark ? "#9A9390" : "#6B6560",
+            textTransform: "uppercase", letterSpacing: "0.3em",
+            lineHeight: 1.2,
+          }}>REPORT</div>
+
+          {/* ANALYTICAL SYSTEMS */}
+          <div style={{
+            fontFamily: "'Sevastopol', Georgia, serif",
+            fontSize: "0.45rem", fontWeight: 400,
+            color: dark ? "#6B6866" : "#A89F99",
+            textTransform: "uppercase", letterSpacing: "0.4em",
+            lineHeight: 1,
+          }}>ANALYTICAL SYSTEMS</div>
         </div>
 
         {/* Spacer */}

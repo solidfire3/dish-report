@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Local brand fonts ─────────────────────────────────────── */
+@font-face {
+  font-family: 'CityLight';
+  src: url('/fonts/citylight.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Sevastopol';
+  src: url('/fonts/sevastopol.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Brand animations ──────────────────────────────────────── */
+@keyframes dr-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+@keyframes dr-stand-by {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 0.2; }
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 body {

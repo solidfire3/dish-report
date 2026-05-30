@@ -281,6 +281,12 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
       `}</style>
 
       {/* ── Quick-tap pills ──────────────────────────────────────────────── */}
+      <div style={{
+        fontFamily: "'Sevastopol', Georgia, serif",
+        fontSize: "0.56rem", fontWeight: 400,
+        color: t.accent, textTransform: "uppercase",
+        letterSpacing: "0.2em", marginBottom: 10,
+      }}>RAPID SEARCH PROTOCOLS //</div>
       <div className="dr-quick-pills" style={{ marginBottom: 20 }}>
         {QUICK_SEARCHES.map(q => (
           <button
@@ -309,14 +315,14 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
 
       {/* ── Section header ───────────────────────────────────────────────── */}
       <div style={{
-        fontFamily:    "'Inter', sans-serif",
-        fontSize:      "0.78rem",
-        fontWeight:    600,
-        color:         t.tertiary,
+        fontFamily:    "'Sevastopol', Georgia, serif",
+        fontSize:      "0.625rem",
+        fontWeight:    400,
+        color:         t.accent,
         textTransform: "uppercase",
-        letterSpacing: "0.1em",
+        letterSpacing: "0.2em",
         marginBottom:  12,
-      }}>Browse by category</div>
+      }}>SELECT QUERY TYPE //</div>
 
       {/* ── Category grid ────────────────────────────────────────────────── */}
       <div className="dr-cat-grid">

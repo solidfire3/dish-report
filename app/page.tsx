@@ -736,11 +736,22 @@ function DishIntel() {
 
         </main>
 
-        {/* ── Footer — version number ──────────────────────────────────── */}
+        {/* ── System status bar ────────────────────────────────────────── */}
         {["idle", "done", "error"].includes(phase) && (
-          <footer style={{ padding: "32px 16px", textAlign: "center", borderTop: `1px solid ${border}`, marginTop: 24 }}>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", color: tertiary }}>
-              v1.2.0
+          <footer style={{ padding: "24px 16px 28px", textAlign: "center", marginTop: 24 }}>
+            {/* Amber rule */}
+            <div style={{
+              height: 1,
+              background: dark ? "#FFB800" : "#C8860A",
+              opacity: dark ? 0.4 : 0.2,
+              marginBottom: 12,
+            }} />
+            <div style={{
+              fontFamily: "'Sevastopol', Georgia, serif",
+              fontSize: "0.5rem", color: tertiary,
+              textTransform: "uppercase", letterSpacing: "0.25em",
+            }}>
+              SYS v1.3.0 // DISH REPORT ANALYTICAL
             </div>
           </footer>
         )}

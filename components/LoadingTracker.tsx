@@ -487,7 +487,16 @@ export function LoadingTracker({
   return (
     <div style={{
       position: "fixed", inset: 0,
-      background: "#0F0F0F",
+      background: `
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0,0,0,0.03) 2px,
+          rgba(0,0,0,0.03) 4px
+        ),
+        #0F0F0F
+      `,
       display: "flex", flexDirection: "column",
       alignItems: "center",
       zIndex: 9500,
@@ -507,15 +516,39 @@ export function LoadingTracker({
           <ResultsReady query={query || ""} onSeeResults={onSeeResults} />
         ) : (
           <>
-            {/* ── Wordmark ─────────────────────────────────────────────── */}
-            <div style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "2rem", fontWeight: 700,
-              color: "#FFB800", letterSpacing: "0.01em",
-              marginBottom: 20, textAlign: "center",
-              userSelect: "none",
-            }}>
-              Dish Report
+            {/* ── Brand mark ───────────────────────────────────────────── */}
+            <div style={{ textAlign: "center", marginBottom: 28, userSelect: "none" }}>
+              {/* DISH */}
+              <div style={{
+                fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                fontSize: "2.625rem", fontWeight: 900, lineHeight: 1,
+                color: "#FFB800", letterSpacing: "0.06em",
+                textShadow: "0 0 16px rgba(255,184,0,0.5)",
+              }}>DISH</div>
+
+              {/* Amber divider */}
+              <div style={{
+                height: 1, background: "#FFB800",
+                margin: "4px 0",
+                boxShadow: "0 0 6px #FFB800",
+              }} />
+
+              {/* REPORT */}
+              <div style={{
+                fontFamily: "'CityLight', Georgia, serif",
+                fontSize: "0.875rem", fontWeight: 400,
+                color: "#9A9390", letterSpacing: "0.3em",
+                textTransform: "uppercase", lineHeight: 1.4,
+              }}>REPORT</div>
+
+              {/* ANALYTICAL SYSTEMS // FOOD INTELLIGENCE */}
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif",
+                fontSize: "0.56rem", fontWeight: 400,
+                color: "rgba(255,184,0,0.6)",
+                textTransform: "uppercase", letterSpacing: "0.35em",
+                marginTop: 3,
+              }}>ANALYTICAL SYSTEMS // FOOD INTELLIGENCE</div>
             </div>
 
             {/* ── Query display ────────────────────────────────────────── */}
@@ -529,7 +562,6 @@ export function LoadingTracker({
                 }}>
                   "{query}"
                 </div>
-                {/* Amber underline */}
                 <div style={{
                   height: 1.5, background: "#FFB800",
                   borderRadius: 1, opacity: 0.5,
@@ -539,24 +571,16 @@ export function LoadingTracker({
 
             {/* ── Progress bar ─────────────────────────────────────────── */}
             <div style={{ width: "100%", marginBottom: 48 }}>
-              <div style={{
-                display: "flex", justifyContent: "flex-end",
-                marginBottom: 6,
-              }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
                 <span style={{
                   fontFamily: "'IBM Plex Mono', monospace",
                   fontSize: "0.72rem", color: "#FFB800",
                   letterSpacing: "0.05em",
                 }}>{progress}%</span>
               </div>
-              <div style={{
-                height: 3, background: "#2C2C2C",
-                borderRadius: 2, overflow: "hidden",
-              }}>
+              <div style={{ height: 3, background: "#2C2C2C", borderRadius: 2, overflow: "hidden" }}>
                 <div style={{
-                  height: "100%",
-                  width: `${progress}%`,
-                  borderRadius: 2,
+                  height: "100%", width: `${progress}%`, borderRadius: 2,
                   background: "linear-gradient(90deg, #C8860A 0%, #FFB800 50%, #FFD033 100%)",
                   backgroundSize: "300px 100%",
                   animation: "dr-progress-shimmer 2s linear infinite",
@@ -565,77 +589,75 @@ export function LoadingTracker({
               </div>
             </div>
 
-            {/* ── Step display — the main event ────────────────────────── */}
+            {/* ── Step display ─────────────────────────────────────────── */}
             <div key={activeStep} style={{
               width: "100%",
               display: "flex", flexDirection: "column", alignItems: "center",
               textAlign: "center",
               animation: "dr-step-enter 0.35s ease-out both",
             }}>
-              {/* Step number */}
+              {/* Step counter: "01 / 07" */}
               <div style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: "0.68rem", fontWeight: 600,
-                color: "#FFB800",
-                textTransform: "uppercase", letterSpacing: "0.15em",
-                marginBottom: 24,
+                fontFamily: "'Sevastopol', Georgia, serif",
+                fontSize: "0.625rem", fontWeight: 400,
+                color: "#FFB800", letterSpacing: "0.2em",
+                textTransform: "uppercase", marginBottom: 24,
               }}>
-                Step {activeStep + 1} of {totalSteps}
+                {String(activeStep + 1).padStart(2, "0")} / {String(totalSteps).padStart(2, "0")}
               </div>
 
               {/* Icon with ambient glow */}
               <div style={{ position: "relative", width: 120, height: 120, marginBottom: 24 }}>
                 <div style={{
-                  position: "absolute", inset: 0,
-                  borderRadius: "50%",
+                  position: "absolute", inset: 0, borderRadius: "50%",
                   background: "radial-gradient(circle, rgba(255,184,0,0.1) 0%, transparent 72%)",
                   animation: "dr-ambient 4s ease-in-out infinite",
                 }} />
-                <div style={{
-                  position: "absolute", inset: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <IconComponent />
                 </div>
               </div>
 
-              {/* Main action — large, theatrical */}
+              {/* Step dialogue box */}
               <div style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: "clamp(1.5rem, 5vw, 2rem)",
-                fontWeight: 700,
-                color: "#F0EDE8",
-                lineHeight: 1.2,
-                marginBottom: 14,
-                maxWidth: 420,
+                width: "100%", maxWidth: 420,
+                borderLeft: "2px solid rgba(255,184,0,0.4)",
+                background: "rgba(255,184,0,0.04)",
+                padding: "14px 16px 14px 20px",
+                textAlign: "left",
               }}>
-                {current.action}
-              </div>
-
-              {/* Detail */}
-              <div style={{
-                fontFamily: "'DM Sans', 'Inter', sans-serif",
-                fontSize: "1rem",
-                color: "#9A9390",
-                lineHeight: 1.65,
-                fontStyle: "italic",
-                maxWidth: 380,
-              }}>
-                {current.detail}
-              </div>
-
-              {/* Stall indicator */}
-              {stalled && (
+                {/* Step label — Orbitron */}
                 <div style={{
-                  marginTop: 16,
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: "0.72rem", color: "#6B6866",
-                  letterSpacing: "0.05em",
-                  animation: "dr-ticker-enter 0.4s ease-out both",
+                  fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                  fontSize: "0.875rem", fontWeight: 400,
+                  color: "#F0EDE8", lineHeight: 1.3,
+                  marginBottom: 10, letterSpacing: "0.02em",
                 }}>
-                  Still analyzing...
+                  {current.action}
                 </div>
-              )}
+
+                {/* Detail — DM Sans italic */}
+                <div style={{
+                  fontFamily: "'DM Sans', 'Inter', sans-serif",
+                  fontSize: "0.8125rem", color: "#9A9390",
+                  lineHeight: 1.65, fontStyle: "italic",
+                }}>
+                  {current.detail}
+                </div>
+
+                {/* Stall indicator */}
+                {stalled && (
+                  <div style={{
+                    marginTop: 14,
+                    fontFamily: "'Sevastopol', Georgia, serif",
+                    fontSize: "0.625rem", color: "#FFB800",
+                    letterSpacing: "0.2em", textTransform: "uppercase",
+                    animation: "dr-stand-by 2.5s ease-in-out infinite",
+                  }}>
+                    PROCESSING // PLEASE STAND BY
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ── Completed steps ticker ───────────────────────────────── */}
@@ -648,9 +670,9 @@ export function LoadingTracker({
               }}>
                 {ticker.map(i => (
                   <div key={i} style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: "0.72rem", color: "#4A4846",
-                    letterSpacing: "0.04em",
+                    fontFamily: "'Sevastopol', Georgia, serif",
+                    fontSize: "0.625rem", color: "#4A4846",
+                    letterSpacing: "0.12em", textTransform: "uppercase",
                     animation: "dr-ticker-enter 0.3s ease-out both",
                     display: "flex", alignItems: "center", gap: 8,
                   }}>

@@ -302,28 +302,50 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
         </div>
 
         {/* ── Score block ──────────────────────────────────────────────── */}
-        <div style={{
-          padding: "28px 16px 24px",
-          borderBottom: `1px solid ${t.border}`,
-          display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
-        }}>
-          <div style={{ display: "inline-flex", alignItems: "flex-end", gap: 4, marginBottom: 8 }}>
+        {(() => {
+          const clr = scoreColor(data.food_score ?? 5, dark);
+          return (
             <div style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "3.5rem", fontWeight: 700,
-              color: scoreColor(data.food_score ?? 5, dark), lineHeight: 1,
-            }}>{(data.food_score ?? 5).toFixed(1)}</div>
-            <div style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "1.5rem", color: t.tertiary,
-              lineHeight: 1, paddingBottom: "0.5rem",
-            }}>/10</div>
-          </div>
-          <div style={{
-            fontFamily: "'Inter', sans-serif", fontSize: "0.68rem", fontWeight: 600,
-            color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em",
-          }}>Food Score</div>
-        </div>
+              padding: "28px 16px 24px",
+              borderBottom: `1px solid ${t.border}`,
+              display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+              gap: 8,
+            }}>
+              {/* ANALYTICAL SCORE */}
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif",
+                fontSize: "0.56rem", color: clr,
+                textTransform: "uppercase", letterSpacing: "0.25em", lineHeight: 1,
+              }}>ANALYTICAL SCORE</div>
+
+              {/* Score number in targeting box */}
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <div style={{
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: "3.5rem", fontWeight: 700,
+                  color: clr, lineHeight: 1,
+                  border: `1px solid ${clr}`,
+                  padding: "6px 14px", borderRadius: 2,
+                }}>{(data.food_score ?? 5).toFixed(1)}</div>
+                {[
+                  { top: -4, left: -4, borderTop: `2px solid ${clr}`, borderLeft: `2px solid ${clr}` },
+                  { top: -4, right: -4, borderTop: `2px solid ${clr}`, borderRight: `2px solid ${clr}` },
+                  { bottom: -4, left: -4, borderBottom: `2px solid ${clr}`, borderLeft: `2px solid ${clr}` },
+                  { bottom: -4, right: -4, borderBottom: `2px solid ${clr}`, borderRight: `2px solid ${clr}` },
+                ].map((s, i) => (
+                  <div key={i} style={{ position: "absolute", width: 6, height: 6, ...s }} />
+                ))}
+              </div>
+
+              {/* / 10.0 MAX */}
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif",
+                fontSize: "0.56rem", color: t.tertiary,
+                textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 1,
+              }}>/ 10.0 MAX</div>
+            </div>
+          );
+        })()}
 
         {/* Sentinel for sticky header */}
         <div ref={sentinelRef} style={{ height: 1 }} />
