@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from "react";
-import { T } from "@/lib/dish-shared";
+
 import type { ConfirmMatch, NarrowQuestion } from "@/lib/types";
 
 // ─── FILTER STATE ─────────────────────────────────────────────────────────────

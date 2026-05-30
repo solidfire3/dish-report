@@ -1,19 +1,3 @@
-export const T = {
-  bg:      "#0C0C0C",
-  card:    "#141414",
-  card2:   "#1C1C1C",
-  border:  "#2A2A2A",
-  border2: "#383838",
-  text:    "#F0EDE8",
-  muted:   "#888",
-  dim:     "#444",
-  neon:    "#FFB800",
-  neonGlow:"#FFB80033",
-  green:   "#2ECC71",
-  red:     "#FF4444",
-  blue:    "#4A9EFF",
-  purple:  "#B56BFF",
-};
 
 export const VENUE_META: Record<string, { icon: string; clr: string }> = {
   "hole-in-the-wall": { icon: "🏚", clr: "#AAA" },
