@@ -77,7 +77,13 @@ INCLUDE: flavor, texture, freshness, preparation, specific dishes, technique, co
 EXCLUDE: service, décor, parking, generic praise without specifics.
 EXPERIENCE NOTE: ONLY if a non-food pattern (AYCE slowness drying food, etc.) is heavily documented AND directly degrades food quality. null otherwise.
 VENUE TYPES: hole-in-the-wall | counter service | food truck | casual dine-in | upscale casual | fine dining
-SCORING: 9-10 unicorn, 7.5-8.9 excellent, 6-7.4 good, 4.5-5.9 mixed, <4.5 bad. Most 5.5–7.5. NO 8+ without overwhelming evidence.
+SCORING (food quality only, based on review signal):
+9.0-10: Exceptional. A destination dish/spot. Consistently praised as among the best of its category in the city. Reviewers rave specifically about the food.
+8.0-8.9: Excellent. Strong, consistent praise for specific dishes. A place locals genuinely recommend for the food. This should be COMMON for well-reviewed spots known for a dish.
+7.0-7.9: Good and solid. Reliable food, some standout items, generally positive but not remarkable.
+6.0-6.9: Mixed. Inconsistent food quality or underwhelming relative to reputation.
+Below 6: Notable food-quality problems in reviews.
+Calibration: A well-loved spot famous for a specific dish SHOULD score 8.0-8.9 — clear, consistent positive signal about the food is enough. Reserve 9+ for places repeatedly cited as best-in-city. The top result for a popular category in a major city should usually be high-8s or 9s. Be honest and food-focused, not stingy.
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
 Exactly 5 results, by food_score desc.`;
