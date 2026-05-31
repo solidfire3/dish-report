@@ -21,102 +21,132 @@ const SUB_STATUSES = [
   "CHECKING SEASONAL MENU AVAILABILITY",
 ];
 
-// ─── CHARACTER POOLS (FIX 3) ─────────────────────────────────────────────────
-const NOISE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz0123456789:.-+=/|';
+// ─── IMAGE-TO-ASCII BRIGHTNESS SYSTEM ────────────────────────────────────────
+// Map brightness value 0-9 → character. 0=space (transparent), 9=densest.
+const RAMP = ' .:-=+*#%@';
+const NOISE_CHARS    = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz0123456789:.-+=/|';
 const SCRAMBLE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#@%&*+=<>';
 
+// ─── FOOD BRIGHTNESS GRIDS (20 wide × rows tall, digits 0-9) ─────────────────
+// 0 = space (skip), 1-9 → RAMP[n] character. Rendered with IBM Plex Mono.
+const SHAPE_TACO = [
+  "00001234567765432100",
+  "00123467899986431000",
+  "01234578999997543200",
+  "01234578999997543200",
+  "01234578976897543200",
+  "00123467899986431000",
+  "00001234567765432100",
+];
+const SHAPE_RAMEN = [
+  "00001100011000110000",  // steam puffs
+  "00000000000000000000",
+  "00012345667654321000",
+  "00123467889987432000",
+  "01234578999987543100",
+  "01234578969987543100",  // noodle surface
+  "01234578999987543100",
+  "00123467889987432000",
+  "00012345667654321000",
+];
+const SHAPE_BURGER = [
+  "00013578998985310000",
+  "00134679999997643100",
+  "01345678999976543200",
+  "01333343444343332100",  // lettuce
+  "00234556789765543000",  // patty
+  "01345678999976543200",
+  "00134679999997643100",
+  "00013578998985310000",
+];
+const SHAPE_PIZZA = [
+  "01234567899876543210",
+  "00123456788876543100",
+  "00012345678876540000",
+  "00001234567765430000",
+  "00000123456654320000",
+  "00000012345543210000",
+  "00000001234432100000",
+  "00000000123321000000",
+  "00000000012210000000",
+  "00000000001100000000",
+];
+const ALL_SHAPES = [SHAPE_TACO, SHAPE_RAMEN, SHAPE_BURGER, SHAPE_PIZZA];
+
+// Pre-compute non-zero chars for each shape for fast rendering
+type ShapeCell = { r: number; c: number; ch: string };
+function buildShapeCells(grid: string[]): ShapeCell[] {
+  const cells: ShapeCell[] = [];
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const v = parseInt(grid[r][c], 10);
+      if (v > 0) cells.push({ r, c, ch: RAMP[v] });
+    }
+  }
+  return cells;
+}
+const SHAPE_CELLS = ALL_SHAPES.map(buildShapeCells);
+
+// ─── CONTENT POOLS ────────────────────────────────────────────────────────────
 const DISH_POOL = [
   'CARNE ASADA', 'AL PASTOR', 'BIRRIA', 'MOLE', 'OMAKASE',
-  'NIGIRI', 'TONKOTSU', 'CARBONARA', 'CACIO E PEPE', 'BRISKET',
-  'CEVICHE', 'PHO', 'PAD THAI', 'KIMCHI', 'GYOZA',
-  'WAGYU', 'KARAAGE', 'SHAKSHUKA', 'CHILAQUILES', 'TIRAMISU',
+  'NIGIRI', 'TONKOTSU', 'CARBONARA', 'BRISKET', 'CEVICHE',
+  'PHO', 'PAD THAI', 'GYOZA', 'KIMCHI', 'RAMEN', 'BANH MI',
+  'WAGYU', 'KARAAGE', 'SHAKSHUKA', 'CHILAQUILES',
 ];
-
-// Stage-specific process phrases (FIX 3)
-const PROCESS_EARLY   = ['READING QUERY', 'PARSING INPUT', 'LOCATING CANDIDATES', 'MAPPING AREA'];
-const PROCESS_SCAN    = ['PULLING REVIEWS', 'COLLECTING DATA', 'SOURCES FOUND'];
-const PROCESS_FILTER  = ['FILTERING NOISE', 'REMOVING IRRELEVANT', 'SIGNAL ONLY'];
-const PROCESS_METRIC  = ['EXTRACTING FLAVOR', 'MEASURING QUALITY', 'FOOD SIGNAL'];
-const PROCESS_SCORE   = ['CALCULATING SCORE', 'RANKING BY FOOD', 'SCORING'];
-const PROCESS_COMPILE = ['COMPILING REPORT', 'CROSS-REFERENCING', 'WEIGHTING SIGNAL', 'RANKING DISHES', 'FINALIZING'];
-const METRIC_LABELS   = ['FLAVOR 94', 'TECHNIQUE 88', 'FRESHNESS 91', 'CONSISTENCY 87', 'TEXTURE 90', 'VALUE 85'];
-
-// FIX 4 — hardcoded ASCII art (~14 wide × 5-8 tall), clearly recognizable
-const ASCII_SHAPES: string[][] = [
-  // Taco
-  [
-    "   .-------.   ",
-    "  /  ~ * ~  \\  ",
-    " / ######### \\ ",
-    "|.###########.|",
-    " \\'---------'/ ",
-  ],
-  // Ramen bowl
-  [
-    " _____________ ",
-    "|  ~ ~ ~ ~ ~  |",
-    "|  ~~~~~~~~~~  |",
-    "|_____________|",
-    "    |     |    ",
-    "   _|_____|_   ",
-    "  |_________|  ",
-  ],
-  // Fish
-  [
-    "  .~~~~~~~~~.  ",
-    " /   (o)     > ",
-    "| ~~~~~~~~~~~ |",
-    " \\           > ",
-    "  '~~~~~~~~~'  ",
-  ],
-  // Fork and knife
-  [
-    " | |    |  ",
-    " | |    |  ",
-    " | |   /   ",
-    "  \\|  /    ",
-    "   | /     ",
-    "   ||      ",
-    "   |_      ",
-  ],
-];
+const METRIC_NAMES = ['FLAVOR', 'TECHNIQUE', 'FRESHNESS', 'CONSISTENCY', 'TEXTURE', 'VALUE'];
+const PHRASES_SCAN    = ['SCANNING REVIEWS', 'FILTERING SIGNALS', 'COLLECTING DATA', 'SOURCES FOUND'];
+const PHRASES_ANALYZE = ['CROSS-REFERENCING DISH MENTIONS', 'WEIGHTING SIGNAL STRENGTH', 'RANKING BY FOOD QUALITY'];
+const PHRASES_COMPILE = ['COMPILING REPORT', 'FINALIZING', 'RANKING DISHES', 'BUILDING YOUR REPORT'];
 
 function rnoiseChar(): string { return NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)]; }
-function rscramble(): string { return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]; }
+function rscramble():  string { return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]; }
 
 // ─── CANVAS ANIMATION HOOK ────────────────────────────────────────────────────
-type RevealEntry = {
-  lines: string[];
-  row: number;
-  col: number;
-  startMs: number;
-  materializeMs: number;   // duration of left-to-right decode effect
-  holdMs: number;          // duration fully formed
-  dissolveMs: number;      // duration of fade-out
-  amber: boolean;          // amber or dark
-  isHero: boolean;         // hero = center position, slightly more prominent
-  // Pre-computed: flat list of (lineIdx, charIdx, targetChar) for non-space chars
-  chars: { li: number; ci: number; ch: string; lockMs: number }[];
+type Floater = {
+  text: string;
+  gridRow: number;
+  gridCol: number;
+  amber: boolean;
+  born: number;
+  matMs: number;   // materialize
+  holdMs: number;
+  disMs: number;   // dissolve
+  // Pre-computed decode sequence: index in text → lock time within matMs
+  lockMs: number[];
 };
 
 function useCharGrid(
   canvasRef: React.RefObject<HTMLCanvasElement>,
   query: string,
-  stage: number,
+  progress: number,
   reviewCount: number,
   filteredCount: number,
   flickerScore: number,
   showComplete: boolean,
 ) {
+  // Refs for values that change without needing canvas restart
+  const progressRef      = useRef(progress);
+  const reviewCountRef   = useRef(reviewCount);
+  const filteredCountRef = useRef(filteredCount);
+  const flickerScoreRef  = useRef(flickerScore);
+  const showCompleteRef  = useRef(showComplete);
+  useEffect(() => {
+    progressRef.current      = progress;
+    reviewCountRef.current   = reviewCount;
+    filteredCountRef.current = filteredCount;
+    flickerScoreRef.current  = flickerScore;
+    showCompleteRef.current  = showComplete;
+  }); // runs every render, no restart
   const stateRef = useRef<{
     cols: number; rows: number; cw: number; ch: number;
-    grid: string[];
+    grid: string[];               // noise field
     wave: Float32Array;
-    reveals: RevealEntry[];
-    lastRevealMs: number;
-    lastShapeMs: number;
-    heroSpawnedAt: number;
-    shapeIndex: number;
+    floaters: Floater[];
+    lastFloaterMs: number;
+    hero: { cells: ShapeCell[]; shapeIdx: number; gridRow: number; gridCol: number; born: number; matMs: number; holdMs: number; disMs: number; permanent: boolean } | null;
+    lastHeroMs: number;
+    heroCount: number;            // shapes spawned so far
   } | null>(null);
 
   useEffect(() => {
@@ -125,9 +155,10 @@ function useCharGrid(
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    const NOISE_PX  = 10;   // FIX 1: noise chars — small
-    const REVEAL_PX = 13;   // FIX 1: reveal chars — larger, bolder
+    const dpr  = window.devicePixelRatio || 1;
+    const NOISE_PX  = 10;  // dim noise layer
+    const FLOAT_PX  = 13;  // floating text layer (bold)
+    const SHAPE_PX  = 11;  // hero ASCII shape layer
     const CW = 6.8;
     const CH = 14;
     let cols = 0, rows = 0;
@@ -147,144 +178,115 @@ function useCharGrid(
         cols, rows, cw: CW, ch: CH,
         grid: Array.from({ length: cols * rows }, rnoiseChar),
         wave: new Float32Array(cols * rows),
-        reveals: [],
-        lastRevealMs: 0,
-        lastShapeMs: 0,
-        heroSpawnedAt: 0,
-        shapeIndex: 0,
+        floaters: [],
+        lastFloaterMs: 0,
+        hero: null,
+        lastHeroMs: 0,
+        heroCount: 0,
       };
     };
 
     setup();
     window.addEventListener('resize', setup);
 
-    // ── Build a RevealEntry from lines of text ─────────────────────────────
-    const makeReveal = (
-      lines: string[], row: number, col: number,
-      materializeMs: number, holdMs: number, dissolveMs: number,
-      amber: boolean, isHero: boolean,
-    ): RevealEntry => {
-      // Collect all non-space chars with staggered lock times
-      const allChars: RevealEntry['chars'] = [];
-      let total = 0;
-      for (let li = 0; li < lines.length; li++) {
-        for (let ci = 0; ci < lines[li].length; ci++) {
-          if (lines[li][ci] !== ' ') total++;
-        }
-      }
-      let idx = 0;
-      for (let li = 0; li < lines.length; li++) {
-        for (let ci = 0; ci < lines[li].length; ci++) {
-          const ch = lines[li][ci];
-          if (ch !== ' ') {
-            // Stagger: left-to-right, top-to-bottom, lock over 80% of materializeMs
-            const lockMs = total > 1 ? (idx / (total - 1)) * materializeMs * 0.8 : 0;
-            allChars.push({ li, ci, ch, lockMs });
-            idx++;
-          }
-        }
-      }
-      return { lines, row, col, startMs: performance.now(), materializeMs, holdMs, dissolveMs, amber, isHero, chars: allChars };
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    const makeFloater = (text: string, row: number, col: number, amber: boolean,
+      matMs: number, holdMs: number, disMs: number): Floater => {
+      const lockMs = Array.from({ length: text.length }, (_, i) =>
+        text[i] === ' ' ? 0 : (i / Math.max(1, text.length - 1)) * matMs * 0.8
+      );
+      return { text, gridRow: row, gridCol: col, amber, born: performance.now(),
+        matMs, holdMs, disMs, lockMs };
     };
 
-    // ── Check if a row range overlaps existing reveals ─────────────────────
-    const overlapsExisting = (s: typeof stateRef.current, row: number, rowSpan: number): boolean => {
-      if (!s) return false;
-      const now = performance.now();
-      return s.reveals.some(rv => {
-        const age = now - rv.startMs;
-        const alive = age < rv.materializeMs + rv.holdMs + rv.dissolveMs;
-        if (!alive) return false;
-        const rvEnd = rv.row + rv.lines.length - 1;
-        return row <= rvEnd + 1 && row + rowSpan >= rv.row - 1;
+    const rowBusy = (s: NonNullable<typeof stateRef.current>, row: number): boolean =>
+      s.floaters.some(f => {
+        const age = performance.now() - f.born;
+        return age < f.matMs + f.holdMs + f.disMs && Math.abs(f.gridRow - row) < 2;
       });
+
+    // ── Narrative arc content selection ──────────────────────────────────────
+    let spawnSeq = 0;
+    const getFloaterContent = (): { text: string; amber: boolean } => {
+      spawnSeq++;
+      const prog = progressRef.current;
+      const rc   = reviewCountRef.current;
+      const fc   = filteredCountRef.current;
+      const sc   = flickerScoreRef.current;
+
+      // Query always shows early and periodically
+      if (query && (spawnSeq === 1 || spawnSeq % 7 === 0))
+        return { text: query.toUpperCase().slice(0, 24), amber: true };
+
+      if (prog < 40) {
+        // SCANNING: dish names + query + scan phrases
+        if (rc > 0 && spawnSeq % 4 === 0)
+          return { text: `SCANNING ${rc} REVIEWS`, amber: true };
+        const r = Math.random();
+        if (r < 0.45) return { text: DISH_POOL[Math.floor(Math.random() * DISH_POOL.length)], amber: false };
+        return { text: PHRASES_SCAN[Math.floor(Math.random() * PHRASES_SCAN.length)], amber: r < 0.65 };
+      }
+      if (prog < 75) {
+        // ANALYZING: metrics + cross-referencing
+        if (fc > 0 && spawnSeq % 3 === 0)
+          return { text: `FILTERED ${fc} SIGNALS`, amber: true };
+        if (sc > 0 && spawnSeq % 5 === 0)
+          return { text: `ANALYZING SCORE ${sc.toFixed(1)}`, amber: true };
+        const r = Math.random();
+        if (r < 0.45) {
+          const name = METRIC_NAMES[Math.floor(Math.random() * METRIC_NAMES.length)];
+          const val  = 75 + Math.floor(Math.random() * 25);
+          return { text: `${name} ${val}`, amber: true };
+        }
+        if (r < 0.65) return { text: DISH_POOL[Math.floor(Math.random() * DISH_POOL.length)], amber: false };
+        return { text: PHRASES_ANALYZE[Math.floor(Math.random() * PHRASES_ANALYZE.length)], amber: false };
+      }
+      // DECIDING (75-99%): compilation phrases only
+      return { text: PHRASES_COMPILE[Math.floor(Math.random() * PHRASES_COMPILE.length)], amber: Math.random() < 0.4 };
     };
 
-    // ── Stage-appropriate content pool (FIX 3) ────────────────────────────
-    let revealCounter = 0;
-    const getContent = (): { text: string; amber: boolean; isHero: boolean } => {
-      revealCounter++;
-      const n = revealCounter;
-
-      // Query shows as hero early and periodically
-      if (query && (n === 1 || n % 8 === 0)) {
-        return { text: query.toUpperCase().slice(0, 22), amber: true, isHero: true };
-      }
-
-      // Stage-specific live phrases
-      if (stage === 3 && reviewCount > 0 && n % 3 === 0)
-        return { text: `SCANNING ${reviewCount} REVIEWS`, amber: true, isHero: false };
-      if (stage === 4 && filteredCount > 0 && n % 3 === 0)
-        return { text: `FILTERED ${filteredCount} SIGNALS`, amber: true, isHero: false };
-      if (stage === 6 && n % 4 === 0)
-        return { text: `SCORE ${flickerScore.toFixed(1)}`, amber: true, isHero: true };
-      if (showComplete)
-        return { text: 'REPORT COMPLETE', amber: true, isHero: true };
-
-      // Pool selection by stage
-      const dishChance = Math.random();
-      if (dishChance < 0.35) {
-        const dish = DISH_POOL[Math.floor(Math.random() * DISH_POOL.length)];
-        return { text: dish, amber: false, isHero: false };
-      }
-
-      const metricChance = Math.random();
-      if (stage >= 5 && metricChance < 0.4)
-        return { text: METRIC_LABELS[Math.floor(Math.random() * METRIC_LABELS.length)], amber: true, isHero: false };
-
-      // Process phrase by stage
-      let pool: string[];
-      if (stage <= 2)       pool = PROCESS_EARLY;
-      else if (stage === 3) pool = PROCESS_SCAN;
-      else if (stage === 4) pool = PROCESS_FILTER;
-      else if (stage === 5) pool = PROCESS_METRIC;
-      else if (stage === 6) pool = PROCESS_SCORE;
-      else                  pool = PROCESS_COMPILE;
-
-      const text = pool[Math.floor(Math.random() * pool.length)];
-      return { text, amber: false, isHero: false };
-    };
-
-    // ── Spawn a word/phrase reveal ─────────────────────────────────────────
-    const spawnReveal = (s: typeof stateRef.current) => {
-      if (!s) return;
-      const { text, amber, isHero } = getContent();
-
+    // ── Spawn floater ─────────────────────────────────────────────────────────
+    const spawnFloater = (s: NonNullable<typeof stateRef.current>) => {
+      const { text, amber } = getFloaterContent();
+      const prog = progressRef.current;
+      // Timing by phase
+      const matMs  = 380;
+      const holdMs = prog < 40 ? 900 : prog < 75 ? 1400 : 2000;
+      const disMs  = 380;
       const maxCol = Math.max(2, s.cols - text.length - 4);
-      let row: number, col: number;
-      let attempts = 0;
+      let row = 0, col = 0, attempts = 0;
       do {
-        // Spread across full screen including top and bottom areas
-        row = 1 + Math.floor(Math.random() * Math.max(1, s.rows - 3));
+        row = 2 + Math.floor(Math.random() * Math.max(1, s.rows - 5));
         col = Math.floor(Math.random() * maxCol);
         attempts++;
-      } while (overlapsExisting(s, row, 1) && attempts < 6);
-
-      s.reveals.push(makeReveal([text], row, col, 400, 1200, 400, amber, isHero));
+      } while (rowBusy(s, row) && attempts < 8);
+      s.floaters.push(makeFloater(text, row, col, amber, matMs, holdMs, disMs));
     };
 
-    // ── Spawn an ASCII shape (FIX 4) ──────────────────────────────────────
-    const spawnShape = (s: typeof stateRef.current) => {
-      if (!s) return;
-      const shape = ASCII_SHAPES[s.shapeIndex % ASCII_SHAPES.length];
-      s.shapeIndex++;
-      const maxWidth = Math.max(...shape.map(l => l.length));
-      // Center horizontally, random vertical position avoiding UI chrome
-      const col = Math.max(2, Math.floor((s.cols - maxWidth) / 2) + Math.floor((Math.random() - 0.5) * (s.cols / 3)));
-      let row: number;
-      let attempts = 0;
-      do {
-        row = 3 + Math.floor(Math.random() * Math.max(1, s.rows - shape.length - 6));
-        attempts++;
-      } while (overlapsExisting(s, row, shape.length) && attempts < 8);
-
-      s.reveals.push(makeReveal(shape, row, Math.max(0, col), 500, 1500, 500, false, true));
+    // ── Spawn / update hero shape ─────────────────────────────────────────────
+    const spawnHero = (s: NonNullable<typeof stateRef.current>) => {
+      const prog = progressRef.current;
+      const isWinner = showCompleteRef.current;
+      const shapeIdx = s.heroCount % ALL_SHAPES.length;
+      s.heroCount++;
+      const cells   = SHAPE_CELLS[shapeIdx];
+      const shRows  = ALL_SHAPES[shapeIdx].length;
+      const shCols  = 20;
+      // Center the shape
+      const gridRow = Math.max(3, Math.floor((s.rows - shRows) / 2));
+      const gridCol = Math.max(2, Math.floor((s.cols - shCols) / 2));
+      const matMs   = isWinner ? 700 : prog < 40 ? 400 : prog < 75 ? 500 : 600;
+      const holdMs  = isWinner ? 99999 : prog < 40 ? 1500 : prog < 75 ? 2500 : 4000;
+      const disMs   = isWinner ? 0 : 500;
+      s.hero = { cells, shapeIdx, gridRow, gridCol, born: performance.now(),
+        matMs, holdMs, disMs, permanent: isWinner };
+      s.lastHeroMs = performance.now();
     };
 
-    // ── Main animation loop ────────────────────────────────────────────────
+    // ── Main frame loop ───────────────────────────────────────────────────────
     let raf: number;
     let lastFrame = 0;
-    const FRAME_MS = 40; // 25fps
+    const FRAME_MS = 38; // ~26fps
 
     const frame = (ts: number) => {
       raf = requestAnimationFrame(frame);
@@ -294,116 +296,148 @@ function useCharGrid(
 
       const s = stateRef.current;
       if (!s) return;
-      const t = ts / 800;
+      const t   = ts / 800;
+      const now = performance.now();
+      const prog  = progressRef.current;
+      const done  = showCompleteRef.current;
 
-      // ── Wave update ──────────────────────────────────────────────────────
+      // ── Wave (noise texture) ────────────────────────────────────────────────
       for (let r = 0; r < s.rows; r++) {
         for (let c = 0; c < s.cols; c++) {
           const w1 = Math.sin(c * 0.28 + t * 1.8) * 0.5 + 0.5;
           const w2 = Math.sin(r * 0.22 - t * 1.1) * 0.5 + 0.5;
           const w3 = Math.sin((c * 0.12 + r * 0.18) + t * 0.9) * 0.5 + 0.5;
-          s.wave[r * s.cols + c] = w1 * 0.40 + w2 * 0.35 + w3 * 0.25;
+          s.wave[r * s.cols + c] = w1 * 0.4 + w2 * 0.35 + w3 * 0.25;
         }
       }
-
-      // FIX 1: Background shuffle — noise only, lower probability
+      // Shuffle noise
       for (let i = 0; i < s.cols * s.rows; i++) {
-        const prob = (0.04 + s.wave[i] * 0.25) * (dt / 40);
-        if (Math.random() < prob) s.grid[i] = rnoiseChar();
+        if (Math.random() < (0.04 + s.wave[i] * 0.22) * (dt / 38)) s.grid[i] = rnoiseChar();
       }
 
-      // ── Spawn reveals ────────────────────────────────────────────────────
-      const now = performance.now();
-      if (now - s.lastRevealMs > 900 + Math.random() * 600) {
-        spawnReveal(s);
-        s.lastRevealMs = now;
-      }
-      // Shape every 7-11s
-      if (now - s.lastShapeMs > 7000 + Math.random() * 4000) {
-        spawnShape(s);
-        s.lastShapeMs = now;
-      }
-      // Expire finished reveals
-      s.reveals = s.reveals.filter(rv => {
-        const total = rv.materializeMs + rv.holdMs + rv.dissolveMs;
-        return (now - rv.startMs) < total;
-      });
-
-      // ── Build cell override map from reveals ──────────────────────────────
-      // cell index → { targetChar, drawScramble, alpha, amber }
-      const overrideMap = new Map<number, { targetChar: string; scramble: boolean; alpha: number; amber: boolean }>();
-
-      for (const rv of s.reveals) {
-        const elapsed = now - rv.startMs;
-        const total = rv.materializeMs + rv.holdMs + rv.dissolveMs;
-        if (elapsed >= total) continue;
-
-        // Phase
-        let dissolveAlpha = 1.0;
-        if (elapsed > rv.materializeMs + rv.holdMs) {
-          // Dissolve phase: simple fade out
-          const dElapsed = elapsed - rv.materializeMs - rv.holdMs;
-          dissolveAlpha = Math.max(0, 1 - dElapsed / rv.dissolveMs);
-        }
-
-        for (const { li, ci, ch, lockMs } of rv.chars) {
-          const r = rv.row + li;
-          const c = rv.col + ci;
-          if (r < 0 || r >= s.rows || c < 0 || c >= s.cols) continue;
-          const idx = r * s.cols + c;
-
-          let scramble = false;
-          if (elapsed < rv.materializeMs) {
-            // Materialize: locked = elapsed >= lockMs
-            scramble = elapsed < lockMs;
-          }
-          overrideMap.set(idx, { targetChar: ch, scramble, alpha: dissolveAlpha, amber: rv.amber });
-        }
+      // ── Narrative arc: manage floaters ─────────────────────────────────────
+      // Target count depends on progress
+      const maxFloaters = done ? 0 : prog < 40 ? 5 : prog < 75 ? 3 : 2;
+      // Expire old floaters
+      s.floaters = s.floaters.filter(f => (now - f.born) < f.matMs + f.holdMs + f.disMs);
+      // Spawn interval: fast in scanning, slower in deciding
+      const spawnInterval = prog < 40 ? 700 : prog < 75 ? 1000 : 1500;
+      if (s.floaters.length < maxFloaters && now - s.lastFloaterMs > spawnInterval) {
+        spawnFloater(s);
+        s.lastFloaterMs = now;
       }
 
-      // ── Render ────────────────────────────────────────────────────────────
+      // ── Narrative arc: manage hero shape ───────────────────────────────────
+      const heroInterval = done ? 0 : prog < 40 ? 4000 : prog < 75 ? 6000 : 10000;
+      const heroAlive = s.hero && (now - s.hero.born) < s.hero.matMs + s.hero.holdMs + s.hero.disMs;
+      if (done && !heroAlive) {
+        spawnHero(s); // winner — permanent shape
+      } else if (!heroAlive && !done && heroInterval > 0 && now - s.lastHeroMs > heroInterval) {
+        spawnHero(s);
+      }
+
+      // ── Render ─────────────────────────────────────────────────────────────
       const W = s.cols * CW;
       const H = s.rows * CH;
-
       ctx.fillStyle = '#F2EEE8';
       ctx.fillRect(0, 0, W, H);
 
-      // Pass 1 — FIX 1: Background noise at very low opacity
-      ctx.font = `${NOISE_PX}px "IBM Plex Mono","Courier New",monospace`;
-      for (let r = 0; r < s.rows; r++) {
-        const y = r * CH + 2; // slight vertical offset for smaller font
-        for (let c = 0; c < s.cols; c++) {
-          const idx = r * s.cols + c;
-          if (overrideMap.has(idx)) continue; // will be drawn in pass 2
-          // FIX 1: Noise chars — barely visible, no amber activation
-          const opacity = 0.08 + s.wave[idx] * 0.09; // 8-17% max
-          ctx.fillStyle = `rgba(180,170,160,${opacity})`;
-          ctx.fillText(s.grid[idx], c * CW, y);
+      // Layer 1: NOISE (dim, full screen)
+      // Progressively dim noise as we approach 100%
+      const noiseScale = done ? 0 : Math.max(0, 1 - (prog - 75) / 25) * 1.0;
+      if (noiseScale > 0) {
+        ctx.font = `${NOISE_PX}px "IBM Plex Mono","Courier New",monospace`;
+        for (let r = 0; r < s.rows; r++) {
+          const y = r * CH + 2;
+          for (let c = 0; c < s.cols; c++) {
+            const idx = r * s.cols + c;
+            const opacity = (0.07 + s.wave[idx] * 0.08) * noiseScale;
+            ctx.fillStyle = `rgba(180,170,160,${opacity})`;
+            ctx.fillText(s.grid[idx], c * CW, y);
+          }
         }
       }
 
-      // Pass 2 — FIX 1 + 2: Reveal chars at full opacity, larger font, with decode effect
-      ctx.font = `bold ${REVEAL_PX}px "IBM Plex Mono","Courier New",monospace`;
-      overrideMap.forEach((override, idx) => {
-        const r = Math.floor(idx / s.cols);
-        const c = idx % s.cols;
-        const x = c * CW;
-        const y = r * CH + 0.5;
-
-        if (override.scramble) {
-          // FIX 2: Decode effect — scramble char at medium opacity
-          ctx.fillStyle = `rgba(120,100,80,${0.5 * override.alpha})`;
-          ctx.fillText(rscramble(), x, y);
-        } else if (override.amber) {
-          // FIX 1: Amber content — full opacity amber
-          ctx.fillStyle = `rgba(184,120,10,${0.95 * override.alpha})`;
-          ctx.fillText(override.targetChar, x, y);
-        } else {
-          // FIX 1: Dark content — near-black full opacity
-          ctx.fillStyle = `rgba(28,25,23,${0.92 * override.alpha})`;
-          ctx.fillText(override.targetChar, x, y);
+      // Layer 2: FLOATERS (text content, decode lifecycle)
+      ctx.font = `bold ${FLOAT_PX}px "IBM Plex Mono","Courier New",monospace`;
+      for (const f of s.floaters) {
+        const elapsed = now - f.born;
+        const total   = f.matMs + f.holdMs + f.disMs;
+        if (elapsed >= total) continue;
+        // Dissolve alpha
+        let alpha = 1.0;
+        if (elapsed > f.matMs + f.holdMs) {
+          alpha = Math.max(0, 1 - (elapsed - f.matMs - f.holdMs) / f.disMs);
         }
-      });
+        for (let ci = 0; ci < f.text.length; ci++) {
+          const ch = f.text[ci];
+          if (ch === ' ') continue;
+          const x = (f.gridCol + ci) * CW;
+          const y = f.gridRow * CH + 0.5;
+          const locked = elapsed >= f.matMs || elapsed >= f.lockMs[ci];
+          if (!locked) {
+            ctx.fillStyle = `rgba(120,100,80,${0.45 * alpha})`;
+            ctx.fillText(rscramble(), x, y);
+          } else if (f.amber) {
+            ctx.fillStyle = `rgba(184,120,10,${0.95 * alpha})`;
+            ctx.fillText(ch, x, y);
+          } else {
+            ctx.fillStyle = `rgba(28,25,23,${0.90 * alpha})`;
+            ctx.fillText(ch, x, y);
+          }
+        }
+      }
+
+      // Layer 3: HERO ASCII SHAPE (image-to-ASCII via brightness grid)
+      if (s.hero) {
+        const h       = s.hero;
+        const elapsed = now - h.born;
+        const total   = h.matMs + h.holdMs + h.disMs;
+        if (elapsed < total || h.permanent) {
+          let alpha = 1.0;
+          if (!h.permanent && elapsed > h.matMs + h.holdMs) {
+            alpha = Math.max(0, 1 - (elapsed - h.matMs - h.holdMs) / h.disMs);
+          }
+          const numCells = h.cells.length;
+          ctx.font = `${SHAPE_PX}px "IBM Plex Mono","Courier New",monospace`;
+          // If winner, draw amber glow (multiple offset passes)
+          if (done) {
+            const glowPasses = [{dx:-1,dy:0,a:0.15},{dx:1,dy:0,a:0.15},{dx:0,dy:-1,a:0.15},{dx:0,dy:1,a:0.15}];
+            glowPasses.forEach(({ dx, dy, a }) => {
+              ctx.fillStyle = `rgba(184,120,10,${a})`;
+              h.cells.forEach(({ r, c, ch }) => {
+                ctx.fillText(ch, (h.gridCol + c) * CW + dx, (h.gridRow + r) * CH + 0.5 + dy);
+              });
+            });
+          }
+          // Draw shape cells with decode cascade (left-to-right, top-to-bottom)
+          h.cells.forEach(({ r, c, ch }, i) => {
+            const lockMs = numCells > 1 ? (i / (numCells - 1)) * h.matMs * 0.85 : 0;
+            const locked = elapsed >= h.matMs || elapsed >= lockMs;
+            const x = (h.gridCol + c) * CW;
+            const y = (h.gridRow + r) * CH + 0.5;
+            if (!locked) {
+              ctx.fillStyle = `rgba(120,100,80,${0.4 * alpha})`;
+              ctx.fillText(rscramble(), x, y);
+            } else if (done) {
+              ctx.fillStyle = `rgba(184,120,10,${alpha})`;
+              ctx.fillText(ch, x, y);
+            } else {
+              ctx.fillStyle = `rgba(28,25,23,${0.88 * alpha})`;
+              ctx.fillText(ch, x, y);
+            }
+          });
+          // REPORT COMPLETE text below shape at winner state
+          if (done) {
+            const shRows = ALL_SHAPES[h.shapeIdx].length;
+            const textY  = (h.gridRow + shRows + 1) * CH;
+            const textX  = h.gridCol * CW;
+            ctx.font = `bold ${FLOAT_PX}px "IBM Plex Mono","Courier New",monospace`;
+            ctx.fillStyle = 'rgba(184,120,10,0.95)';
+            ctx.fillText('REPORT COMPLETE', textX, textY);
+          }
+        }
+      }
     };
 
     raf = requestAnimationFrame(frame);
@@ -411,7 +445,7 @@ function useCharGrid(
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', setup);
     };
-  }, [query, stage, reviewCount, filteredCount, flickerScore, showComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
@@ -558,7 +592,7 @@ export function LoadingTracker({
 
   // ── Canvas reference ───────────────────────────────────────────────────────
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  useCharGrid(canvasRef, query, stage, reviewCount, filteredCount, flickerScore, showComplete);
+  useCharGrid(canvasRef, query, progress, reviewCount, filteredCount, flickerScore, showComplete);
 
   // ── Stage data line ────────────────────────────────────────────────────────
   const stageData = STAGES[stage - 1];
