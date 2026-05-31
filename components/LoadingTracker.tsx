@@ -130,7 +130,7 @@ export function LoadingTracker({
   const [subStatusIdx, setSubStatusIdx] = useState(0);
   const [showStandBy,  setShowStandBy]  = useState(false);
   const [canComplete,  setCanComplete]  = useState(false);
-  const [completing,   setCompleting]   = useState(false);
+  const completingRef                   = useRef(false);   // ref: no re-render, no cleanup cancellation
   const [showComplete, setShowComplete] = useState(false);
 
   // ── Stage advancement ─────────────────────────────────────────────────────
@@ -183,21 +183,22 @@ export function LoadingTracker({
     }
   }, [stage, progress7]);
 
-  // Completion trigger — bar animates to 100% over 600ms, flash, then call onDone
+  // Completion trigger — bar animates to 100% over 600ms, flash, then call onDone.
+  // Uses a ref guard (not state) so the guard update doesn't cause a re-render
+  // that would trigger the effect cleanup and cancel the timeout.
   useEffect(() => {
-    if (apiDone && canComplete && stage === 7 && !completing) {
-      setCompleting(true);
+    if (apiDone && canComplete && stage === 7 && !completingRef.current) {
+      completingRef.current = true;  // no re-render, no cleanup side-effect
       setProgress(100);
-      animateBar(100, 600);  // direct DOM: fast final fill
+      animateBar(100, 600);
       setShowComplete(true);
-      // 600ms bar + 400ms flash = 1000ms before revealing results
       const t = setTimeout(() => {
         setShowComplete(false);
         onDoneRef.current?.();
       }, 1000);
       return () => clearTimeout(t);
     }
-  }, [apiDone, canComplete, stage, completing]);
+  }, [apiDone, canComplete, stage]);
 
   // ── Stage 3: review counter animation ────────────────────────────────────
   useEffect(() => {
@@ -287,7 +288,7 @@ export function LoadingTracker({
       <style>{ANIMATION_CSS}</style>
 
       {/* Tab-returned banner — shows when user comes back to a running search */}
-      {tabReturned && !apiDone && !completing && (
+      {tabReturned && !apiDone && !completingRef.current && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 10,
           background: "rgba(255,184,0,0.08)", borderBottom: "1px solid rgba(255,184,0,0.2)",
