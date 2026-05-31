@@ -4,8 +4,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad, provide up to 3 sequential narrowing questions with 5-12 options each to help get specific.
+const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad OR contains location intent without specifying distance/mode/price, provide sequential narrowing questions.
 
+CASE 1 — Broad dish/cuisine (no location intent):
+Provide 1-3 questions narrowing the dish type.
 Examples:
 - "pizza" → Q1: style (Neapolitan/NY Slice/Detroit/New Haven/Sicilian/Chicago Deep Dish/Roman al Taglio/Grandma/Bar Pizza) → Q2: focus (Margherita/White Pizza/Clam/Truffle/Prosciutto/Meat Lovers/Veggie)
 - "tacos" → Q1: protein (Beef/Pork/Seafood/Chicken/Veggie) → Q2: specific (for Beef: Carne Asada/Barbacoa/Birria/Suadero; for Pork: Carnitas/Al Pastor/Adobada)
@@ -21,9 +23,21 @@ Examples:
 - "seafood" → Q1: type (Oysters/Lobster/Crab/Grilled whole fish/Ceviche/Raw bar)
 - "pasta" → Q1: style (Fresh pasta tasting/Carbonara/Cacio e Pepe/Bolognese/Seafood/Baked)
 
+CASE 2 — Location-based search (contains "near me", "nearby", "close to", "in [neighborhood]", or is a cuisine/restaurant type without explicit distance):
+Ask these questions in order to refine the search:
+
+Q1 (always ask): "How far are you willing to go?"
+Options: Within 1 mile / Within 2 miles / Within 5 miles / Within 10 miles / Any distance
+
+Q2 (always ask): "Dining in or taking out?"
+Options: Dine-in / Takeout / Delivery / Either
+
+Q3 (ask only if no price signal in query): "What's your budget per person?"
+Options: Under $15 / $15–30 / $30–60 / $60+
+
 Return ONLY valid JSON:
 Broad: { "broad": true, "questions": [{ "question": "short punchy question 6-9 words", "options": ["opt1","opt2",...5-12] }] }
-  Include 1-3 question objects — 2 is ideal for most cases.
+  Include 1-3 question objects.
 Specific: { "broad": false }`;
 
 const makeSearchPrompt = (excl: string[] = []) =>

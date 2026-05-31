@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const place = data.places?.[0];
     if (!place?.photos?.length) return NextResponse.json({ photos: [] });
 
-    const photos: string[] = place.photos.slice(0, 6).map((p: { name: string }) => p.name);
+    const photos: string[] = place.photos.slice(0, 10).map((p: { name: string }) => p.name);
     return NextResponse.json({ photos });
   } catch {
     return NextResponse.json({ photos: [] });

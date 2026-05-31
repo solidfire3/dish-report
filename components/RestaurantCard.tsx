@@ -439,124 +439,66 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
         {/* ── Content area (tap to expand) ──────────────────────────────── */}
         <div style={{ cursor: "pointer" }} onClick={() => onToggle(i)}>
-          <div style={{ padding: 20 }}>
 
-            {/* Row 1 — Name + Score */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
-              <div style={{
-                fontFamily: "'Playfair Display',Georgia,serif",
-                fontSize: "1.5rem", fontWeight: 700,
-                color: t.text, lineHeight: 1.2, flex: 1, minWidth: 0,
-                overflow: "hidden", display: "-webkit-box",
-                WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-              }}>{r.name}</div>
-
-              {/* Score — confident number, no box */}
-              {(() => {
-                const clr = scoreColor(r.food_score ?? 5, dark);
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <div style={{
-                      fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                      fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
-                    }}>{(r.food_score ?? 5).toFixed(1)}</div>
-                    <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
-                    <div style={{
-                      fontFamily: "'Inter', sans-serif",
-                      fontSize: "0.75rem", color: t.tertiary, lineHeight: 1,
-                    }}>/ 10</div>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Row 2 — Location · Type · Price */}
-            <div style={{
-              display: "flex", alignItems: "center",
-              gap: 5, flexWrap: "wrap",
-              marginBottom: 12,
-            }}>
-              {r.neighborhood && (
-                <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
-                  {r.neighborhood}
-                </span>
-              )}
-              {r.neighborhood && (r.venue_type || r.price_range) && (
-                <span style={{ color: t.tertiary, fontSize: "0.875rem" }}>·</span>
-              )}
-              {r.venue_type && (
-                <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
-                  {r.venue_type}
-                </span>
-              )}
-              {r.price_range && (
-                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.875rem", fontWeight: 600 }}>
-                  {[1, 2, 3, 4].map(n => {
-                    const filled = ["$", "$$", "$$$", "$$$$"].indexOf(r.price_range!) + 1;
-                    return <span key={n} style={{ color: n <= filled ? t.accent : t.disabled }}>$</span>;
-                  })}
-                </span>
-              )}
-            </div>
-
-            {/* Row 3 — Must order preview */}
-            {firstMo && (
-              <div style={{ marginBottom: 2 }}>
-                <div style={{
-                  fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem",
-                  fontWeight: 400, color: "#B8780A",
-                  textTransform: "uppercase", letterSpacing: "0.12em",
-                  marginBottom: 8,
-                }}>Must Order</div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {/* Dish initial placeholder — Google Places photos are not dish-specific */}
+          {/* Row 1 — Score LEFT + Name RIGHT */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px 10px" }}>
+            {/* Score — left anchor */}
+            {(() => {
+              const clr = scoreColor(r.food_score ?? 5, dark);
+              return (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
                   <div style={{
-                    width: 48, height: 48, borderRadius: 8, flexShrink: 0,
-                    background: "#FDF3E3", border: "1px solid #F0D5A0",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <span style={{
-                      fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                      fontSize: "1.25rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
-                    }}>{((firstMo.item || "?")[0] || "?").toUpperCase()}</span>
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontFamily: "'Inter',sans-serif",
-                      fontSize: "0.875rem", fontWeight: 600,
-                      color: t.text, lineHeight: 1.2,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    }}>{firstMo.item || ""}</div>
-
-                    {firstMo.differentiator && (
-                      <div style={{
-                        fontFamily: "'DM Sans','Inter',sans-serif",
-                        fontSize: "0.875rem",
-                        color: "#4A4540", lineHeight: 1.4, marginTop: 2,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      }}>{firstMo.differentiator}</div>
-                    )}
-                  </div>
-
-                  {mos.length > 1 && (
-                    <div style={{
-                      fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem",
-                      color: t.tertiary, border: `1px solid ${t.border}`,
-                      padding: "2px 8px", borderRadius: 10, flexShrink: 0,
-                    }}>+{mos.length - 1}</div>
-                  )}
+                    fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                    fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
+                  }}>{(r.food_score ?? 5).toFixed(1)}</div>
+                  <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
                 </div>
-              </div>
+              );
+            })()}
+            {/* Restaurant name */}
+            <div style={{
+              fontFamily: "'Playfair Display',Georgia,serif",
+              fontSize: "1.5rem", fontWeight: 700,
+              color: t.text, lineHeight: 1.2, flex: 1, minWidth: 0,
+              overflow: "hidden", display: "-webkit-box",
+              WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+            }}>{r.name}</div>
+          </div>
+
+          {/* Row 2 — Location · Type · Price */}
+          <div style={{
+            display: "flex", alignItems: "center",
+            gap: 5, flexWrap: "wrap",
+            padding: "0 20px 12px",
+          }}>
+            {r.neighborhood && (
+              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
+                {r.neighborhood}
+              </span>
+            )}
+            {r.neighborhood && (r.venue_type || r.price_range) && (
+              <span style={{ color: t.tertiary, fontSize: "0.875rem" }}>·</span>
+            )}
+            {r.venue_type && (
+              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
+                {r.venue_type}
+              </span>
+            )}
+            {r.price_range && (
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.875rem", fontWeight: 600 }}>
+                {[1, 2, 3, 4].map(n => {
+                  const filled = ["$", "$$", "$$$", "$$$$"].indexOf(r.price_range!) + 1;
+                  return <span key={n} style={{ color: n <= filled ? t.accent : t.disabled }}>$</span>;
+                })}
+              </span>
             )}
           </div>
 
-          {/* Row 4 — Quick actions */}
+          {/* Row 3 — Action buttons */}
           <div
             style={{
               borderTop: `1px solid ${t.border}`,
-              padding: "2px 4px 2px",
+              padding: "2px 4px",
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}
             onClick={e => e.stopPropagation()}
@@ -614,6 +556,67 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               )}
             </div>
           </div>
+
+          {/* Row 4 — WHY IT RANKS HERE */}
+          {r.win_reason && (
+            <div style={{ padding: "10px 20px 0" }}>
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem",
+                fontWeight: 400, color: "#B8780A",
+                textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4,
+              }}>Why it ranks here</div>
+              <div style={{
+                fontFamily: "'DM Sans','Inter',sans-serif",
+                fontSize: "0.875rem", color: "#4A4540", lineHeight: 1.5,
+                overflow: "hidden", display: "-webkit-box",
+                WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+              }}>{r.win_reason}</div>
+            </div>
+          )}
+
+          {/* Row 5 — Must order preview */}
+          {firstMo && (
+            <div style={{ padding: "10px 20px 16px" }}>
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem",
+                fontWeight: 400, color: "#B8780A",
+                textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8,
+              }}>Must Order</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 8, flexShrink: 0,
+                  background: "#FDF3E3", border: "1px solid #F0D5A0",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{
+                    fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                    fontSize: "1.25rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                  }}>{((firstMo.item || "?")[0] || "?").toUpperCase()}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 600,
+                    color: t.text, lineHeight: 1.2,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>{firstMo.item || ""}</div>
+                  {firstMo.differentiator && (
+                    <div style={{
+                      fontFamily: "'DM Sans','Inter',sans-serif", fontSize: "0.875rem",
+                      color: "#4A4540", lineHeight: 1.4, marginTop: 2,
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                    }}>{firstMo.differentiator}</div>
+                  )}
+                </div>
+                {mos.length > 1 && (
+                  <div style={{
+                    fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem",
+                    color: t.tertiary, border: `1px solid ${t.border}`,
+                    padding: "2px 8px", borderRadius: 10, flexShrink: 0,
+                  }}>+{mos.length - 1}</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Expanded content ──────────────────────────────────────────── */}

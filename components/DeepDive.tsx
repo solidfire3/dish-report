@@ -137,7 +137,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
     if (!data.name) return;
     fetch(`/api/photos?name=${encodeURIComponent(data.name)}&city=${encodeURIComponent(city || "")}`)
       .then(r => r.json())
-      .then(d => { if (d.photos?.length) setPhotoRefs(d.photos.slice(0, 6)); })
+      .then(d => { if (d.photos?.length) setPhotoRefs(d.photos); }) // all available
       .catch(() => {});
   }, [data.name, city]);
 
@@ -193,51 +193,84 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
     <>
       <div style={{ background: t.bg, minHeight: "100vh", paddingBottom: 64 }}>
 
-        {/* ── Hero photo strip (max 3, first = establishment) ─────────── */}
-        <div style={{ position: "relative", height: 240, overflow: "hidden", background: "#E8E3DC" }}>
-          {photoUrls.length > 0 ? (
-            <div style={{ display: "flex", height: "100%", overflowX: "auto", scrollbarWidth: "none" }}>
-              {photoUrls.slice(0, 3).map((url, idx) => (
-                <div key={idx} style={{ position: "relative", height: "100%", flexShrink: 0,
-                  width: photoUrls.slice(0, 3).length === 1 ? "100%" : "88%",
-                  minWidth: photoUrls.slice(0, 3).length === 1 ? "100%" : 260,
+        {/* ── Hero photo strip — snapping, 280px desktop / 220px mobile ── */}
+        {(() => {
+          const MIN_SLOTS = 5;
+          const realPhotos = photoUrls;
+          // Pad with null slots so we always show at least MIN_SLOTS items
+          const slots: (string | null)[] = [
+            ...realPhotos,
+            ...Array(Math.max(0, MIN_SLOTS - realPhotos.length)).fill(null),
+          ];
+          const initial = (data.name?.[0] || "?").toUpperCase();
+          return (
+            <>
+              <style>{`
+                .dr-photo-strip { height: 280px; }
+                @media (max-width: 640px) { .dr-photo-strip { height: 220px; } }
+              `}</style>
+              <div className="dr-photo-strip" style={{ position: "relative", overflow: "hidden", background: "#E8E3DC" }}>
+                <div style={{
+                  display: "flex", height: "100%",
+                  overflowX: "auto", scrollbarWidth: "none",
+                  scrollSnapType: "x mandatory",
+                  WebkitOverflowScrolling: "touch",
                 }}>
-                  <img
-                    src={url} alt=""
-                    onClick={() => { setLightboxIdx(idx); setLightboxOpen(true); }}
-                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
-                  />
-                  {/* ESTABLISHMENT label on first photo */}
-                  {idx === 0 && (
-                    <div style={{
-                      position: "absolute", bottom: 8, left: 10,
-                      background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4,
+                  {slots.map((url, idx) => (
+                    <div key={idx} style={{
+                      position: "relative", height: "100%", flexShrink: 0,
+                      scrollSnapAlign: "start",
+                      // Show partial next slot to signal scrollability
+                      width: slots.length === 1 ? "100%" : "88%",
+                      minWidth: slots.length === 1 ? "100%" : 260,
                     }}>
-                      <span style={{
-                        fontFamily: "'Sevastopol', Georgia, serif",
-                        fontSize: 9, color: "#FFFFFF",
-                        textTransform: "uppercase", letterSpacing: "0.15em",
-                      }}>ESTABLISHMENT</span>
+                      {url ? (
+                        <>
+                          <img
+                            src={url} alt=""
+                            onClick={() => { setLightboxIdx(idx < realPhotos.length ? idx : 0); setLightboxOpen(true); }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                          />
+                          {idx === 0 && (
+                            <div style={{
+                              position: "absolute", bottom: 8, left: 10,
+                              background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4,
+                            }}>
+                              <span style={{
+                                fontFamily: "'Sevastopol', Georgia, serif",
+                                fontSize: 9, color: "#FFFFFF",
+                                textTransform: "uppercase", letterSpacing: "0.15em",
+                              }}>ESTABLISHMENT</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        /* Placeholder slot for missing photos */
+                        <div style={{
+                          width: "100%", height: "100%",
+                          background: "#FDF3E3", border: "none",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <span style={{
+                            fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                            fontSize: "4rem", fontWeight: 900, color: "#B8780A", opacity: 0.35,
+                          }}>{initial}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "4rem", fontWeight: 700, color: "#A89F99" }}>
-                {data.name?.[0]?.toUpperCase() || "?"}
+                {/* Gradient overlay */}
+                <div style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0, height: "50%",
+                  background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))",
+                  pointerEvents: "none",
+                }} />
               </div>
-            </div>
-          )}
-          {/* Gradient overlay */}
-          <div style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, height: "65%",
-            background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.55))",
-            pointerEvents: "none",
-          }} />
-        </div>
+            </>
+          );
+        })()}
 
         {/* ── Identity block ───────────────────────────────────────────── */}
         <div style={{ padding: "20px 16px 24px", borderBottom: `1px solid ${t.border}` }}>
@@ -561,42 +594,63 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
         </div>
       </div>
 
-      {/* ── Sticky header ────────────────────────────────────────────────── */}
+      {/* ── Sticky header — sits below the main site header ─────────────── */}
       {showSticky && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000,
-          height: 52,
-          background: dark ? "rgba(26,26,26,0.92)" : "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          borderBottom: `1px solid ${t.border}`,
-          display: "flex", alignItems: "center", padding: "0 16px", gap: 12,
-        }}>
-          {onBack && (
+        <>
+          <style>{`
+            .dr-dd-sticky { top: 64px; }
+            @media (max-width: 640px) { .dr-dd-sticky { top: 56px; } }
+          `}</style>
+          <div className="dr-dd-sticky" style={{
+            position: "fixed", left: 0, right: 0, zIndex: 1000,
+            height: 48,
+            background: dark ? "#161616" : "#FFFFFF",
+            borderBottom: `1px solid ${t.border}`,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            display: "flex", alignItems: "center", padding: "0 16px", gap: 8,
+          }}>
+            {/* Back arrow — 44×44 tap area */}
+            {onBack && (
+              <button
+                onClick={onBack}
+                aria-label="Back"
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: t.secondary, display: "flex", alignItems: "center",
+                  justifyContent: "center", width: 44, height: 44, flexShrink: 0,
+                  marginLeft: -10,
+                }}
+              ><BackIcon /></button>
+            )}
+            {/* Restaurant name — truncated */}
+            <div style={{
+              flex: 1, minWidth: 0,
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: "1rem", fontWeight: 600, color: t.text,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{data.name}</div>
+            {/* Score — clean number in score color, 12px gap from name */}
+            <div style={{
+              fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+              fontSize: "1.25rem", fontWeight: 700, color: scoreColor(data.food_score ?? 5, dark),
+              flexShrink: 0, marginLeft: 4,
+            }}>{(data.food_score ?? 5).toFixed(1)}</div>
+            {/* Save icon */}
             <button
-              onClick={onBack}
-              aria-label="Back"
+              onClick={onFav}
+              aria-label={isFav ? "Unsave" : "Save"}
               style={{
                 background: "none", border: "none", cursor: "pointer",
-                color: t.secondary, padding: 4, display: "flex",
-                alignItems: "center", minWidth: 36, minHeight: 36,
+                color: isFav ? t.accent : t.secondary,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 44, height: 44, flexShrink: 0,
+                transition: "color 0.15s",
               }}
-            ><BackIcon /></button>
-          )}
-          <div style={{
-            flex: 1, minWidth: 0,
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: "1.125rem", fontWeight: 600, color: t.text,
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>{data.name}</div>
-          <div style={{
-            background: scoreColor(data.food_score ?? 5, dark),
-            color: "#fff",
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: "0.875rem", fontWeight: 700,
-            padding: "4px 12px", borderRadius: 20, flexShrink: 0,
-          }}>{(data.food_score ?? 5).toFixed(1)}</div>
-        </div>
+              onMouseEnter={e => { e.currentTarget.style.color = t.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.color = isFav ? t.accent : t.secondary; }}
+            ><HeartIcon filled={isFav} /></button>
+          </div>
+        </>
       )}
 
       {/* ── Lightbox ─────────────────────────────────────────────────────── */}
