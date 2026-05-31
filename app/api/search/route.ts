@@ -40,6 +40,37 @@ Broad: { "broad": true, "questions": [{ "question": "short punchy question 6-9 w
   Include 1-3 question objects.
 Specific: { "broad": false }`;
 
+// Pre-check: detect location intent without making an AI call.
+// Returns true for queries that need distance/mode/price follow-up.
+function hasLocationIntent(query: string): boolean {
+  const terms = [
+    'near me', 'nearby', 'close to', 'around me',
+    'in my area', 'open now', 'open late', 'tonight',
+    'right now', 'this weekend', 'for dinner',
+    'for lunch', 'for breakfast', 'happy hour',
+  ];
+  const lower = query.toLowerCase();
+  return terms.some(term => lower.includes(term));
+}
+
+const LOCATION_QUESTIONS = {
+  broad: true,
+  questions: [
+    {
+      question: "How far are you willing to go?",
+      options: ["Within 1 mile", "Within 2 miles", "Within 5 miles", "Within 10 miles", "Any distance"],
+    },
+    {
+      question: "Dining in or taking out?",
+      options: ["Dine-in", "Takeout", "Delivery", "Either"],
+    },
+    {
+      question: "Budget per person?",
+      options: ["Under $15", "$15–30", "$30–60", "$60+"],
+    },
+  ],
+};
+
 const makeSearchPrompt = (excl: string[] = []) =>
   `Brutally honest food intelligence. Extract ONLY food-quality signal from reviews.
 INCLUDE: flavor, texture, freshness, preparation, specific dishes, technique, consistency.
@@ -73,6 +104,11 @@ export async function POST(req: Request) {
     const { mode, dish, city, area, locMode, radius, exclude = [] } = await req.json();
 
     if (mode === "classify") {
+      // Fast path: location-intent queries skip AI and return hardcoded follow-up
+      if (hasLocationIntent(dish || "")) {
+        return NextResponse.json(LOCATION_QUESTIONS);
+      }
+      // Normal path: ask Claude to classify
       const msg = await client.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 700,

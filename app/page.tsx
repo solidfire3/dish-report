@@ -562,7 +562,12 @@ function DishIntel() {
     } catch {} finally { setLoadingMore(false); }
   };
 
-  const handleBrowse = (d: string) => { setNarrowQuestions(null); runSearch(d); };
+  // Route every browse/suggested/category tap through classify so location
+  // follow-up questions appear when needed. Direct runSearch() skips classify.
+  const handleBrowse = (d: string) => {
+    setNarrowQuestions(null);
+    handleSearchFromBar(d, DEFAULT_FILTERS);
+  };
 
   // ─── DEEP DIVE ─────────────────────────────────────────────────────────────
   const handleCompare = async (r: number, currentData: DeepDiveData, mode = "similar") => {
