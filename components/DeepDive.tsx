@@ -377,6 +377,20 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               <div style={{ width: 60, height: 2, background: clr, borderRadius: 1 }} />
               <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em" }}>ANALYTICAL SCORE</div>
               <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em" }}>/ 10.0 MAXIMUM</div>
+              {/* Confidence indicator */}
+              {data.confidence && (
+                <div style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: "0.5625rem", color: t.tertiary,
+                  letterSpacing: "0.1em",
+                }}>
+                  {data.confidence === "high"
+                    ? "Strong signal — many review sources"
+                    : data.confidence === "medium"
+                    ? "Moderate signal — limited reviews"
+                    : "Low signal — few sources found"}
+                </div>
+              )}
             </div>
           );
         })()}
@@ -387,7 +401,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
         <div style={{ padding: "0 16px" }}>
 
           {/* THE DETAILS — info card */}
-          {(data.hours || data.specials || data.experience_note) && (
+          {(data.hours || data.specials || data.experience_note || data.website_domain || data.address) && (
             <div style={{ paddingTop: 20, paddingBottom: 20 }}>
               {SL("The Details")}
               <div style={{
@@ -397,6 +411,38 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 padding: "4px 16px",
                 boxShadow: t.s1,
               }}>
+                {/* Address row */}
+                {data.address && (
+                  <div style={{
+                    display: "flex", gap: 16, alignItems: "flex-start",
+                    padding: "12px 0",
+                    borderBottom: `1px solid ${t.border}`,
+                  }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.5, flexShrink: 0, minWidth: 64, paddingTop: 1 }}>ADDRESS</span>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(data.address)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.accent, lineHeight: 1.6, textDecoration: "underline", textUnderlineOffset: "2px" }}
+                    >{data.address}</a>
+                  </div>
+                )}
+
+                {/* Website row */}
+                {data.website_domain && (
+                  <div style={{
+                    display: "flex", gap: 16, alignItems: "flex-start",
+                    padding: "12px 0",
+                    borderBottom: `1px solid ${t.border}`,
+                  }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.5, flexShrink: 0, minWidth: 64, paddingTop: 1 }}>WEBSITE</span>
+                    <a
+                      href={`https://${data.website_domain}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.accent, lineHeight: 1.6, textDecoration: "underline", textUnderlineOffset: "2px", wordBreak: "break-all" as const }}
+                    >{data.website_domain}</a>
+                  </div>
+                )}
+
                 {data.hours && (
                   <div style={{
                     display: "flex", gap: 16, alignItems: "flex-start",

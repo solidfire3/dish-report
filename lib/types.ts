@@ -12,7 +12,8 @@ export type Restaurant = {
 
 export type DeepDiveData = {
   name: string; neighborhood?: string; price_range?: string; venue_type?: string;
-  food_score?: number; hours?: string; specials?: string; experience_note?: string;
+  food_score?: number; confidence?: string; website_domain?: string;
+  hours?: string; specials?: string; experience_note?: string;
   must_orders?: MustOrder[]; also_try?: AlsoTry[]; skip?: (string | null)[];
   insider_tips?: (string | null)[]; vibe_tags?: string[]; verdict?: string;
   address?: string; cuisine?: string;

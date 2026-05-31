@@ -605,7 +605,7 @@ function DishIntel() {
   const handleDeepDive = async (name: string, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
     setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
-    setLoadingQuery(name);
+    setLoadingQuery(`Deep diving ${name}`);
     try {
       const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
       setDeepData(data);

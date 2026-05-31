@@ -627,21 +627,6 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
         }}>
           <div style={{ borderTop: `1px solid ${t.border}`, padding: "20px 16px 16px" }}>
 
-            {/* Win reason */}
-            {r.win_reason && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{
-                  fontFamily: "'Inter',sans-serif", fontSize: "0.6rem",
-                  fontWeight: 600, color: t.accent,
-                  textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7,
-                }}>Why it ranks here</div>
-                <div style={{
-                  fontFamily: "'DM Sans','Inter',sans-serif",
-                  fontSize: "0.9rem", color: t.text, lineHeight: 1.65,
-                }}>{r.win_reason}</div>
-              </div>
-            )}
-
             {/* Experience note */}
             {r.experience_note && (
               <div style={{
