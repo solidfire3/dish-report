@@ -255,7 +255,8 @@ function DishIntel() {
 
   // ── Search state ──────────────────────────────────────────────────────────
   const [phase,         setPhase]        = useState("idle");
-  const [lstep,         setLstep]        = useState(0);
+  const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
+  const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [searchedDish,  setSearchedDish] = useState("");
   const [loadingQuery,  setLoadingQuery]  = useState(""); // what LoadingTracker displays
   const [narrowQuestions, setNarrowQuestions] = useState<NarrowQuestion[] | null>(null);
@@ -432,19 +433,16 @@ function DishIntel() {
   const stopSearch = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    setApiComplete(false); setPendingPhase("");
     setPhase("idle");
   };
 
-  // Proportional stage timing: 8%, 8%, 15%, 15%, 25%, 25% of ~20s call
-  // Step 6 ("Building your report") is only set when the API returns.
-  function startStageTimer(onStep: (s: number) => void): () => void {
-    // Steps 1-5 only (96% max). Step 6 is set exclusively on API return.
-    const cumulativeMs = [1400, 2800, 5600, 8600, 13400];
-    const ids = cumulativeMs.map((ms, i) =>
-      setTimeout(() => onStep(i + 1), ms)
-    );
-    return () => ids.forEach(clearTimeout);
-  }
+  // Called by LoadingTracker when all stages complete and API is done
+  const handleAnalysisDone = () => {
+    const target = pendingPhase || "done";
+    setPendingPhase(""); setApiComplete(false);
+    setPhase(target);
+  };
 
   const runSearch = async (
     d: string,
@@ -458,9 +456,8 @@ function DishIntel() {
     abortRef.current = ctrl;
 
     pushNav();
-    setPhase("analyzing"); setExpanded(null); setLstep(0);
+    setPhase("analyzing"); setExpanded(null); setApiComplete(false);
     setSearchedDish(d); setLoadingQuery(d); setNarrowQuestions(null);
-    const stopTimer = startStageTimer(s => setLstep(s));
 
     try {
       const data = await apiFetch(
@@ -468,18 +465,16 @@ function DishIntel() {
         { mode: "search", dish: d, city: searchCity, area: searchArea, locMode: searchLocMode, radius: searchRadius, exclude: [] },
         ctrl.signal
       );
-      stopTimer();
-      setLstep(6); // advance to final stage only on API return
       setMeta({ dish: data.dish, city: data.city });
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
       setRestaurants(res.map((r, i) => ({ ...r, rank: i + 1 })));
-      if (wasHiddenRef.current) { setResultsReady(true); wasHiddenRef.current = false; }
-      setPhase("done");
+      setPendingPhase("done");
+      setApiComplete(true); // signal to LoadingTracker; it will call handleAnalysisDone
       abortRef.current = null;
     } catch (e) {
-      stopTimer();
       abortRef.current = null;
       if (e instanceof Error && e.name === "AbortError") return;
+      setApiComplete(false); setPendingPhase("");
       setErrMsg(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
     }
@@ -531,45 +526,41 @@ function DishIntel() {
 
   // ─── DEEP DIVE ─────────────────────────────────────────────────────────────
   const handleCompare = async (r: number, currentData: DeepDiveData, mode = "similar") => {
-    pushNav(); setPhase("analyzing"); setLstep(0); setCompareData(null); setNarrowQuestions(null);
+    pushNav(); setPhase("analyzing"); setApiComplete(false); setCompareData(null); setNarrowQuestions(null);
     setLoadingQuery(`Comparing near ${currentData?.name || "this spot"}`);
     const loc = currentData?.address || currentData?.neighborhood
       ? `within ${r} miles of ${currentData?.address || currentData?.neighborhood}`
       : `within ${r} miles`;
-    const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/compare", {
         name: currentData?.name, foodScore: currentData?.food_score,
         cuisine: currentData?.cuisine || "various", radius: r, location: loc, mode,
       });
-      stopTimer(); setLstep(6);
       setCompareData({ ...data, _originalScore: currentData?.food_score, _mode: mode });
-      setPhase("comparedone");
-    } catch (e) { stopTimer(); setErrMsg(e instanceof Error ? e.message : "Comparison failed"); setPhase("error"); }
+      setPendingPhase("comparedone"); setApiComplete(true);
+    } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Comparison failed"); setPhase("error"); }
   };
 
   const handleMarketGuide = async (name: string | undefined, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
-    setConfirmMatches(null); setPhase("analyzing"); setLstep(0); setNarrowQuestions(null);
+    setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
     setLoadingQuery(name || "Market guide");
-    const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/market", { name, city: c });
-      stopTimer(); setLstep(6);
       setMarketData({ ...data, vendors: Array.isArray(data.vendors) ? data.vendors : [] });
-      setPhase("marketdone");
-    } catch (e) { stopTimer(); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
+      setPendingPhase("marketdone"); setApiComplete(true);
+    } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
   };
 
   const handleDeepDive = async (name: string, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
-    setConfirmMatches(null); setPhase("analyzing"); setLstep(0); setNarrowQuestions(null);
+    setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
     setLoadingQuery(name);
-    const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
-      stopTimer(); setLstep(6); setDeepData(data); setPhase("deepdone");
-    } catch (e) { stopTimer(); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
+      setDeepData(data);
+      setPendingPhase("deepdone"); setApiComplete(true);
+    } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
   };
 
   const handleConfirm = async () => {
@@ -999,13 +990,12 @@ function DishIntel() {
       </div>
 
       {/* ── Full-screen loading overlay ─────────────────────────────── */}
-      {(isSearching || resultsReady) && (
+      {isSearching && (
         <LoadingTracker
-          step={lstep}
           query={loadingQuery}
-          onStop={isSearching ? stopSearch : undefined}
-          resultsReady={resultsReady}
-          onSeeResults={() => setResultsReady(false)}
+          apiDone={apiComplete}
+          onDone={handleAnalysisDone}
+          onStop={stopSearch}
         />
       )}
 

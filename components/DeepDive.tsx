@@ -193,21 +193,35 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
     <>
       <div style={{ background: t.bg, minHeight: "100vh", paddingBottom: 64 }}>
 
-        {/* ── Hero photo strip ─────────────────────────────────────────── */}
+        {/* ── Hero photo strip (max 3, first = establishment) ─────────── */}
         <div style={{ position: "relative", height: 240, overflow: "hidden", background: "#E8E3DC" }}>
           {photoUrls.length > 0 ? (
             <div style={{ display: "flex", height: "100%", overflowX: "auto", scrollbarWidth: "none" }}>
-              {photoUrls.map((url, idx) => (
-                <img
-                  key={idx} src={url} alt=""
-                  onClick={() => { setLightboxIdx(idx); setLightboxOpen(true); }}
-                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  style={{
-                    height: "100%", objectFit: "cover", cursor: "pointer", flexShrink: 0,
-                    width: photoUrls.length === 1 ? "100%" : "88%",
-                    minWidth: photoUrls.length === 1 ? "100%" : 260,
-                  }}
-                />
+              {photoUrls.slice(0, 3).map((url, idx) => (
+                <div key={idx} style={{ position: "relative", height: "100%", flexShrink: 0,
+                  width: photoUrls.slice(0, 3).length === 1 ? "100%" : "88%",
+                  minWidth: photoUrls.slice(0, 3).length === 1 ? "100%" : 260,
+                }}>
+                  <img
+                    src={url} alt=""
+                    onClick={() => { setLightboxIdx(idx); setLightboxOpen(true); }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                  />
+                  {/* ESTABLISHMENT label on first photo */}
+                  {idx === 0 && (
+                    <div style={{
+                      position: "absolute", bottom: 8, left: 10,
+                      background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4,
+                    }}>
+                      <span style={{
+                        fontFamily: "'Sevastopol', Georgia, serif",
+                        fontSize: 9, color: "#FFFFFF",
+                        textTransform: "uppercase", letterSpacing: "0.15em",
+                      }}>ESTABLISHMENT</span>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           ) : (
@@ -358,19 +372,17 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               {SL("What You're Here For", t.accent)}
               {mos.map((mo, j) => (
                 <div key={j}>
-                  {/* Food photo */}
-                  {photoUrls[j] && (
-                    <img
-                      src={photoUrls[j]} alt={mo?.item || ""}
-                      onClick={() => { setLightboxIdx(j); setLightboxOpen(true); }}
-                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      style={{
-                        width: "100%", height: 200,
-                        objectFit: "cover", borderRadius: 12,
-                        marginBottom: 12, cursor: "pointer", display: "block",
-                      }}
-                    />
-                  )}
+                  {/* Dish initial placeholder — Google Places cannot reliably tag dish photos */}
+                  <div style={{
+                    width: "100%", height: 160, borderRadius: 12, marginBottom: 12,
+                    background: "#FDF3E3", border: "1px solid #F0D5A0",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <span style={{
+                      fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                      fontSize: "3rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                    }}>{((mo?.item || "?")[0] || "?").toUpperCase()}</span>
+                  </div>
                   <div style={{
                     fontFamily: "'Playfair Display', Georgia, serif",
                     fontSize: "1.375rem", fontWeight: 700,

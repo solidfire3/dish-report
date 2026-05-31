@@ -547,15 +547,17 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                 }}>Must Order</div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {/* Thumbnail — use 2nd photo (more likely food) */}
-                  {(photoUrls[1] || photoUrls[0]) && (
-                    <img
-                      src={photoUrls[1] || photoUrls[0]}
-                      alt={firstMo.item || ""}
-                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
-                    />
-                  )}
+                  {/* Dish initial placeholder — Google Places photos are not dish-specific */}
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 8, flexShrink: 0,
+                    background: "#FDF3E3", border: "1px solid #F0D5A0",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <span style={{
+                      fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                      fontSize: "1.25rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                    }}>{((firstMo.item || "?")[0] || "?").toUpperCase()}</span>
+                  </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
