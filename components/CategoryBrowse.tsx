@@ -93,8 +93,9 @@ type BrowseProps = {
 };
 
 export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowseProps) {
-  const [dark, setDark]     = useState(darkProp ?? false);
-  const [active, setActive] = useState<string | null>(null);
+  const [dark, setDark]           = useState(darkProp ?? false);
+  const [active, setActive]       = useState<string | null>(null);
+  const [panelCat, setPanelCat]   = useState<string | null>(null);
 
   useEffect(() => {
     if (darkProp !== undefined) { setDark(darkProp); return; }
@@ -103,11 +104,22 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
 
   useEffect(() => { if (!disabled) setActive(null); }, [disabled]);
 
+  // Close panel when a search fires
+  useEffect(() => { if (disabled) setPanelCat(null); }, [disabled]);
+
   const handleSelect = (term: string) => {
     if (disabled) return;
+    setPanelCat(null);
     setActive(term);
     onSelect(term);
   };
+
+  const openPanel = (catId: string) => {
+    if (disabled) return;
+    setPanelCat(catId);
+  };
+
+  const closePanel = () => setPanelCat(null);
 
   const cardBg    = (bg: string) => dark ? "#161616" : bg;
   const cardBord  = dark ? "#2C2C2C" : "transparent";
@@ -146,7 +158,7 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
             <div
               key={cat.id}
               className="dr-cat-card"
-              onClick={() => handleSelect(cat.id)}
+              onClick={() => openPanel(cat.id)}
               style={{
                 background: cardBg(cat.bg),
                 border: `1px solid ${isActive ? (dark ? "#FFB800" : "#B8780A") : cardBord}`,
@@ -209,6 +221,127 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
           );
         })}
       </div>
+
+      {/* ── Subcategory panel ──────────────────────────────────────────────── */}
+      {panelCat && (() => {
+        const cat = CATEGORIES.find(c => c.id === panelCat);
+        if (!cat) return null;
+        const panelBg     = dark ? "#161616" : "#FFFFFF";
+        const panelBord   = dark ? "#2C2C2C" : "#E8E3DC";
+        const panelText   = dark ? "#F0EDE8" : "#1C1917";
+        const panelSec    = dark ? "#9A9390" : "#6B6560";
+        const accentClr   = dark ? "#FFB800" : "#B8780A";
+        const accentBg    = dark ? "#2A2010" : "#FDF3E3";
+        const accentBord  = dark ? "#4A3810" : "#F0D5A0";
+
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={closePanel}
+              style={{
+                position: "fixed", inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                zIndex: 800,
+                animation: "fadeIn 0.2s ease",
+              }}
+            />
+
+            {/* Panel — bottom sheet on mobile, centered constrained on desktop */}
+            <div style={{
+              position: "fixed", bottom: 0, left: 0, right: 0,
+              zIndex: 801,
+              animation: "slideUp 0.3s ease-out",
+            }}>
+              <div style={{
+                background: panelBg,
+                border: `1px solid ${panelBord}`,
+                borderRadius: "16px 16px 0 0",
+                padding: "20px 20px 40px",
+                maxHeight: "72vh", overflowY: "auto",
+                maxWidth: 540, margin: "0 auto",
+                boxShadow: "0 -8px 32px rgba(0,0,0,0.16)",
+              }}>
+                {/* Header row */}
+                <div style={{
+                  display: "flex", alignItems: "center",
+                  justifyContent: "space-between", marginBottom: 16,
+                }}>
+                  <div>
+                    <div style={{
+                      fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                      fontSize: "1.1rem", fontWeight: 700,
+                      color: accentClr, letterSpacing: "0.03em",
+                    }}>{cat.id}</div>
+                    <div style={{
+                      fontFamily: "'Sevastopol', Georgia, serif",
+                      fontSize: 9, color: panelSec,
+                      textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 2,
+                    }}>{cat.descriptor}</div>
+                  </div>
+                  <button
+                    onClick={closePanel}
+                    style={{
+                      background: "none", border: `1px solid ${panelBord}`,
+                      borderRadius: 8, width: 36, height: 36,
+                      color: panelSec, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "color 0.15s, border-color 0.15s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = accentClr; e.currentTarget.style.borderColor = accentClr; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = panelSec; e.currentTarget.style.borderColor = panelBord; }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Dish option pills */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+                  {cat.dishes.map(dish => (
+                    <button
+                      key={dish}
+                      onClick={() => handleSelect(dish)}
+                      style={{
+                        background: accentBg, border: `1.5px solid ${accentBord}`,
+                        borderRadius: 24, padding: "10px 20px",
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: "0.9rem", fontWeight: 600,
+                        color: accentClr, cursor: "pointer",
+                        minHeight: 44,
+                        transition: "background 0.15s, border-color 0.15s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#F0D5A0"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = accentBg; }}
+                    >{dish}</button>
+                  ))}
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: 1, background: panelBord, margin: "4px 0 16px" }} />
+
+                {/* Search all */}
+                <button
+                  onClick={() => handleSelect(cat.id)}
+                  style={{
+                    width: "100%", background: "none",
+                    border: `1.5px solid ${panelBord}`,
+                    borderRadius: 10, padding: "14px",
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: "0.9rem", fontWeight: 500,
+                    color: panelSec, cursor: "pointer",
+                    textAlign: "center",
+                    transition: "border-color 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = accentClr; e.currentTarget.style.color = accentClr; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = panelBord; e.currentTarget.style.color = panelSec; }}
+                >Search all {cat.id}</button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

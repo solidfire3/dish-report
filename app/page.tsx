@@ -257,6 +257,7 @@ function DishIntel() {
   const [phase,         setPhase]        = useState("idle");
   const [lstep,         setLstep]        = useState(0);
   const [searchedDish,  setSearchedDish] = useState("");
+  const [loadingQuery,  setLoadingQuery]  = useState(""); // what LoadingTracker displays
   const [narrowQuestions, setNarrowQuestions] = useState<NarrowQuestion[] | null>(null);
   const [restaurants,   setRestaurants]  = useState<Restaurant[]>([]);
   const [meta,          setMeta]         = useState<SearchMeta | null>(null);
@@ -437,7 +438,8 @@ function DishIntel() {
   // Proportional stage timing: 8%, 8%, 15%, 15%, 25%, 25% of ~20s call
   // Step 6 ("Building your report") is only set when the API returns.
   function startStageTimer(onStep: (s: number) => void): () => void {
-    const cumulativeMs = [1400, 2800, 5600, 8600, 13400, 18000];
+    // Steps 1-5 only (96% max). Step 6 is set exclusively on API return.
+    const cumulativeMs = [1400, 2800, 5600, 8600, 13400];
     const ids = cumulativeMs.map((ms, i) =>
       setTimeout(() => onStep(i + 1), ms)
     );
@@ -457,7 +459,7 @@ function DishIntel() {
 
     pushNav();
     setPhase("analyzing"); setExpanded(null); setLstep(0);
-    setSearchedDish(d); setNarrowQuestions(null);
+    setSearchedDish(d); setLoadingQuery(d); setNarrowQuestions(null);
     const stopTimer = startStageTimer(s => setLstep(s));
 
     try {
@@ -530,6 +532,7 @@ function DishIntel() {
   // ─── DEEP DIVE ─────────────────────────────────────────────────────────────
   const handleCompare = async (r: number, currentData: DeepDiveData, mode = "similar") => {
     pushNav(); setPhase("analyzing"); setLstep(0); setCompareData(null); setNarrowQuestions(null);
+    setLoadingQuery(`Comparing near ${currentData?.name || "this spot"}`);
     const loc = currentData?.address || currentData?.neighborhood
       ? `within ${r} miles of ${currentData?.address || currentData?.neighborhood}`
       : `within ${r} miles`;
@@ -548,6 +551,7 @@ function DishIntel() {
   const handleMarketGuide = async (name: string | undefined, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
     setConfirmMatches(null); setPhase("analyzing"); setLstep(0); setNarrowQuestions(null);
+    setLoadingQuery(name || "Market guide");
     const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/market", { name, city: c });
@@ -560,6 +564,7 @@ function DishIntel() {
   const handleDeepDive = async (name: string, cityStr?: string) => {
     pushNav(); const c = cityStr || ddCity;
     setConfirmMatches(null); setPhase("analyzing"); setLstep(0); setNarrowQuestions(null);
+    setLoadingQuery(name);
     const stopTimer = startStageTimer(s => setLstep(s));
     try {
       const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
@@ -997,7 +1002,7 @@ function DishIntel() {
       {(isSearching || resultsReady) && (
         <LoadingTracker
           step={lstep}
-          query={searchedDish}
+          query={loadingQuery}
           onStop={isSearching ? stopSearch : undefined}
           resultsReady={resultsReady}
           onSeeResults={() => setResultsReady(false)}
