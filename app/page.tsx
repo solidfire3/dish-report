@@ -524,6 +524,7 @@ function DishIntel() {
   const handleSearchFromBar = async (q: string, filters: FilterState) => {
     if (!q.trim()) return;
     const searchRadius = filters.radius || radius;
+    console.log('SEARCH TRIGGERED:', q, 'phase before:', phase);
 
     // Append filter context to query for API
     let enriched = q;
@@ -537,14 +538,18 @@ function DishIntel() {
 
     try {
       const cls = await apiFetch("/api/search", { mode: "classify", dish: enriched });
+      console.log('CLASSIFY RESULT:', JSON.stringify(cls));
       if (cls.broad && cls.questions?.length) {
         setNarrowQuestions(cls.questions);
         setPhase("narrowing");
         setSearchedDish(enriched);
+        console.log('NARROW QUESTIONS SET:', JSON.stringify(cls.questions));
       } else {
+        console.log('CLASSIFY: broad=false, going straight to search');
         await runSearch(enriched, city, locMode, area, searchRadius);
       }
-    } catch {
+    } catch (err) {
+      console.log('CLASSIFY ERROR (going to runSearch):', err);
       await runSearch(enriched, city, locMode, area, searchRadius);
     }
   };
