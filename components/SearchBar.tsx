@@ -623,99 +623,146 @@ export function NarrowingFlow({
   const current = questions[stepIdx];
   if (!current) return null;
 
-  const accent      = dark ? "#FFB800" : "#C8860A";
-  const accentLight = dark ? "rgba(255,184,0,0.1)" : "#FDF3E3";
-  const accentBdr   = dark ? "rgba(255,184,0,0.25)" : "#F0D5A0";
-  const cardBg      = dark ? "#1A1A1A" : "#FFFFFF";
-  const borderColor = dark ? "#2A2A2A" : "#E8E3DC";
-  const optBg       = dark ? "#232323" : "#FDFCFB";
-  const optBdr      = dark ? "#3A3A3A" : "#D4CBC0";
-  const textColor   = dark ? "#F0EDE8" : "#1C1917";
-  const mutedColor  = dark ? "#9A9390" : "#6B6560";
-  const dimColor    = dark ? "#6B6866" : "#A89F99";
-  const infoColor   = dark ? "#4A9EFF" : "#1E40AF";
-  const infoBg      = dark ? "rgba(74,158,255,0.08)" : "rgba(30,64,175,0.06)";
-  const infoBdr     = dark ? "rgba(74,158,255,0.25)" : "rgba(30,64,175,0.2)";
+  // Theme
+  const accent      = dark ? "#FFB800" : "#B8780A";
+  const accentLight = dark ? "rgba(255,184,0,0.12)" : "#FDF3E3";
+  const accentBdr   = dark ? "rgba(255,184,0,0.35)" : "#F0D5A0";
+  const panelBg     = dark ? "#161616" : "#FFFFFF";
+  const border      = dark ? "#2C2C2C" : "#E8E3DC";
+  const border2     = dark ? "#3A3A3A" : "#D4CBC0";
+  const textClr     = dark ? "#F0EDE8" : "#1C1917";
+  const secondaryClr= dark ? "#9A9390" : "#6B6560";
+  const tertiaryClr = dark ? "#6B6866" : "#A89F99";
 
   const pick = (opt: string) => {
     const next = [...answers, opt];
     setAnswers(next);
-    if (stepIdx < questions.length - 1) setStepIdx(stepIdx + 1);
-    else onComplete([dish, ...next].filter(Boolean).join(" — "));
+    if (stepIdx < questions.length - 1) {
+      setStepIdx(stepIdx + 1);
+    } else {
+      onComplete([dish, ...next].filter(Boolean).join(" — "));
+    }
   };
 
   return (
-    <div style={{ padding: "14px 16px", background: cardBg, borderBottom: `1px solid ${borderColor}` }}>
-      {answers.length > 0 && (
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 11 }}>
-          {answers.map((a, i) => (
-            <span key={i} style={{
-              background: accentLight, border: `1px solid ${accentBdr}`,
-              color: accent, fontSize: "0.75rem", fontWeight: 600,
-              padding: "3px 10px", borderRadius: 20,
-            }}>{a}</span>
-          ))}
-        </div>
-      )}
+    <>
+      {/* Dark overlay so the panel is impossible to miss */}
       <div style={{
-        fontSize: "0.9rem", fontWeight: 600, color: textColor, marginBottom: 12,
-        display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap",
+        position: "fixed", inset: 0,
+        background: "rgba(0,0,0,0.35)", zIndex: 480,
+        animation: "fadeIn 0.2s ease",
+      }} />
+
+      {/* Full-width panel — slides up from below the sticky search bar */}
+      <div style={{
+        position: "fixed", left: 0, right: 0, bottom: 0,
+        zIndex: 481,
+        maxHeight: "80vh", overflowY: "auto",
+        animation: "slideUp 0.3s cubic-bezier(0.4,0,0.2,1) both",
       }}>
-        <span>{current.question}</span>
-        <span style={{
-          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem",
-          color: dimColor, fontWeight: 400,
-        }}>Step {stepIdx + 1} of {questions.length}</span>
+        <div style={{
+          background: panelBg,
+          borderTop: `1px solid ${border}`,
+          borderRadius: "18px 18px 0 0",
+          padding: "28px 24px 48px",
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.18)",
+          maxWidth: 680, margin: "0 auto",
+        }}>
+          {/* Previous answers as amber chips */}
+          {answers.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              {answers.map((a, i) => (
+                <span key={i} style={{
+                  background: accentLight, border: `1.5px solid ${accentBdr}`,
+                  color: accent, fontFamily: "'Inter', sans-serif",
+                  fontSize: "0.875rem", fontWeight: 600,
+                  padding: "6px 14px", borderRadius: 20,
+                }}>{a}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Step indicator */}
+          <div style={{
+            fontFamily: "'Sevastopol', Georgia, serif",
+            fontSize: "0.6875rem", color: accent,
+            textTransform: "uppercase", letterSpacing: "0.12em",
+            marginBottom: 12,
+          }}>
+            Step {stepIdx + 1} of {questions.length}
+          </div>
+
+          {/* Question — large and unmissable */}
+          <div style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: "1.75rem", fontWeight: 700,
+            color: textClr, lineHeight: 1.25,
+            marginBottom: 28,
+          }}>
+            {current.question}
+          </div>
+
+          {/* Option pills — 48px+ tap targets */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
+            {(Array.isArray(current.options) ? current.options : []).map((opt, i) => (
+              <button
+                key={i}
+                onClick={() => pick(opt)}
+                style={{
+                  border: `1.5px solid ${border2}`,
+                  background: panelBg, color: secondaryClr,
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "1rem", fontWeight: 500,
+                  padding: "12px 22px", cursor: "pointer",
+                  borderRadius: 28, minHeight: 48,
+                  transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = accent;
+                  e.currentTarget.style.color = accent;
+                  e.currentTarget.style.background = accentLight;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = border2;
+                  e.currentTarget.style.color = secondaryClr;
+                  e.currentTarget.style.background = panelBg;
+                }}
+              >{opt}</button>
+            ))}
+          </div>
+
+          {/* Footer actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <button
+              onClick={() => onComplete([dish, ...answers].filter(Boolean).join(" "))}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
+                color: tertiaryClr, padding: 0,
+                textDecoration: "underline", textUnderlineOffset: "2px",
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = secondaryClr; }}
+              onMouseLeave={e => { e.currentTarget.style.color = tertiaryClr; }}
+            >Skip — Search now</button>
+            {stepIdx > 0 && (
+              <button
+                onClick={() => { setStepIdx(stepIdx - 1); setAnswers(answers.slice(0, -1)); }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
+                  color: tertiaryClr, padding: 0,
+                  transition: "color 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = secondaryClr; }}
+                onMouseLeave={e => { e.currentTarget.style.color = tertiaryClr; }}
+              >← Back</button>
+            )}
+          </div>
+        </div>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
-        {(Array.isArray(current.options) ? current.options : []).map((opt, i) => (
-          <button
-            key={i}
-            onClick={() => pick(opt)}
-            style={{
-              border: `1.5px solid ${optBdr}`, background: optBg, color: mutedColor,
-              fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500,
-              padding: "8px 16px", cursor: "pointer", borderRadius: 24,
-              transition: "all .15s", minHeight: 40,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = accent;
-              e.currentTarget.style.color = accent;
-              e.currentTarget.style.background = accentLight;
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = optBdr;
-              e.currentTarget.style.color = mutedColor;
-              e.currentTarget.style.background = optBg;
-            }}
-          >{opt}</button>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <button
-          onClick={() => onComplete([dish, ...answers].filter(Boolean).join(" "))}
-          style={{
-            border: `1px solid ${infoBdr}`, background: infoBg, color: infoColor,
-            fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", fontWeight: 500,
-            padding: "7px 14px", cursor: "pointer", borderRadius: 20,
-            transition: "background 0.15s",
-          }}
-        >Skip — Search now</button>
-        {stepIdx > 0 && (
-          <button
-            onClick={() => { setStepIdx(stepIdx - 1); setAnswers(answers.slice(0, -1)); }}
-            style={{
-              border: "none", background: "none", color: dimColor,
-              fontFamily: "'Inter',sans-serif", fontSize: "0.8rem",
-              cursor: "pointer", padding: "7px 0",
-              transition: "color 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = mutedColor; }}
-            onMouseLeave={e => { e.currentTarget.style.color = dimColor; }}
-          >Back a step</button>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
 

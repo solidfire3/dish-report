@@ -525,9 +525,6 @@ function DishIntel() {
     if (!q.trim()) return;
     const searchRadius = filters.radius || radius;
 
-    // DEBUG — visible in browser console (F12 → Console)
-    console.log('[handleSearchFromBar] raw query:', q);
-
     // Append filter context to query for API
     let enriched = q;
     if (filters.dineMode)  enriched += ` ${filters.dineMode}`;
@@ -539,9 +536,7 @@ function DishIntel() {
     setPhase("classifying");
 
     try {
-      console.log('[handleSearchFromBar] calling classify with enriched:', enriched);
       const cls = await apiFetch("/api/search", { mode: "classify", dish: enriched });
-      console.log('[handleSearchFromBar] classify response:', JSON.stringify(cls));
       if (cls.broad && cls.questions?.length) {
         setNarrowQuestions(cls.questions);
         setPhase("narrowing");

@@ -104,14 +104,10 @@ export async function POST(req: Request) {
     const { mode, dish, city, area, locMode, radius, exclude = [] } = await req.json();
 
     if (mode === "classify") {
-      console.log('CLASSIFY called with:', JSON.stringify({ dish, mode }));
-      console.log('hasLocationIntent result:', hasLocationIntent(dish || ""));
       // Fast path: location-intent queries skip AI and return hardcoded follow-up
       if (hasLocationIntent(dish || "")) {
-        console.log('CLASSIFY → returning LOCATION_QUESTIONS (fast path)');
         return NextResponse.json(LOCATION_QUESTIONS);
       }
-      console.log('CLASSIFY → calling Claude (slow path)');
       // Normal path: ask Claude to classify
       const msg = await client.messages.create({
         model: "claude-sonnet-4-6",
