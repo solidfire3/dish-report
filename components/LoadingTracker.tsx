@@ -80,9 +80,28 @@ export function LoadingTracker({
   const onDoneRef = useRef(onDone);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
+  // Detect when user returns to a backgrounded tab
+  const [tabReturned, setTabReturned] = useState(false);
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") setTabReturned(true);
+      if (document.visibilityState === "hidden")  setTabReturned(false);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   // ── Core stage state ───────────────────────────────────────────────────────
   const [stage,    setStage]    = useState(1);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(0);   // drives the % label only
+  const progressBarRef          = useRef<HTMLDivElement>(null);
+
+  // Direct DOM animation avoids React re-render batching destroying transitions
+  const animateBar = (pct: number, durationMs = 1200) => {
+    if (!progressBarRef.current) return;
+    progressBarRef.current.style.transition = `width ${durationMs}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+    progressBarRef.current.style.width = `${pct}%`;
+  };
 
   // ── Stage 3: review counter ────────────────────────────────────────────────
   const [reviewCount,  setReviewCount]  = useState(0);
@@ -121,6 +140,7 @@ export function LoadingTracker({
     const t = setTimeout(() => {
       const nextProgress = STAGE_DONE_PROGRESS[stage - 1];
       setProgress(nextProgress);
+      animateBar(nextProgress);
       setStage(s => s + 1);
     }, ms);
     return () => clearTimeout(t);
@@ -131,6 +151,7 @@ export function LoadingTracker({
     if (stage !== 7) return;
     setProgress(91);
     setProgress7(91);
+    animateBar(91);
     setCanComplete(false);
     setShowStandBy(false);
 
@@ -154,16 +175,20 @@ export function LoadingTracker({
     };
   }, [stage]);
 
-  // Sync stage 7 progress7 → overall progress
+  // Sync stage 7 progress7 → overall progress (bar + label)
   useEffect(() => {
-    if (stage === 7) setProgress(progress7);
+    if (stage === 7) {
+      setProgress(progress7);
+      animateBar(progress7, 1200);
+    }
   }, [stage, progress7]);
 
   // Completion trigger — bar animates to 100% over 600ms, flash, then call onDone
   useEffect(() => {
     if (apiDone && canComplete && stage === 7 && !completing) {
-      setCompleting(true);  // switches bar to 600ms transition
+      setCompleting(true);
       setProgress(100);
+      animateBar(100, 600);  // direct DOM: fast final fill
       setShowComplete(true);
       // 600ms bar + 400ms flash = 1000ms before revealing results
       const t = setTimeout(() => {
@@ -261,6 +286,22 @@ export function LoadingTracker({
     }}>
       <style>{ANIMATION_CSS}</style>
 
+      {/* Tab-returned banner — shows when user comes back to a running search */}
+      {tabReturned && !apiDone && !completing && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 10,
+          background: "rgba(255,184,0,0.08)", borderBottom: "1px solid rgba(255,184,0,0.2)",
+          padding: "10px 20px", textAlign: "center",
+          animation: "dr-fade-in 0.3s ease both",
+        }}>
+          <span style={{
+            fontFamily: "'Sevastopol', Georgia, serif",
+            fontSize: "0.6875rem", color: "#FFB800",
+            textTransform: "uppercase", letterSpacing: "0.15em",
+          }}>Still working on your report — hang tight</span>
+        </div>
+      )}
+
       {/* Ambient dot grid */}
       <div style={{
         position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
@@ -313,15 +354,16 @@ export function LoadingTracker({
             }}>{progress}%</span>
           </div>
           <div style={{ height: 3, background: "#2C2C2C", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{
-              height: "100%", width: `${progress}%`, borderRadius: 2,
-              background: "linear-gradient(90deg, #C8860A 0%, #FFB800 50%, #FFD033 100%)",
-              backgroundSize: "300px 100%",
-              animation: "dr-progress-shimmer 2s linear infinite",
-              transition: completing
-                ? "width 600ms cubic-bezier(0.4, 0, 0.2, 1)"
-                : "width 1200ms cubic-bezier(0.4, 0, 0.2, 1)",
-            }} />
+            <div
+              ref={progressBarRef}
+              style={{
+                height: "100%", width: "0%", borderRadius: 2,
+                background: "linear-gradient(90deg, #C8860A 0%, #FFB800 50%, #FFD033 100%)",
+                backgroundSize: "300px 100%",
+                animation: "dr-progress-shimmer 2s linear infinite",
+                // Transition managed via animateBar() direct DOM writes
+              }}
+            />
           </div>
         </div>
 

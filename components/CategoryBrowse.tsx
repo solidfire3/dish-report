@@ -56,9 +56,10 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
 
   const runSearch = (query: string) => {
     if (disabled) return;
-    setPanelCat(null);
+    setPanelCat(null);  // close panel first
     setActive(query);
-    onSelect(query);
+    // 50ms delay ensures panel state flush before parent search handler fires
+    setTimeout(() => onSelect(query), 50);
   };
 
   const runCategorySearch = (catId: string) => {
@@ -115,7 +116,7 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
             <div
               key={cat.id}
               className="dr-cat-card"
-              onClick={() => openPanel(cat.id)}
+              onClick={e => { e.stopPropagation(); openPanel(cat.id); }}
               style={{
                 background: cardBg(cat.bg),
                 border: `1px solid ${isActive ? accentClr : cardBord}`,
@@ -171,11 +172,14 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
             }}
           />
 
-          {/* Panel */}
-          <div style={{
-            position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 801,
-            animation: "dr-panel-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) both",
-          }}>
+          {/* Panel — stopPropagation prevents any click reaching the backdrop */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 801,
+              animation: "dr-panel-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) both",
+            }}
+          >
             <div style={{
               background: panelBg, border: `1px solid ${panelBord}`,
               borderRadius: "18px 18px 0 0", padding: "20px 20px 40px",

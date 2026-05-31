@@ -213,9 +213,14 @@ function ContextFilter({ icon, label, options, value, onChange, dark }: {
 function DishIntel() {
   const router        = useRouter();
   const searchParams  = useSearchParams();
-  const abortRef      = useRef<AbortController | null>(null);
-  const wasHiddenRef  = useRef(false);
-  const autoSearchFired = useRef(false);
+  const abortRef         = useRef<AbortController | null>(null);
+  const wasHiddenRef     = useRef(false);
+  const autoSearchFired  = useRef(false);
+  // Kept in sync so event listeners don't close over stale values
+  const isSearchingRef   = useRef(false);
+  const apiCompleteRef   = useRef(false);
+  const loadingQueryRef  = useRef("");
+  const handleDoneRef    = useRef<(() => void) | null>(null);
 
   // ── Dark mode ────────────────────────────────────────────────────────────
   const [dark, setDark] = useState(false);
@@ -257,6 +262,7 @@ function DishIntel() {
   const [phase,         setPhase]        = useState("idle");
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
+  const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
   const [searchedDish,  setSearchedDish] = useState("");
   const [loadingQuery,  setLoadingQuery]  = useState(""); // what LoadingTracker displays
   const [narrowQuestions, setNarrowQuestions] = useState<NarrowQuestion[] | null>(null);
@@ -309,12 +315,45 @@ function DishIntel() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Background persistence — track when tab goes hidden
+  // Background persistence
   useEffect(() => {
-    const onVis = () => { if (document.visibilityState === "hidden") wasHiddenRef.current = true; };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        wasHiddenRef.current = true;
+        // Persist search to localStorage so page reload can resume it
+        if (isSearchingRef.current) {
+          try {
+            localStorage.setItem("dr-active-search", JSON.stringify({
+              query: loadingQueryRef.current,
+              startTime: Date.now(),
+            }));
+          } catch {}
+        }
+      } else if (document.visibilityState === "visible" && wasHiddenRef.current) {
+        wasHiddenRef.current = false;
+        // API returned while hidden — show results immediately
+        if (isSearchingRef.current && apiCompleteRef.current) {
+          handleDoneRef.current?.();
+        }
+        // If still waiting for API, LoadingTracker shows its own banner
+      }
+    };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
+
+  // On mount: check for orphaned search from a previous session
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("dr-active-search");
+      if (!saved) return;
+      const { query: q, startTime } = JSON.parse(saved);
+      localStorage.removeItem("dr-active-search");
+      if (!q) return;
+      const age = Date.now() - startTime;
+      setStaleSearch({ query: q, fresh: age < 90000 });
+    } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // GPS location on first load
   useEffect(() => {
@@ -442,6 +481,7 @@ function DishIntel() {
     const target = pendingPhase || "done";
     setPendingPhase(""); setApiComplete(false);
     setPhase(target);
+    try { localStorage.removeItem("dr-active-search"); } catch {}
   };
 
   const runSearch = async (
@@ -576,6 +616,12 @@ function DishIntel() {
   const hasBack    = navStack.length > 0;
   const isSearching = phase === "analyzing";
   const showIdle   = phase === "idle" && !showFavs;
+
+  // Keep event-listener refs in sync (no stale closure issues)
+  useEffect(() => { isSearchingRef.current  = isSearching;       }, [isSearching]);
+  useEffect(() => { apiCompleteRef.current  = apiComplete;        }, [apiComplete]);
+  useEffect(() => { loadingQueryRef.current = loadingQuery;       }, [loadingQuery]);
+  useEffect(() => { handleDoneRef.current   = handleAnalysisDone; });
 
   // ─── THEME ────────────────────────────────────────────────────────────────
   const bg       = dark ? "#0A0A0A" : "#EDE8E0";
@@ -795,6 +841,53 @@ function DishIntel() {
           {/* ── Idle state ───────────────────────────────────────────────── */}
           {showIdle && (
             <>
+              {/* ── Stale / resumed search banner ───────────────────────── */}
+              {staleSearch && (
+                <div style={{
+                  margin: "16px 0 0",
+                  background: staleSearch.fresh ? "#FDF3E3" : dark ? "#1F1F1F" : "#F7F4F0",
+                  border: `1px solid ${staleSearch.fresh ? "#F0D5A0" : border}`,
+                  borderRadius: 10, padding: "14px 16px",
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                }}>
+                  <div>
+                    <div style={{
+                      fontFamily: "'Sevastopol', Georgia, serif",
+                      fontSize: "0.6875rem", color: staleSearch.fresh ? "#B8780A" : tertiary,
+                      textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4,
+                    }}>{staleSearch.fresh ? "RESUMING SEARCH" : "PREVIOUS SEARCH TIMED OUT"}</div>
+                    <div style={{
+                      fontFamily: "'Playfair Display', serif",
+                      fontSize: "0.9375rem", fontWeight: 600, color: text,
+                    }}>{staleSearch.query}</div>
+                    {!staleSearch.fresh && (
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: secondary, marginTop: 2 }}>
+                        Your previous search timed out. Try again?
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button
+                      onClick={() => { setStaleSearch(null); runSearch(staleSearch.query); }}
+                      style={{
+                        background: accent, border: "none", borderRadius: 8,
+                        color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+                        fontSize: "0.875rem", fontWeight: 600,
+                        padding: "8px 16px", cursor: "pointer",
+                      }}
+                    >{staleSearch.fresh ? "Continue" : "Try again"}</button>
+                    <button
+                      onClick={() => setStaleSearch(null)}
+                      style={{
+                        background: "none", border: `1px solid ${border}`, borderRadius: 8,
+                        color: secondary, fontFamily: "'Inter', sans-serif",
+                        fontSize: "0.875rem", padding: "8px 12px", cursor: "pointer",
+                      }}
+                    >Dismiss</button>
+                  </div>
+                </div>
+              )}
+
               {/* ── SECTION 3: NEAR YOU NOW ─────────────────────────────── */}
               {suggestions.length > 0 && (
                 <section style={{ paddingTop: 28, paddingBottom: 24 }}>
