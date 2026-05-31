@@ -120,9 +120,10 @@ type DeepDiveResultProps = {
   onMarket?: (name: string) => void;
   onAddToList?: (target: AddToListTarget) => void;
   onBack?: () => void;
+  searchQuery?: string;
 };
 
-export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, onAddToList, onBack }: DeepDiveResultProps) {
+export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, onAddToList, onBack, searchQuery }: DeepDiveResultProps) {
   const [dark, setDark] = useState(false);
   const [photoRefs, setPhotoRefs] = useState<string[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -272,74 +273,86 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
           );
         })()}
 
-        {/* ── Identity block ───────────────────────────────────────────── */}
-        <div style={{ padding: "20px 16px 24px", borderBottom: `1px solid ${t.border}` }}>
-          {/* Name */}
+        {/* ── FIX 8: Breadcrumb ────────────────────────────────────────── */}
+        {searchQuery && (
+          <div style={{ padding: "10px 16px 0", display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              onClick={onBack}
+              style={{
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+                fontFamily: "'Inter', sans-serif", fontSize: "0.8125rem",
+                color: t.accent, whiteSpace: "nowrap",
+                textDecoration: "underline", textUnderlineOffset: "2px",
+              }}
+            >{searchQuery}</button>
+            <span style={{ color: t.tertiary, fontSize: "0.8125rem" }}>›</span>
+            <span style={{
+              fontFamily: "'Inter', sans-serif", fontSize: "0.8125rem",
+              color: t.tertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{data.name}</span>
+          </div>
+        )}
+
+        {/* ── FIX 1 SECTION 2: Identity ────────────────────────────────── */}
+        <div style={{ padding: "20px 16px 0" }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
             fontSize: "2.25rem", fontWeight: 700,
             color: t.text, lineHeight: 1.15, marginBottom: 10,
           }}>{data.name}</div>
 
-          {/* Meta row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
             {data.neighborhood && (
-              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 500, color: t.secondary }}>
                 {data.neighborhood}
               </span>
             )}
             {data.neighborhood && data.venue_type && <span style={{ color: t.tertiary }}>·</span>}
             {data.venue_type && (
-              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.tertiary }}>
+              <span style={{ fontFamily: "'CityLight', sans-serif", fontSize: "0.875rem", color: t.tertiary }}>
                 {data.venue_type}
               </span>
             )}
             {data.price_range && <PriceTag price={data.price_range} dark={dark} />}
           </div>
 
-          {/* Vibe tags */}
+          {/* FIX 2: Vibe tags — solid dark chips */}
           {vibes.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-              {vibes.map((v, i) => {
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+              {vibes.slice(0, 4).map((v, i) => {
                 const label = stripEmoji(v);
                 if (!label) return null;
                 return (
                   <span key={i} style={{
-                    fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400,
-                    color: "#6B6560", border: "1px solid #D4CBC0",
-                    padding: "3px 10px", borderRadius: 20,
-                    textTransform: "uppercase", letterSpacing: "0.08em",
-                    whiteSpace: "nowrap",
+                    fontFamily: "'Sevastopol', Georgia, serif",
+                    fontSize: "0.625rem", fontWeight: 400,
+                    background: dark ? "#2A2010" : "#1C1917",
+                    color: "#FFB800",
+                    padding: "6px 12px", borderRadius: 4,
+                    textTransform: "uppercase", letterSpacing: "0.12em",
+                    whiteSpace: "nowrap", display: "inline-flex",
                   }}>{label}</span>
                 );
               })}
             </div>
           )}
 
-          {/* Action buttons */}
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
-            <button
-              style={outlineBtn()}
+          {/* FIX 1 SECTION 4: Action buttons */}
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 20 }}>
+            <button style={outlineBtn()}
               onClick={() => window.open(dirURL(data.address, data.name, city || ""), "_blank")}
               onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = t.border2; e.currentTarget.style.color = t.text; }}
             ><DirIcon />Directions</button>
-
-            <button
-              style={outlineBtn(isFav)}
-              onClick={onFav}
-            ><HeartIcon filled={isFav} />{isFav ? "Saved" : "Save"}</button>
-
-            <button
-              style={outlineBtn()}
-              onClick={handleShare}
+            <button style={outlineBtn(isFav)} onClick={onFav}>
+              <HeartIcon filled={isFav} />{isFav ? "Saved" : "Save"}
+            </button>
+            <button style={outlineBtn()} onClick={handleShare}
               onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = t.border2; e.currentTarget.style.color = t.text; }}
             ><ShareIcon />Share</button>
-
             {onAddToList && (
-              <button
-                style={outlineBtn()}
+              <button style={outlineBtn()}
                 onClick={() => onAddToList({ name: data.name, neighborhood: data.neighborhood, venue_type: data.venue_type, price_range: data.price_range, food_score: data.food_score, cuisine: data.cuisine })}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = t.border2; e.currentTarget.style.color = t.text; }}
@@ -348,39 +361,22 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
           </div>
         </div>
 
-        {/* ── Score block ──────────────────────────────────────────────── */}
+        {/* FIX 1 SECTION 5: Score block */}
         {(() => {
           const clr = scoreColor(data.food_score ?? 5, dark);
           return (
             <div style={{
-              padding: "32px 16px 28px",
-              borderBottom: `1px solid ${t.border}`,
-              display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
-              gap: 10,
+              padding: "28px 16px 24px",
+              borderTop: `1px solid ${t.border}`, borderBottom: `1px solid ${t.border}`,
+              display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10,
             }}>
-              {/* Score number — confident declaration */}
               <div style={{
                 fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                fontSize: "4rem", fontWeight: 900,
-                color: clr, lineHeight: 1,
+                fontSize: "4rem", fontWeight: 900, color: clr, lineHeight: 1,
               }}>{(data.food_score ?? 5).toFixed(1)}</div>
-
-              {/* Colored underline */}
               <div style={{ width: 60, height: 2, background: clr, borderRadius: 1 }} />
-
-              {/* ANALYTICAL SCORE label */}
-              <div style={{
-                fontFamily: "'Sevastopol', Georgia, serif",
-                fontSize: "0.6875rem", color: "#B8780A",
-                textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
-              }}>ANALYTICAL SCORE</div>
-
-              {/* / 10.0 MAXIMUM */}
-              <div style={{
-                fontFamily: "'Sevastopol', Georgia, serif",
-                fontSize: "0.625rem", color: t.tertiary,
-                textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
-              }}>/ 10.0 MAXIMUM</div>
+              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em" }}>ANALYTICAL SCORE</div>
+              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em" }}>/ 10.0 MAXIMUM</div>
             </div>
           );
         })()}
@@ -390,42 +386,93 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
 
         <div style={{ padding: "0 16px" }}>
 
-          {/* ── Must orders ─────────────────────────────────────────────── */}
+          {/* FIX 1+3: THE DETAILS — moved up, redesigned as info card */}
+          {(data.hours || data.specials || data.experience_note) && (
+            <div style={{ paddingTop: 28 }}>
+              {SL("The Details")}
+              <div style={{
+                background: t.card,
+                borderLeft: "3px solid #B8780A",
+                borderRadius: "0 8px 8px 0",
+                padding: 16,
+                boxShadow: t.s1,
+                display: "flex", flexDirection: "column", gap: 12,
+              }}>
+                {data.hours && (
+                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.8, flexShrink: 0, minWidth: 60 }}>HOURS</span>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.5 }}>{data.hours}</span>
+                  </div>
+                )}
+                {data.specials && (
+                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.8, flexShrink: 0, minWidth: 60 }}>SPECIALS</span>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.5 }}>{data.specials}</span>
+                  </div>
+                )}
+                {data.experience_note && (
+                  <div style={{
+                    marginTop: 4, padding: "10px 12px",
+                    background: `${t.accent}10`,
+                    borderLeft: `2px solid ${t.accent}`,
+                    borderRadius: "0 6px 6px 0",
+                  }}>
+                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Heads up</div>
+                    <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65 }}>{data.experience_note}</div>
+                  </div>
+                )}
+              </div>
+              <Divider />
+            </div>
+          )}
+
+          {/* FIX 1+4: WHAT YOU'RE HERE FOR — must orders as cards */}
           {mos.length > 0 && (
             <div style={{ paddingTop: 28 }}>
               {SL("What You're Here For", t.accent)}
               {mos.map((mo, j) => (
-                <div key={j}>
-                  {/* Dish initial placeholder — Google Places cannot reliably tag dish photos */}
+                <div key={j} style={{
+                  background: t.card, border: `1px solid ${t.border}`,
+                  borderRadius: 12, overflow: "hidden",
+                  boxShadow: t.s1, marginBottom: 12,
+                }}>
+                  {/* Dish initial placeholder */}
                   <div style={{
-                    width: "100%", height: 160, borderRadius: 12, marginBottom: 12,
-                    background: "#FDF3E3", border: "1px solid #F0D5A0",
+                    height: 160, background: "#FDF3E3",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
                     <span style={{
                       fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                      fontSize: "3rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                      fontSize: "3rem", fontWeight: 900, color: "#B8780A",
                     }}>{((mo?.item || "?")[0] || "?").toUpperCase()}</span>
                   </div>
-                  <div style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontSize: "1.375rem", fontWeight: 700,
-                    color: t.text, marginBottom: 8, lineHeight: 1.2,
-                  }}>{mo?.item || ""}</div>
-                  {mo?.why && (
+                  <div style={{ padding: 16 }}>
                     <div style={{
-                      fontFamily: "'DM Sans', 'Inter', sans-serif",
-                      fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65,
-                    }}>{mo.why}</div>
-                  )}
-                  {j < mos.length - 1 && <div style={{ height: 1, background: t.border, margin: "20px 0" }} />}
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontSize: "1.25rem", fontWeight: 700,
+                      color: t.text, lineHeight: 1.2, marginBottom: 8,
+                    }}>{mo?.item || ""}</div>
+                    {mo?.why && (
+                      <div style={{
+                        fontFamily: "'DM Sans', 'Inter', sans-serif",
+                        fontSize: "0.875rem", color: "#4A4540", lineHeight: 1.6, marginBottom: 10,
+                      }}>{mo.why}</div>
+                    )}
+                    <span style={{
+                      fontFamily: "'Sevastopol', Georgia, serif",
+                      fontSize: "0.5625rem", color: "#B8780A",
+                      background: "#FDF3E3", border: "1px solid #F0D5A0",
+                      padding: "4px 10px", borderRadius: 20,
+                      textTransform: "uppercase", letterSpacing: "0.12em",
+                    }}>Must Order</span>
+                  </div>
                 </div>
               ))}
               <Divider />
             </div>
           )}
 
-          {/* ── Also try ─────────────────────────────────────────────────── */}
+          {/* ALSO WORTH ORDERING */}
           {also.length > 0 && (
             <div style={{ paddingTop: 28 }}>
               {SL("Also Worth Ordering")}
@@ -435,7 +482,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 if (!name) return null;
                 return (
                   <div key={j}>
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9rem", fontWeight: 600, color: t.text, marginBottom: note ? 3 : 0 }}>{name}</div>
+                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: t.text, marginBottom: note ? 4 : 0 }}>{name}</div>
                     {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: "#4A4540", lineHeight: 1.55 }}>{note}</div>}
                     {j < also.length - 1 && <div style={{ height: 1, background: t.border, margin: "12px 0" }} />}
                   </div>
@@ -445,42 +492,19 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             </div>
           )}
 
-          {/* ── Skip these ───────────────────────────────────────────────── */}
-          {skip.length > 0 && (
-            <div style={{ paddingTop: 28 }}>
-              {SL("Skip These", dark ? "#EF4444" : "#9B1C1C")}
-              {skip.filter(s => s != null).map((s, j) => (
-                <div key={j}>
-                  <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.9375rem", color: "#4A4540" }}>
-                    {String(s)}
-                  </div>
-                  {j < skip.length - 1 && <div style={{ height: 1, background: t.border, margin: "10px 0" }} />}
-                </div>
-              ))}
-              <Divider />
-            </div>
-          )}
-
-          {/* ── Insider tips ─────────────────────────────────────────────── */}
+          {/* FIX 5: INSIDER TIPS — amber tint rows with diamond */}
           {tips.length > 0 && (
             <div style={{ paddingTop: 28 }}>
-              {SL("Insider Tips", dark ? "#93C5FD" : "#1E40AF")}
+              {SL("Insider Tips //")}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {tips.filter(tip => tip != null).map((tip, j) => (
                   <div key={j} style={{
-                    display: "flex", gap: 12, alignItems: "flex-start",
-                    background: dark ? "rgba(30,64,175,0.1)" : "#F0F4FF",
-                    borderRadius: 8, padding: 12,
+                    background: "#FDF3E3",
+                    borderRadius: 8, padding: "12px 14px",
+                    display: "flex", gap: 10, alignItems: "flex-start",
                   }}>
-                    <div style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: dark ? "#93C5FD" : "#1E40AF",
-                      flexShrink: 0, marginTop: "0.45em",
-                    }} />
-                    <div style={{
-                      fontFamily: "'DM Sans', 'Inter', sans-serif",
-                      fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65,
-                    }}>{String(tip)}</div>
+                    <span style={{ color: "#B8780A", fontSize: "0.5rem", lineHeight: 2.2, flexShrink: 0 }}>◆</span>
+                    <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.6 }}>{String(tip)}</div>
                   </div>
                 ))}
               </div>
@@ -488,56 +512,56 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             </div>
           )}
 
-          {/* ── The details ──────────────────────────────────────────────── */}
-          {(data.hours || data.specials || data.experience_note) && (
+          {/* FIX 6: SKIP THESE — red cautionary treatment */}
+          {skip.length > 0 && (
             <div style={{ paddingTop: 28 }}>
-              {SL("The Details")}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {data.hours && (
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917" }}>
-                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", color: "#B8780A", fontWeight: 400, marginRight: 8, fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.12em" }}>Hours</span>
-                    {data.hours}
-                  </div>
-                )}
-                {data.specials && (
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917" }}>
-                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", color: "#B8780A", fontWeight: 400, marginRight: 8, fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.12em" }}>Specials</span>
-                    {data.specials}
-                  </div>
-                )}
-                {data.experience_note && (
-                  <div style={{
-                    fontSize: "0.9375rem", lineHeight: 1.65, padding: "10px 12px",
-                    background: `${t.accent}10`,
-                    borderLeft: `2px solid ${t.accent}`,
-                    borderRadius: "0 6px 6px 0", color: "#2D2826", marginTop: 4,
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400,
+                color: "#9B1C1C", textTransform: "uppercase",
+                letterSpacing: "0.12em", marginBottom: 12,
+              }}>⚠ Skip These</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {skip.filter(s => s != null).map((s, j) => (
+                  <div key={j} style={{
+                    background: "#FDF0F0",
+                    borderLeft: "3px solid #9B1C1C",
+                    borderRadius: "0 8px 8px 0",
+                    padding: "10px 14px",
                   }}>
-                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Heads up</div>
-                    {data.experience_note}
+                    <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: "#9B1C1C" }}>{String(s)}</div>
                   </div>
-                )}
+                ))}
               </div>
               <Divider />
             </div>
           )}
 
-          {/* ── The verdict ──────────────────────────────────────────────── */}
+          {/* FIX 7: THE BOTTOM LINE — dark authoritative card */}
           {data.verdict && (
             <div style={{ paddingTop: 28 }}>
-              {SL("The Bottom Line", t.accent)}
               <div style={{
-                borderLeft: `3px solid ${t.accent}`,
-                paddingLeft: 16, paddingTop: 2, paddingBottom: 2,
-                background: t.accentLight,
-                borderRadius: "0 8px 8px 0",
-                padding: "14px 14px 14px 16px",
+                background: "#1C1917",
+                borderRadius: 12, padding: 20, marginBottom: 8,
               }}>
+                {/* Header row */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{
+                    fontFamily: "'Sevastopol', Georgia, serif",
+                    fontSize: "0.6875rem", color: "#FFB800",
+                    textTransform: "uppercase", letterSpacing: "0.12em",
+                  }}>THE BOTTOM LINE</div>
+                  <div style={{
+                    fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                    fontSize: "1.75rem", fontWeight: 700,
+                    color: scoreColor(data.food_score ?? 5, true), lineHeight: 1,
+                  }}>{(data.food_score ?? 5).toFixed(1)}</div>
+                </div>
+                <div style={{ height: 1, background: "#2D2826", marginBottom: 16 }} />
                 <div style={{
                   fontFamily: "'DM Sans', 'Inter', sans-serif",
-                  fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.7,
+                  fontSize: "1rem", color: "#F0EDE8", lineHeight: 1.75,
                 }}>{data.verdict}</div>
               </div>
-              <Divider />
             </div>
           )}
 
@@ -547,44 +571,24 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => onCompare(5, data, "similar")}
-                style={{
-                  flex: 1, height: 44, borderRadius: 8,
-                  background: t.blueBg, border: `1px solid ${t.blueBorder}`,
-                  color: t.blue,
-                  fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
-                  fontWeight: 500, cursor: "pointer", transition: "opacity 0.15s",
-                }}
+                style={{ flex: 1, height: 44, borderRadius: 8, background: t.blueBg, border: `1px solid ${t.blueBorder}`, color: t.blue, fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 500, cursor: "pointer", transition: "opacity 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = "0.8"; }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
               >Similar spots</button>
-
               <button
                 onClick={() => onCompare(5, data, "any")}
-                style={{
-                  flex: 1, height: 44, borderRadius: 8,
-                  background: t.greenBg, border: `1px solid ${t.greenBorder}`,
-                  color: t.green,
-                  fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
-                  fontWeight: 500, cursor: "pointer", transition: "opacity 0.15s",
-                }}
+                style={{ flex: 1, height: 44, borderRadius: 8, background: t.greenBg, border: `1px solid ${t.greenBorder}`, color: t.green, fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 500, cursor: "pointer", transition: "opacity 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = "0.8"; }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
               >Best food nearby</button>
             </div>
           </div>
 
-          {/* ── Market guide ─────────────────────────────────────────────── */}
           {onMarket && (
             <div style={{ paddingTop: 16, paddingBottom: 8 }}>
               <button
                 onClick={() => onMarket(data.name)}
-                style={{
-                  width: "100%", height: 48, borderRadius: 10,
-                  background: t.accent, border: "none",
-                  color: "#FFFFFF",
-                  fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
-                  fontWeight: 600, cursor: "pointer", transition: "background 0.15s",
-                }}
+                style={{ width: "100%", height: 48, borderRadius: 10, background: t.accent, border: "none", color: "#FFFFFF", fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = t.accentHover; }}
                 onMouseLeave={e => { e.currentTarget.style.background = t.accent; }}
               >View Market Guide — all vendors</button>

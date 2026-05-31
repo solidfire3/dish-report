@@ -1043,6 +1043,7 @@ function DishIntel() {
                 onMarket={name => handleMarketGuide(name, ddCity)}
                 onAddToList={openAddToList}
                 onBack={goBack}
+                searchQuery={searchedDish || undefined}
               />
             </div>
           )}
