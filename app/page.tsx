@@ -811,6 +811,23 @@ function DishIntel() {
         {/* ── Main content ────────────────────────────────────────────── */}
         <main style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px" }}>
 
+          {/* ── Deep dive — rendered exclusively, no card underneath ──── */}
+          {phase === "deepdone" && deepData ? (
+            <div style={{ marginLeft: -20, marginRight: -20 }}>
+              <DeepDiveResult
+                data={deepData} city={ddCity}
+                isFav={isFav(deepData.name)}
+                onFav={() => toggleFav({ name: deepData.name, neighborhood: deepData.neighborhood, venue_type: deepData.venue_type, price_range: deepData.price_range, food_score: deepData.food_score })}
+                onCompare={handleCompare}
+                onMarket={name => handleMarketGuide(name, ddCity)}
+                onAddToList={openAddToList}
+                onBack={goBack}
+                searchQuery={searchedDish || undefined}
+              />
+            </div>
+          ) : (
+          <>
+
           {/* ── Classifying ──────────────────────────────────────────── */}
           {phase === "classifying" && (
             <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 10, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", color: tertiary }}>
@@ -1033,21 +1050,6 @@ function DishIntel() {
           )}
 
           {/* ── Deep dive ────────────────────────────────────────────── */}
-          {phase === "deepdone" && deepData && (
-            <div style={{ marginLeft: -16, marginRight: -16 }}>
-              <DeepDiveResult
-                data={deepData} city={ddCity}
-                isFav={isFav(deepData.name)}
-                onFav={() => toggleFav({ name: deepData.name, neighborhood: deepData.neighborhood, venue_type: deepData.venue_type, price_range: deepData.price_range, food_score: deepData.food_score })}
-                onCompare={handleCompare}
-                onMarket={name => handleMarketGuide(name, ddCity)}
-                onAddToList={openAddToList}
-                onBack={goBack}
-                searchQuery={searchedDish || undefined}
-              />
-            </div>
-          )}
-
           {/* ── Compare ──────────────────────────────────────────────── */}
           {phase === "comparedone" && compareData && (
             <div style={{ marginLeft: -16, marginRight: -16 }}>
@@ -1068,6 +1070,9 @@ function DishIntel() {
               </div>
               <MarketGuideResult data={marketData} />
             </div>
+          )}
+
+          </>
           )}
 
         </main>

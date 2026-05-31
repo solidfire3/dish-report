@@ -386,39 +386,48 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
 
         <div style={{ padding: "0 16px" }}>
 
-          {/* FIX 1+3: THE DETAILS — moved up, redesigned as info card */}
+          {/* THE DETAILS — info card */}
           {(data.hours || data.specials || data.experience_note) && (
-            <div style={{ paddingTop: 28 }}>
+            <div style={{ paddingTop: 20, paddingBottom: 20 }}>
               {SL("The Details")}
               <div style={{
                 background: t.card,
                 borderLeft: "3px solid #B8780A",
                 borderRadius: "0 8px 8px 0",
-                padding: 16,
+                padding: "4px 16px",
                 boxShadow: t.s1,
-                display: "flex", flexDirection: "column", gap: 12,
               }}>
                 {data.hours && (
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.8, flexShrink: 0, minWidth: 60 }}>HOURS</span>
-                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.5 }}>{data.hours}</span>
+                  <div style={{
+                    display: "flex", gap: 16, alignItems: "flex-start",
+                    padding: "12px 0",
+                    borderBottom: data.specials || data.experience_note ? `1px solid ${t.border}` : "none",
+                  }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.5, flexShrink: 0, minWidth: 64, paddingTop: 1 }}>HOURS</span>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.6 }}>{data.hours}</span>
                   </div>
                 )}
                 {data.specials && (
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.8, flexShrink: 0, minWidth: 60 }}>SPECIALS</span>
-                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.5 }}>{data.specials}</span>
+                  <div style={{
+                    display: "flex", gap: 16, alignItems: "flex-start",
+                    padding: "12px 0",
+                    borderBottom: data.experience_note ? `1px solid ${t.border}` : "none",
+                  }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.5, flexShrink: 0, minWidth: 64, paddingTop: 1 }}>SPECIALS</span>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917", lineHeight: 1.6 }}>{data.specials}</span>
                   </div>
                 )}
                 {data.experience_note && (
-                  <div style={{
-                    marginTop: 4, padding: "10px 12px",
-                    background: `${t.accent}10`,
-                    borderLeft: `2px solid ${t.accent}`,
-                    borderRadius: "0 6px 6px 0",
-                  }}>
-                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Heads up</div>
-                    <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65 }}>{data.experience_note}</div>
+                  <div style={{ padding: "12px 0" }}>
+                    <div style={{
+                      padding: "10px 12px",
+                      background: `${t.accent}10`,
+                      borderLeft: `2px solid ${t.accent}`,
+                      borderRadius: "0 6px 6px 0",
+                    }}>
+                      <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Heads up</div>
+                      <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65 }}>{data.experience_note}</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -436,14 +445,17 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                   borderRadius: 12, overflow: "hidden",
                   boxShadow: t.s1, marginBottom: 12,
                 }}>
-                  {/* Dish initial placeholder */}
+                  {/* Dish initial placeholder — intentional texture */}
                   <div style={{
-                    height: 160, background: "#FDF3E3",
+                    height: 120,
+                    background: `radial-gradient(circle, #F0D5A0 1px, transparent 1px) #FDF3E3`,
+                    backgroundSize: "16px 16px",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
                     <span style={{
                       fontFamily: "var(--font-orbitron), 'Courier New', monospace",
                       fontSize: "3rem", fontWeight: 900, color: "#B8780A",
+                      opacity: 0.85,
                     }}>{((mo?.item || "?")[0] || "?").toUpperCase()}</span>
                   </div>
                   <div style={{ padding: 16 }}>
