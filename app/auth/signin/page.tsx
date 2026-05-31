@@ -52,6 +52,7 @@ export default function SignInPage() {
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [confirm,  setConfirm]  = useState("");
+  const [consent,  setConsent]  = useState(false);  // data-consent checkbox
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const router = useRouter();
@@ -62,7 +63,7 @@ export default function SignInPage() {
   );
 
   const switchMode = (m: Mode) => {
-    setMode(m); setError(""); setPassword(""); setConfirm("");
+    setMode(m); setError(""); setPassword(""); setConfirm(""); setConsent(false);
   };
 
   const onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -96,6 +97,12 @@ export default function SignInPage() {
       setLoading(false);
       if (err) { setError(friendlyError(err.message)); return; }
       if (data.user) {
+        // Store consent timestamp (upsert — row may not exist yet)
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          data_consent: true,
+          consent_timestamp: new Date().toISOString(),
+        }, { onConflict: "id" });
         // New user → profile questionnaire
         router.push("/auth/complete-profile");
       }
@@ -120,7 +127,7 @@ export default function SignInPage() {
 
   const isSignUp   = mode === "signup";
   const canSubmit  = !loading && !!email.trim() && password.length >= 8
-                     && (!isSignUp || confirm.length >= 8);
+                     && (!isSignUp || (confirm.length >= 8 && consent));
 
   return (
     <div style={{
@@ -225,6 +232,49 @@ export default function SignInPage() {
                   style={INPUT_STYLE}
                   onFocus={onFocus} onBlur={onBlur}
                 />
+              </div>
+            )}
+
+            {/* Data-consent checkbox (signup only, required) */}
+            {isSignUp && (
+              <div
+                style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer" }}
+                onClick={() => setConsent(v => !v)}
+              >
+                {/* Custom amber checkbox */}
+                <div style={{
+                  width: 20, height: 20, flexShrink: 0, marginTop: 2,
+                  background: consent ? "#B8780A" : "#FFFFFF",
+                  border: `1.5px solid ${consent ? "#B8780A" : "#D4CBC0"}`,
+                  borderRadius: 4,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s, border-color 0.15s",
+                }}>
+                  {consent && (
+                    <svg width="11" height="9" viewBox="0 0 11 9" fill="none"
+                      stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="1,5 4,8 10,1" />
+                    </svg>
+                  )}
+                </div>
+                {/* Consent label */}
+                <div style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: "0.5625rem", color: "#6B6560",
+                  textTransform: "uppercase", letterSpacing: "0.1em",
+                  lineHeight: 1.7, userSelect: "none",
+                }}>
+                  I agree to the{" "}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{ color: "#B8780A", textUnderlineOffset: "2px" }}
+                  >Terms</a>
+                  . My searches and lists contribute to Dish Report&apos;s anonymized food database
+                  and may appear in anonymized, house-branded content.
+                </div>
               </div>
             )}
 
