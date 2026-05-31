@@ -89,12 +89,20 @@ export default function SignInPage() {
     setLoading(true);
 
     if (mode === "signup") {
+      console.log('[AUTH DEBUG] signUp called with email:', JSON.stringify(email.trim()));
       const { data, error: err } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         // No emailRedirectTo — no verification gating for now
       });
       setLoading(false);
+      console.log('[AUTH DEBUG] signUp response:', JSON.stringify({
+        user_id:             data?.user?.id,
+        user_email:          data?.user?.email,
+        email_confirmed_at:  data?.user?.email_confirmed_at,
+        session_exists:      !!data?.session,
+        error:               err?.message ?? null,
+      }));
       if (err) { setError(friendlyError(err.message)); return; }
       if (data.user) {
         // Store consent timestamp (upsert — row may not exist yet)
@@ -107,11 +115,20 @@ export default function SignInPage() {
         router.push("/auth/complete-profile");
       }
     } else {
+      console.log('[AUTH DEBUG] signInWithPassword called with email:', JSON.stringify(email.trim()));
       const { data, error: err } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
       setLoading(false);
+      console.log('[AUTH DEBUG] signInWithPassword response:', JSON.stringify({
+        user_id:            data?.user?.id,
+        user_email:         data?.user?.email,
+        email_confirmed_at: data?.user?.email_confirmed_at,
+        session_exists:     !!data?.session,
+        error:              err?.message ?? null,
+        error_status:       (err as { status?: number } | null)?.status ?? null,
+      }));
       if (err) { setError(friendlyError(err.message)); return; }
       if (data.user) {
         // Check if profile has been completed
