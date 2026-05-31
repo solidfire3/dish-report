@@ -141,7 +141,7 @@ export function Header({
           <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, userSelect: "none" }}>
             <div style={{
               fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-              fontSize: "1.5rem", fontWeight: 900, lineHeight: 1,
+              fontSize: "2rem", fontWeight: 900, lineHeight: 1,
               color: dark ? "#FFB800" : "#1C1917", letterSpacing: "0.04em",
               textShadow: dark ? "0 0 14px rgba(255,184,0,0.4)" : "none",
             }}>DISH REPORT</div>
@@ -152,6 +152,7 @@ export function Header({
             }} />
             <div className="dr-brand-tagline" style={{
               fontFamily: "'Sevastopol', Georgia, serif",
+              fontSize: 10,
               color: dark ? "rgba(255,184,0,0.7)" : "#B8780A",
               textTransform: "uppercase", letterSpacing: "0.35em", lineHeight: 1,
             }}>FOOD INTELLIGENCE</div>

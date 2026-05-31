@@ -605,11 +605,11 @@ function DishIntel() {
     return (
       <div onClick={() => setAddToListTarget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
         <div onClick={e => e.stopPropagation()} style={{ background: cardBg, borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 480, padding: "20px 16px 40px", border: `1px solid ${border}`, maxHeight: "80vh", overflowY: "auto" }}>
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Add to List</div>
+          <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Add to List</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: text, marginBottom: 16 }}>{addToListTarget.name}</div>
 
           <div style={{ background: dark ? "#232323" : "#FDFCFB", border: `1px solid ${border}`, borderRadius: 10, padding: "12px", marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: tertiary, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Create new list</div>
+            <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Create new list</div>
             <div style={{ display: "flex", gap: 8 }}>
               <input value={newListName} onChange={e => setNewListName(e.target.value)} placeholder="List name..."
                 onKeyDown={e => e.key === "Enter" && newListName.trim() && createAndAdd()}
@@ -624,7 +624,7 @@ function DishIntel() {
           {loadingLists && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: secondary, padding: "8px 0" }}>Loading lists...</div>}
           {!loadingLists && userLists.length > 0 && (
             <>
-              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", fontWeight: 600, color: tertiary, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Add to existing list</div>
+              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Add to existing list</div>
               {userLists.map(l => (
                 <button key={l.id} onClick={() => addToList(l.id)} disabled={savingList}
                   style={{ width: "100%", background: dark ? "#232323" : "#FDFCFB", border: `1px solid ${border}`, borderRadius: 8, padding: "11px 12px", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: text, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", textAlign: "left", opacity: savingList ? 0.6 : 1 }}>
@@ -809,8 +809,8 @@ function DishIntel() {
                 <section style={{ paddingTop: 28, paddingBottom: 24 }}>
                   <div style={{
                     fontFamily: "'Sevastopol', Georgia, serif",
-                    fontSize: "0.625rem", color: accent,
-                    textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10,
+                    fontSize: "0.6875rem", color: "#B8780A",
+                    textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
                   }}>NEAR YOU NOW //</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {suggestions.map((s, i) => (
@@ -824,7 +824,7 @@ function DishIntel() {
               <section style={{ paddingBottom: 24 }}>
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.625rem", color: accent,
+                  fontSize: "0.6875rem", color: "#B8780A",
                   textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
                 }}>SELECT QUERY TYPE //</div>
                 <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
@@ -834,7 +834,7 @@ function DishIntel() {
               <section style={{ paddingBottom: 32 }}>
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.625rem", color: tertiary,
+                  fontSize: "0.6875rem", color: "#B8780A",
                   textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
                 }}>SEARCH PARAMETERS //</div>
                 <div style={{

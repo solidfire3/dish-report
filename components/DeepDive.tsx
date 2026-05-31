@@ -169,8 +169,8 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
   const showMarket = !!(data.venue_type?.toLowerCase().match(/market|hall|court|food hall/));
 
   const outlineBtn = (active = false): React.CSSProperties => ({
-    height: 36, padding: "0 14px", borderRadius: 8, cursor: "pointer",
-    fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", fontWeight: 500,
+    height: 38, padding: "0 14px", borderRadius: 8, cursor: "pointer",
+    fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 600,
     display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
     background: active ? t.accentLight : "transparent",
     border: `1px solid ${active ? t.accentBorder : t.border2}`,
@@ -181,9 +181,9 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
 
   const SL = (text: string, color?: string) => (
     <div style={{
-      fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400,
-      color: color || t.tertiary, textTransform: "uppercase",
-      letterSpacing: "0.2em", marginBottom: 16,
+      fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400,
+      color: color || "#B8780A", textTransform: "uppercase",
+      letterSpacing: "0.12em", marginBottom: 12,
     }}>{text}</div>
   );
 
@@ -258,10 +258,10 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 if (!label) return null;
                 return (
                   <span key={i} style={{
-                    fontFamily: "'Inter', sans-serif", fontSize: "0.68rem", fontWeight: 600,
-                    color: t.tertiary, border: `1px solid ${t.border}`,
+                    fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400,
+                    color: "#6B6560", border: "1px solid #D4CBC0",
                     padding: "3px 10px", borderRadius: 20,
-                    textTransform: "uppercase", letterSpacing: "0.07em",
+                    textTransform: "uppercase", letterSpacing: "0.08em",
                     whiteSpace: "nowrap",
                   }}>{label}</span>
                 );
@@ -314,15 +314,15 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               {/* ANALYTICAL SCORE */}
               <div style={{
                 fontFamily: "'Sevastopol', Georgia, serif",
-                fontSize: "0.56rem", color: clr,
-                textTransform: "uppercase", letterSpacing: "0.25em", lineHeight: 1,
+                fontSize: "0.6875rem", color: "#B8780A",
+                textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
               }}>ANALYTICAL SCORE</div>
 
               {/* Score number in targeting box */}
               <div style={{ position: "relative", display: "inline-block" }}>
                 <div style={{
                   fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                  fontSize: "3.5rem", fontWeight: 700,
+                  fontSize: "3.25rem", fontWeight: 900,
                   color: clr, lineHeight: 1,
                   border: `1px solid ${clr}`,
                   padding: "6px 14px", borderRadius: 2,
@@ -340,8 +340,8 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               {/* / 10.0 MAX */}
               <div style={{
                 fontFamily: "'Sevastopol', Georgia, serif",
-                fontSize: "0.56rem", color: t.tertiary,
-                textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 1,
+                fontSize: "0.6875rem", color: t.tertiary,
+                textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
               }}>/ 10.0 MAX</div>
             </div>
           );
@@ -379,7 +379,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                   {mo?.why && (
                     <div style={{
                       fontFamily: "'DM Sans', 'Inter', sans-serif",
-                      fontSize: "0.9rem", color: t.text, lineHeight: 1.65,
+                      fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65,
                     }}>{mo.why}</div>
                   )}
                   {j < mos.length - 1 && <div style={{ height: 1, background: t.border, margin: "20px 0" }} />}
@@ -400,7 +400,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 return (
                   <div key={j}>
                     <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9rem", fontWeight: 600, color: t.text, marginBottom: note ? 3 : 0 }}>{name}</div>
-                    {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.8rem", fontStyle: "italic", color: t.secondary, lineHeight: 1.45 }}>{note}</div>}
+                    {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: "#4A4540", lineHeight: 1.55 }}>{note}</div>}
                     {j < also.length - 1 && <div style={{ height: 1, background: t.border, margin: "12px 0" }} />}
                   </div>
                 );
@@ -415,7 +415,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               {SL("Skip These", dark ? "#EF4444" : "#9B1C1C")}
               {skip.filter(s => s != null).map((s, j) => (
                 <div key={j}>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9rem", color: t.secondary }}>
+                  <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.9375rem", color: "#4A4540" }}>
                     {String(s)}
                   </div>
                   {j < skip.length - 1 && <div style={{ height: 1, background: t.border, margin: "10px 0" }} />}
@@ -443,7 +443,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                     }} />
                     <div style={{
                       fontFamily: "'DM Sans', 'Inter', sans-serif",
-                      fontSize: "0.875rem", color: t.text, lineHeight: 1.55,
+                      fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.65,
                     }}>{String(tip)}</div>
                   </div>
                 ))}
@@ -458,25 +458,25 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               {SL("The Details")}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {data.hours && (
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.text }}>
-                    <span style={{ color: t.tertiary, fontWeight: 600, marginRight: 8, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Hours</span>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917" }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", color: "#B8780A", fontWeight: 400, marginRight: 8, fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.12em" }}>Hours</span>
                     {data.hours}
                   </div>
                 )}
                 {data.specials && (
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.text }}>
-                    <span style={{ color: t.tertiary, fontWeight: 600, marginRight: 8, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Specials</span>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: "#1C1917" }}>
+                    <span style={{ fontFamily: "'Sevastopol', Georgia, serif", color: "#B8780A", fontWeight: 400, marginRight: 8, fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.12em" }}>Specials</span>
                     {data.specials}
                   </div>
                 )}
                 {data.experience_note && (
                   <div style={{
-                    fontSize: "0.875rem", lineHeight: 1.55, padding: "10px 12px",
+                    fontSize: "0.9375rem", lineHeight: 1.65, padding: "10px 12px",
                     background: `${t.accent}10`,
                     borderLeft: `2px solid ${t.accent}`,
-                    borderRadius: "0 6px 6px 0", color: t.text, marginTop: 4,
+                    borderRadius: "0 6px 6px 0", color: "#2D2826", marginTop: 4,
                   }}>
-                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>Heads up</div>
+                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Heads up</div>
                     {data.experience_note}
                   </div>
                 )}
@@ -498,7 +498,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               }}>
                 <div style={{
                   fontFamily: "'DM Sans', 'Inter', sans-serif",
-                  fontSize: "1rem", color: t.text, lineHeight: 1.7,
+                  fontSize: "0.9375rem", color: "#2D2826", lineHeight: 1.7,
                 }}>{data.verdict}</div>
               </div>
               <Divider />
@@ -583,7 +583,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
           <div style={{
             flex: 1, minWidth: 0,
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: "1rem", fontWeight: 700, color: t.text,
+            fontSize: "1.125rem", fontWeight: 600, color: t.text,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>{data.name}</div>
           <div style={{
@@ -617,7 +617,7 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
       {/* Header */}
       <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "24px 16px" }}>
         <div style={{
-          fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400,
+          fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400,
           color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
         }}>Market Guide</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -639,7 +639,7 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
 
       {/* Vendor list */}
       <div style={{ padding: "16px 16px 60px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>
           Best thing at each vendor — ranked by food quality
         </div>
         {vendors.map((v, i) => {
@@ -698,7 +698,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
     <div style={{ background: t.bg, minHeight: "100vh" }}>
       {/* Header */}
       <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "24px 16px" }}>
-        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
           {isAny ? "Best Food Nearby" : "Similar Spots"}
         </div>
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.5rem", fontWeight: 700, color: t.text, lineHeight: 1.15, marginBottom: 6 }}>
@@ -708,7 +708,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
         {data.search_area && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, marginBottom: 12 }}>{data.search_area}</div>}
         {/* Original score reference */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: accentBg, border: `1px solid ${accentBorder}`, borderRadius: 8, padding: "8px 12px" }}>
-          <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.08em" }}>You're comparing</div>
+          <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.08em" }}>You're comparing</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.9rem", fontWeight: 700, color: t.text }}>{data.original?.name}</div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "1rem", fontWeight: 700, color: scoreColor(originalScore ?? 0, dark) }}>{(originalScore ?? 0).toFixed(1)}</div>
         </div>
@@ -716,7 +716,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
 
       {/* Alternatives */}
       <div style={{ padding: "16px 16px 60px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+        <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
           {isAny ? "All cuisines — ranked by food quality" : "Same cuisine — ranked by food quality"}
         </div>
         {alts.map((a, i) => {

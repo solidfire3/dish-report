@@ -93,8 +93,8 @@ export function ScoreRing({ score, size = 52, dark: darkProp }: { score: number;
       {/* ANALYTICAL SCORE label */}
       <div style={{
         fontFamily: "'Sevastopol', Georgia, serif",
-        fontSize: "0.45rem", fontWeight: 400, color: clr,
-        textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 1,
+        fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A",
+        textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
       }}>ANALYTICAL SCORE</div>
 
       {/* Score number in targeting box */}
@@ -120,8 +120,8 @@ export function ScoreRing({ score, size = 52, dark: darkProp }: { score: number;
       {/* / 10.0 MAX */}
       <div style={{
         fontFamily: "'Sevastopol', Georgia, serif",
-        fontSize: "0.45rem", fontWeight: 400, color: t.tertiary,
-        textTransform: "uppercase", letterSpacing: "0.15em", lineHeight: 1,
+        fontSize: "0.6875rem", fontWeight: 400, color: t.tertiary,
+        textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
       }}>/ 10.0 MAX</div>
     </div>
   );
@@ -397,7 +397,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
   const actionBtn: React.CSSProperties = {
     display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
     background: "none", border: "none", cursor: "pointer",
-    fontFamily: "'Inter',sans-serif", fontSize: "0.72rem",
+    fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", fontWeight: 500,
     color: t.secondary, padding: "0 8px",
     transition: "color 0.15s", minWidth: 44, minHeight: 44,
     justifyContent: "center",
@@ -451,8 +451,8 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               position: "absolute", top: 8, left: 8,
               background: "#B8780A", color: "#FFFFFF",
               fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-              fontSize: "0.7rem", fontWeight: 700,
-              padding: "3px 10px", borderRadius: 12,
+              fontSize: "0.875rem", fontWeight: 700,
+              padding: "4px 12px", borderRadius: 12,
               lineHeight: 1.4, letterSpacing: "0.04em",
             }}>{r.rank}</div>
           )}
@@ -479,8 +479,8 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
                     <div style={{
                       fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.5rem", color: clr,
-                      textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 1,
+                      fontSize: "0.6875rem", color: "#B8780A",
+                      textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
                     }}>ANALYTICAL SCORE</div>
                     <div style={{ position: "relative", display: "inline-block" }}>
                       <div style={{
@@ -499,8 +499,8 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                     </div>
                     <div style={{
                       fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.5rem", color: t.tertiary,
-                      textTransform: "uppercase", letterSpacing: "0.15em", lineHeight: 1,
+                      fontSize: "0.6875rem", color: t.tertiary,
+                      textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
                     }}>/ 10.0 MAX</div>
                   </div>
                 );
@@ -514,20 +514,20 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               marginBottom: 12,
             }}>
               {r.neighborhood && (
-                <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", color: t.secondary }}>
+                <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
                   {r.neighborhood}
                 </span>
               )}
               {r.neighborhood && (r.venue_type || r.price_range) && (
-                <span style={{ color: t.tertiary, fontSize: "0.75rem" }}>·</span>
+                <span style={{ color: t.tertiary, fontSize: "0.875rem" }}>·</span>
               )}
               {r.venue_type && (
-                <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", color: t.tertiary }}>
+                <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
                   {r.venue_type}
                 </span>
               )}
               {r.price_range && (
-                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.8rem", fontWeight: 600 }}>
+                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.875rem", fontWeight: 600 }}>
                   {[1, 2, 3, 4].map(n => {
                     const filled = ["$", "$$", "$$$", "$$$$"].indexOf(r.price_range!) + 1;
                     return <span key={n} style={{ color: n <= filled ? t.accent : t.disabled }}>$</span>;
@@ -540,10 +540,10 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
             {firstMo && (
               <div style={{ marginBottom: 2 }}>
                 <div style={{
-                  fontFamily: "'Inter',sans-serif", fontSize: "0.6rem",
-                  fontWeight: 600, color: t.tertiary,
-                  textTransform: "uppercase", letterSpacing: "0.08em",
-                  marginBottom: 7,
+                  fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem",
+                  fontWeight: 400, color: "#B8780A",
+                  textTransform: "uppercase", letterSpacing: "0.12em",
+                  marginBottom: 8,
                 }}>Must Order</div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -568,8 +568,8 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                     {firstMo.differentiator && (
                       <div style={{
                         fontFamily: "'DM Sans','Inter',sans-serif",
-                        fontSize: "0.8rem", fontStyle: "italic",
-                        color: t.secondary, lineHeight: 1.3, marginTop: 2,
+                        fontSize: "0.875rem",
+                        color: "#4A4540", lineHeight: 1.4, marginTop: 2,
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       }}>{firstMo.differentiator}</div>
                     )}
