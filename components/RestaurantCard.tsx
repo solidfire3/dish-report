@@ -657,13 +657,28 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {mos.map((mo, j) => (
                     <div key={j} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      {(photoUrls[j] || photoUrls[0]) && (
+                      {/* Only use a photo if this specific index has one — never fall back to
+                          photoUrls[0] (the establishment shot), which repeats the same image
+                          across every dish. Show an amber initial placeholder instead. */}
+                      {photoUrls[j] ? (
                         <img
-                          src={photoUrls[j] || photoUrls[0]}
+                          src={photoUrls[j]}
                           alt={mo?.item || ""}
                           onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                           style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
                         />
+                      ) : (
+                        <div style={{
+                          width: 64, height: 64, borderRadius: 8, flexShrink: 0,
+                          background: `radial-gradient(circle, #F0D5A0 1px, transparent 1px) #FDF3E3`,
+                          backgroundSize: "10px 10px",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <span style={{
+                            fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                            fontSize: "1.1rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                          }}>{((mo?.item || "?")[0] || "?").toUpperCase()}</span>
+                        </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
