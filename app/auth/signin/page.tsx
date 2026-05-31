@@ -89,21 +89,37 @@ export default function SignInPage() {
     setLoading(true);
 
     if (mode === "signup") {
-      console.log('[AUTH DEBUG] signUp called with email:', JSON.stringify(email.trim()));
-      const { data, error: err } = await supabase.auth.signUp({
+      // Step 1: Create confirmed user via server-side admin route
+      console.log('[AUTH DEBUG] admin signup POST called with email:', JSON.stringify(email.trim()));
+      const signupRes = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const signupJson = await signupRes.json();
+      console.log('[AUTH DEBUG] admin signup response:', JSON.stringify(signupJson));
+      if (!signupRes.ok) {
+        setLoading(false);
+        setError(friendlyError(signupJson.error ?? "Signup failed."));
+        return;
+      }
+
+      // Step 2: Immediately sign in to create the browser session
+      console.log('[AUTH DEBUG] signInWithPassword (post-signup) called with email:', JSON.stringify(email.trim()));
+      const { data, error: signInErr } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
-        // No emailRedirectTo — no verification gating for now
       });
       setLoading(false);
-      console.log('[AUTH DEBUG] signUp response:', JSON.stringify({
-        user_id:             data?.user?.id,
-        user_email:          data?.user?.email,
-        email_confirmed_at:  data?.user?.email_confirmed_at,
-        session_exists:      !!data?.session,
-        error:               err?.message ?? null,
+      console.log('[AUTH DEBUG] signInWithPassword (post-signup) response:', JSON.stringify({
+        user_id:            data?.user?.id,
+        user_email:         data?.user?.email,
+        email_confirmed_at: data?.user?.email_confirmed_at,
+        session_exists:     !!data?.session,
+        error:              signInErr?.message ?? null,
       }));
-      if (err) { setError(friendlyError(err.message)); return; }
+      if (signInErr) { setError(friendlyError(signInErr.message)); return; }
+
       if (data.user) {
         // Store consent timestamp (upsert — row may not exist yet)
         await supabase.from("profiles").upsert({
