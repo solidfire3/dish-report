@@ -3,11 +3,57 @@ import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 
+// Magic link / Google OAuth can be added here later as additional options.
+// This page uses Supabase email+password auth (passwords hashed by Supabase,
+// never stored raw). Email verification is intentionally disabled for now
+// so testing is not blocked by send limits — add it back with
+// supabase.auth.signUp({ options: { emailRedirectTo: ... } }) when ready.
+
+type Mode = "signin" | "signup";
+
+// Map Supabase error strings to friendly messages
+function friendlyError(msg: string): string {
+  if (msg.includes("Invalid login credentials") || msg.includes("invalid_credentials"))
+    return "Wrong email or password.";
+  if (msg.includes("Email rate limit") || msg.includes("rate limit"))
+    return "Too many attempts — please wait a moment.";
+  if (msg.includes("Password should be at least") || msg.includes("weak password"))
+    return "Password must be at least 8 characters.";
+  if (msg.includes("User already registered") || msg.includes("already been registered"))
+    return "An account with this email already exists. Try signing in.";
+  if (msg.includes("Unable to validate email") || msg.includes("valid email"))
+    return "Please enter a valid email address.";
+  if (msg.includes("Email not confirmed"))
+    return "Check your inbox — you may need to confirm your email first.";
+  return msg;
+}
+
+const INPUT_STYLE: React.CSSProperties = {
+  width: "100%", background: "#FFFFFF",
+  border: "1.5px solid #D4CBC0",
+  borderRadius: 8, padding: "11px 14px",
+  color: "#1C1917",
+  fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+  fontSize: "0.9375rem", outline: "none",
+  boxSizing: "border-box",
+  transition: "border-color 0.15s, box-shadow 0.15s",
+};
+
+const LABEL_STYLE: React.CSSProperties = {
+  display: "block", marginBottom: 6,
+  fontFamily: "'Sevastopol', Georgia, serif",
+  fontSize: "0.625rem", fontWeight: 400,
+  color: "#B8780A", textTransform: "uppercase",
+  letterSpacing: "0.15em",
+};
+
 export default function SignInPage() {
-  const [email, setEmail]   = useState("");
-  const [sent, setSent]     = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState("");
+  const [mode,     setMode]     = useState<Mode>("signin");
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm,  setConfirm]  = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
   const router = useRouter();
 
   const supabase = createBrowserClient(
@@ -15,156 +61,245 @@ export default function SignInPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true); setError("");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setLoading(false);
-    if (error) { setError(error.message); return; }
-    setSent(true);
+  const switchMode = (m: Mode) => {
+    setMode(m); setError(""); setPassword(""); setConfirm("");
   };
+
+  const onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = "#B8780A";
+    e.currentTarget.style.boxShadow   = "0 0 0 3px rgba(184,120,10,0.12)";
+  };
+  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = "#D4CBC0";
+    e.currentTarget.style.boxShadow   = "none";
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    // Client-side validation
+    if (!email.trim())       { setError("Email is required."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (mode === "signup" && password !== confirm) {
+      setError("Passwords don't match."); return;
+    }
+
+    setLoading(true);
+
+    if (mode === "signup") {
+      const { data, error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        // No emailRedirectTo — no verification gating for now
+      });
+      setLoading(false);
+      if (err) { setError(friendlyError(err.message)); return; }
+      if (data.user) {
+        // New user → profile questionnaire
+        router.push("/auth/complete-profile");
+      }
+    } else {
+      const { data, error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      setLoading(false);
+      if (err) { setError(friendlyError(err.message)); return; }
+      if (data.user) {
+        // Check if profile has been completed
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        router.push(profile?.full_name ? "/" : "/auth/complete-profile");
+      }
+    }
+  };
+
+  const isSignUp   = mode === "signup";
+  const canSubmit  = !loading && !!email.trim() && password.length >= 8
+                     && (!isSignUp || confirm.length >= 8);
 
   return (
     <div style={{
-      background: "#F7F4F0", minHeight: "100vh",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16, fontFamily: "'Inter', -apple-system, sans-serif",
+      background: "#F2EEE8",
+      backgroundImage: "radial-gradient(circle, rgba(28,25,23,0.06) 1px, transparent 1px)",
+      backgroundSize: "20px 20px",
+      minHeight: "100vh",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: 16,
     }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
+      <div style={{ width: "100%", maxWidth: 420 }}>
 
-        {/* Wordmark */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: "2rem", fontWeight: 700, color: "#C8860A",
-            marginBottom: 8,
-          }}>Dish Report</div>
-          <div style={{ fontSize: "0.875rem", color: "#6B6560", lineHeight: 1.5 }}>
-            Sign in to save searches, favorites, and lists
+        {/* ── Brand mark (matches TerminalSearch) ── */}
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <div style={{
+              fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+              fontSize: "1.75rem", fontWeight: 900, color: "#1C1917",
+              letterSpacing: "0.04em", lineHeight: 1,
+            }}>DISH REPORT</div>
+            <div style={{
+              width: 8, height: 18, background: "#B8780A", borderRadius: 1,
+              animation: "signin-cursor 1.1s step-end infinite",
+            }} />
           </div>
+          <div style={{
+            fontFamily: "'Sevastopol', Georgia, serif",
+            fontSize: "0.625rem", color: "#B8780A",
+            textTransform: "uppercase", letterSpacing: "0.3em",
+          }}>FOOD INTELLIGENCE</div>
         </div>
 
+        {/* ── Card ── */}
         <div style={{
-          background: "#FFFFFF",
-          border: "1px solid #E8E3DC",
-          borderRadius: 12,
+          background: "#FFFFFF", border: "1px solid #E8E3DC", borderRadius: 12,
           padding: "28px 24px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05)",
         }}>
-          {sent ? (
-            <div style={{ textAlign: "center" }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: "50%",
-                background: "#FDF3E3", border: "1.5px solid #F0D5A0",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                margin: "0 auto 20px",
-              }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C8860A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-              </div>
-              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#1C1917", marginBottom: 10 }}>
-                Check your email
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#6B6560", lineHeight: 1.65 }}>
-                We sent a magic link to{" "}
-                <span style={{ color: "#C8860A", fontWeight: 600 }}>{email}</span>.
-                <br />Click it to sign in — no password needed.
-              </div>
+          {/* Mode toggle */}
+          <div style={{
+            display: "flex", gap: 0, marginBottom: 24,
+            border: "1px solid #E8E3DC", borderRadius: 8, overflow: "hidden",
+          }}>
+            {(["signin", "signup"] as Mode[]).map(m => (
               <button
-                onClick={() => { setSent(false); setEmail(""); }}
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
                 style={{
-                  marginTop: 20, background: "none",
-                  border: "1px solid #D4CBC0",
-                  borderRadius: 8, color: "#6B6560",
-                  fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
-                  padding: "9px 20px", cursor: "pointer",
-                  transition: "border-color 0.15s",
+                  flex: 1, background: mode === m ? "#1C1917" : "#FFFFFF",
+                  border: "none", cursor: "pointer",
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: "0.6875rem", fontWeight: 700,
+                  color: mode === m ? "#FFB800" : "#6B6560",
+                  padding: "10px 8px", letterSpacing: "0.06em",
+                  transition: "background 0.15s, color 0.15s",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#C8860A"; e.currentTarget.style.color = "#C8860A"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#D4CBC0"; e.currentTarget.style.color = "#6B6560"; }}
-              >Try a different email</button>
+              >
+                {m === "signin" ? "SIGN IN" : "CREATE ACCOUNT"}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {/* Email */}
+            <div>
+              <label style={LABEL_STYLE}>Email address</label>
+              <input
+                type="email" value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoFocus
+                autoComplete="email"
+                style={INPUT_STYLE}
+                onFocus={onFocus} onBlur={onBlur}
+              />
             </div>
-          ) : (
-            <form onSubmit={handleSignIn} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Password */}
+            <div>
+              <label style={LABEL_STYLE}>Password</label>
+              <input
+                type="password" value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder={isSignUp ? "Min 8 characters" : "Your password"}
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+                style={INPUT_STYLE}
+                onFocus={onFocus} onBlur={onBlur}
+              />
+            </div>
+
+            {/* Confirm password (signup only) */}
+            {isSignUp && (
               <div>
-                <label style={{
-                  display: "block", marginBottom: 6,
-                  fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
-                  fontWeight: 600, color: "#6B6560",
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                }}>Email address</label>
+                <label style={LABEL_STYLE}>Confirm password</label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoFocus
-                  style={{
-                    width: "100%", background: "#FFFFFF",
-                    border: "1.5px solid #E8E3DC",
-                    borderRadius: 8, padding: "11px 14px",
-                    color: "#1C1917", fontFamily: "'Inter', sans-serif",
-                    fontSize: "1rem", outline: "none", boxSizing: "border-box",
-                    transition: "border-color 0.15s",
-                  }}
-                  onFocus={e => { e.currentTarget.style.borderColor = "#C8860A"; e.currentTarget.style.boxShadow = "0 0 0 3px #FDF3E3"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = "#E8E3DC"; e.currentTarget.style.boxShadow = "none"; }}
+                  type="password" value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  placeholder="Same password again"
+                  autoComplete="new-password"
+                  style={INPUT_STYLE}
+                  onFocus={onFocus} onBlur={onBlur}
                 />
               </div>
+            )}
 
-              {error && (
-                <div style={{
-                  fontSize: "0.8rem", color: "#991B1B",
-                  background: "#FEF2F2", border: "1px solid #FECACA",
-                  borderRadius: 8, padding: "10px 14px", lineHeight: 1.5,
-                }}>{error}</div>
-              )}
+            {/* Error display */}
+            {error && (
+              <div style={{
+                fontFamily: "'Sevastopol', Georgia, serif",
+                fontSize: "0.6875rem", color: "#991B1B",
+                background: "#FEF2F2", border: "1px solid #FECACA",
+                borderRadius: 8, padding: "10px 14px",
+                letterSpacing: "0.04em",
+              }}>{error}</div>
+            )}
 
-              <button
-                type="submit"
-                disabled={loading || !email.trim()}
-                style={{
-                  background: "#C8860A", border: "none", borderRadius: 10,
-                  color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
-                  fontSize: "1rem", fontWeight: 600,
-                  padding: "14px", cursor: "pointer",
-                  opacity: loading || !email.trim() ? 0.5 : 1,
-                  transition: "background 0.15s, opacity 0.15s",
-                }}
-                onMouseEnter={e => { if (!loading && email.trim()) e.currentTarget.style.background = "#A86E08"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "#C8860A"; }}
-              >
-                {loading ? "Sending..." : "Send Magic Link"}
-              </button>
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              style={{
+                background: canSubmit ? "#B8780A" : "#E8E3DC",
+                border: canSubmit ? "2px solid #9A6209" : "2px solid transparent",
+                borderRadius: 10, color: canSubmit ? "#FFFFFF" : "#A89F99",
+                fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+                fontSize: "0.875rem", fontWeight: 700,
+                padding: "14px", cursor: canSubmit ? "pointer" : "not-allowed",
+                letterSpacing: "0.06em",
+                boxShadow: canSubmit ? "0 4px 14px rgba(184,120,10,0.25)" : "none",
+                transition: "background 0.2s, box-shadow 0.2s",
+              }}
+              onMouseEnter={e => { if (canSubmit) { e.currentTarget.style.background = "#9A6209"; } }}
+              onMouseLeave={e => { if (canSubmit) { e.currentTarget.style.background = "#B8780A"; } }}
+            >
+              {loading
+                ? (isSignUp ? "CREATING ACCOUNT..." : "SIGNING IN...")
+                : (isSignUp ? "CREATE ACCOUNT ›" : "SIGN IN ›")}
+            </button>
 
-              <button
-                type="button"
-                onClick={() => router.push("/")}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "#A89F99", fontFamily: "'Inter', sans-serif",
-                  fontSize: "0.875rem", padding: "4px",
-                  display: "flex", alignItems: "center", gap: 6,
-                  transition: "color 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = "#6B6560"; }}
-                onMouseLeave={e => { e.currentTarget.style.color = "#A89F99"; }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-                Back to search
-              </button>
-            </form>
-          )}
+            {/* Back link */}
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "#A89F99",
+                fontFamily: "'Sevastopol', Georgia, serif",
+                fontSize: "0.5625rem", textTransform: "uppercase",
+                letterSpacing: "0.2em", padding: "4px",
+                textAlign: "center",
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#6B6560"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#A89F99"; }}
+            >
+              ← Back to search
+            </button>
+          </form>
+        </div>
+
+        {/* Hint */}
+        <div style={{
+          textAlign: "center", marginTop: 16,
+          fontFamily: "'Sevastopol', Georgia, serif",
+          fontSize: "0.5rem", color: "#C4BDB2",
+          textTransform: "uppercase", letterSpacing: "0.2em",
+        }}>
+          Your password is handled securely by Supabase Auth
         </div>
       </div>
+
+      <style>{`
+        @keyframes signin-cursor {
+          0%,49% { opacity: 1; }
+          50%,100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }
