@@ -21,46 +21,82 @@ const SUB_STATUSES = [
   "CHECKING SEASONAL MENU AVAILABILITY",
 ];
 
-// ─── CANVAS CHARACTER POOL ────────────────────────────────────────────────────
-const BASE_CHARS  = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz0123456789';
-const SYM_CHARS   = '!@#$%&*+=<>/|\\:.░▒▓█◆●▲';
-const ALL_CHARS   = BASE_CHARS + SYM_CHARS;
+// ─── CHARACTER POOLS (FIX 3) ─────────────────────────────────────────────────
+const NOISE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz0123456789:.-+=/|';
+const SCRAMBLE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#@%&*+=<>';
 
-const FOOD_POOL = [
-  'BIRRIA', 'OMAKASE', 'TONKOTSU', 'CARNE ASADA', 'AL PASTOR',
-  'MOLE', 'NIGIRI', 'CARBONARA', 'BRISKET', 'CEVICHE',
-  'DUMPLING', 'RAMEN', 'TACO', 'PHO', 'WAGYU', 'SHAKSHUKA',
-  'BARBACOA', 'CHILAQUILES', 'TIRAMISU', 'KARAAGE', 'GYOZA',
+const DISH_POOL = [
+  'CARNE ASADA', 'AL PASTOR', 'BIRRIA', 'MOLE', 'OMAKASE',
+  'NIGIRI', 'TONKOTSU', 'CARBONARA', 'CACIO E PEPE', 'BRISKET',
+  'CEVICHE', 'PHO', 'PAD THAI', 'KIMCHI', 'GYOZA',
+  'WAGYU', 'KARAAGE', 'SHAKSHUKA', 'CHILAQUILES', 'TIRAMISU',
 ];
 
-const REPORT_POOL = [
-  'COMPILING REPORT', 'CROSS-REFERENCING', 'WEIGHTING SIGNAL',
-  'RANKING DISHES', 'SIGNAL STRENGTH HIGH', 'FOOD QUALITY INDEX',
-  'ANALYZING FLAVOR', 'CONSISTENCY CHECK', 'SOURCE RELIABILITY OK',
-];
+// Stage-specific process phrases (FIX 3)
+const PROCESS_EARLY   = ['READING QUERY', 'PARSING INPUT', 'LOCATING CANDIDATES', 'MAPPING AREA'];
+const PROCESS_SCAN    = ['PULLING REVIEWS', 'COLLECTING DATA', 'SOURCES FOUND'];
+const PROCESS_FILTER  = ['FILTERING NOISE', 'REMOVING IRRELEVANT', 'SIGNAL ONLY'];
+const PROCESS_METRIC  = ['EXTRACTING FLAVOR', 'MEASURING QUALITY', 'FOOD SIGNAL'];
+const PROCESS_SCORE   = ['CALCULATING SCORE', 'RANKING BY FOOD', 'SCORING'];
+const PROCESS_COMPILE = ['COMPILING REPORT', 'CROSS-REFERENCING', 'WEIGHTING SIGNAL', 'RANKING DISHES', 'FINALIZING'];
+const METRIC_LABELS   = ['FLAVOR 94', 'TECHNIQUE 88', 'FRESHNESS 91', 'CONSISTENCY 87', 'TEXTURE 90', 'VALUE 85'];
 
-// Simple ASCII food shapes (rows of chars, max ~14 wide)
+// FIX 4 — hardcoded ASCII art (~14 wide × 5-8 tall), clearly recognizable
 const ASCII_SHAPES: string[][] = [
   // Taco
-  ["  .------. ", " /  ~*~*~  \\", "|  #######  |", " \\._______./  "],
-  // Bowl
-  [" .========. ", "|  ≈ ≈ ≈ ≈  |", "|  ≈ ≈ ≈ ≈  |", " '========' ", "    |____|   "],
+  [
+    "   .-------.   ",
+    "  /  ~ * ~  \\  ",
+    " / ######### \\ ",
+    "|.###########.|",
+    " \\'---------'/ ",
+  ],
+  // Ramen bowl
+  [
+    " _____________ ",
+    "|  ~ ~ ~ ~ ~  |",
+    "|  ~~~~~~~~~~  |",
+    "|_____________|",
+    "    |     |    ",
+    "   _|_____|_   ",
+    "  |_________|  ",
+  ],
   // Fish
-  [" .~.~.  ><>", "/  o   )(  ", "\\       ><>", " '~'~'     "],
-  // Fork
-  ["| | |", "| | |", " \\|/ ", "  |  ", "  |  ", " _|_ "],
+  [
+    "  .~~~~~~~~~.  ",
+    " /   (o)     > ",
+    "| ~~~~~~~~~~~ |",
+    " \\           > ",
+    "  '~~~~~~~~~'  ",
+  ],
+  // Fork and knife
+  [
+    " | |    |  ",
+    " | |    |  ",
+    " | |   /   ",
+    "  \\|  /    ",
+    "   | /     ",
+    "   ||      ",
+    "   |_      ",
+  ],
 ];
 
-function rchar(): string { return ALL_CHARS[Math.floor(Math.random() * ALL_CHARS.length)]; }
+function rnoiseChar(): string { return NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)]; }
+function rscramble(): string { return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]; }
 
 // ─── CANVAS ANIMATION HOOK ────────────────────────────────────────────────────
 type RevealEntry = {
-  lines: string[];         // one or more lines (1 = word, N = shape)
-  row: number;             // starting row
-  col: number;             // starting col (centred for single-line)
+  lines: string[];
+  row: number;
+  col: number;
   startMs: number;
-  totalMs: number;         // total lifetime
-  amber: boolean;
+  materializeMs: number;   // duration of left-to-right decode effect
+  holdMs: number;          // duration fully formed
+  dissolveMs: number;      // duration of fade-out
+  amber: boolean;          // amber or dark
+  isHero: boolean;         // hero = center position, slightly more prominent
+  // Pre-computed: flat list of (lineIdx, charIdx, targetChar) for non-space chars
+  chars: { li: number; ci: number; ch: string; lockMs: number }[];
 };
 
 function useCharGrid(
@@ -74,14 +110,15 @@ function useCharGrid(
 ) {
   const stateRef = useRef<{
     cols: number; rows: number; cw: number; ch: number;
-    grid: string[];          // current char per cell
-    wave: Float32Array;      // 0-1 wave activation per cell
+    grid: string[];
+    wave: Float32Array;
     reveals: RevealEntry[];
     lastRevealMs: number;
     lastShapeMs: number;
+    heroSpawnedAt: number;
+    shapeIndex: number;
   } | null>(null);
 
-  // Canvas setup + animation loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -89,9 +126,10 @@ function useCharGrid(
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const FONT_PX = 11;
-    const CW = 6.8;   // char width (IBM Plex Mono ~62% of height)
-    const CH = 14;    // char height (line height)
+    const NOISE_PX  = 10;   // FIX 1: noise chars — small
+    const REVEAL_PX = 13;   // FIX 1: reveal chars — larger, bolder
+    const CW = 6.8;
+    const CH = 14;
     let cols = 0, rows = 0;
 
     const setup = () => {
@@ -102,71 +140,151 @@ function useCharGrid(
       canvas.style.width  = `${W}px`;
       canvas.style.height = `${H}px`;
       ctx.scale(dpr, dpr);
-      ctx.font = `${FONT_PX}px "IBM Plex Mono","Courier New",monospace`;
       ctx.textBaseline = 'top';
       cols = Math.ceil(W / CW) + 2;
       rows = Math.ceil(H / CH) + 2;
       stateRef.current = {
         cols, rows, cw: CW, ch: CH,
-        grid: Array.from({ length: cols * rows }, rchar),
+        grid: Array.from({ length: cols * rows }, rnoiseChar),
         wave: new Float32Array(cols * rows),
         reveals: [],
         lastRevealMs: 0,
         lastShapeMs: 0,
+        heroSpawnedAt: 0,
+        shapeIndex: 0,
       };
     };
 
     setup();
     window.addEventListener('resize', setup);
 
-    // ── Build reveal phrase based on current state ──────────────────────────
-    const getRevealPhrase = (): string => {
-      const candidates: string[] = [];
-      if (query) candidates.push(query.toUpperCase().slice(0, 28));
-      if (stage === 3 && reviewCount > 0) candidates.push(`${reviewCount} REVIEWS SCANNED`);
-      if (stage === 4 && filteredCount > 0) candidates.push(`${filteredCount} SIGNALS FILTERED`);
-      if (stage === 6) candidates.push(`SCORE ${flickerScore.toFixed(1)}`);
-      candidates.push(...FOOD_POOL.slice(0, 8));
-      candidates.push(...REPORT_POOL.slice(0, 5));
-      return candidates[Math.floor(Math.random() * candidates.length)] ?? 'ANALYZING';
+    // ── Build a RevealEntry from lines of text ─────────────────────────────
+    const makeReveal = (
+      lines: string[], row: number, col: number,
+      materializeMs: number, holdMs: number, dissolveMs: number,
+      amber: boolean, isHero: boolean,
+    ): RevealEntry => {
+      // Collect all non-space chars with staggered lock times
+      const allChars: RevealEntry['chars'] = [];
+      let total = 0;
+      for (let li = 0; li < lines.length; li++) {
+        for (let ci = 0; ci < lines[li].length; ci++) {
+          if (lines[li][ci] !== ' ') total++;
+        }
+      }
+      let idx = 0;
+      for (let li = 0; li < lines.length; li++) {
+        for (let ci = 0; ci < lines[li].length; ci++) {
+          const ch = lines[li][ci];
+          if (ch !== ' ') {
+            // Stagger: left-to-right, top-to-bottom, lock over 80% of materializeMs
+            const lockMs = total > 1 ? (idx / (total - 1)) * materializeMs * 0.8 : 0;
+            allChars.push({ li, ci, ch, lockMs });
+            idx++;
+          }
+        }
+      }
+      return { lines, row, col, startMs: performance.now(), materializeMs, holdMs, dissolveMs, amber, isHero, chars: allChars };
     };
 
-    // ── Spawn a word/phrase reveal ──────────────────────────────────────────
+    // ── Check if a row range overlaps existing reveals ─────────────────────
+    const overlapsExisting = (s: typeof stateRef.current, row: number, rowSpan: number): boolean => {
+      if (!s) return false;
+      const now = performance.now();
+      return s.reveals.some(rv => {
+        const age = now - rv.startMs;
+        const alive = age < rv.materializeMs + rv.holdMs + rv.dissolveMs;
+        if (!alive) return false;
+        const rvEnd = rv.row + rv.lines.length - 1;
+        return row <= rvEnd + 1 && row + rowSpan >= rv.row - 1;
+      });
+    };
+
+    // ── Stage-appropriate content pool (FIX 3) ────────────────────────────
+    let revealCounter = 0;
+    const getContent = (): { text: string; amber: boolean; isHero: boolean } => {
+      revealCounter++;
+      const n = revealCounter;
+
+      // Query shows as hero early and periodically
+      if (query && (n === 1 || n % 8 === 0)) {
+        return { text: query.toUpperCase().slice(0, 22), amber: true, isHero: true };
+      }
+
+      // Stage-specific live phrases
+      if (stage === 3 && reviewCount > 0 && n % 3 === 0)
+        return { text: `SCANNING ${reviewCount} REVIEWS`, amber: true, isHero: false };
+      if (stage === 4 && filteredCount > 0 && n % 3 === 0)
+        return { text: `FILTERED ${filteredCount} SIGNALS`, amber: true, isHero: false };
+      if (stage === 6 && n % 4 === 0)
+        return { text: `SCORE ${flickerScore.toFixed(1)}`, amber: true, isHero: true };
+      if (showComplete)
+        return { text: 'REPORT COMPLETE', amber: true, isHero: true };
+
+      // Pool selection by stage
+      const dishChance = Math.random();
+      if (dishChance < 0.35) {
+        const dish = DISH_POOL[Math.floor(Math.random() * DISH_POOL.length)];
+        return { text: dish, amber: false, isHero: false };
+      }
+
+      const metricChance = Math.random();
+      if (stage >= 5 && metricChance < 0.4)
+        return { text: METRIC_LABELS[Math.floor(Math.random() * METRIC_LABELS.length)], amber: true, isHero: false };
+
+      // Process phrase by stage
+      let pool: string[];
+      if (stage <= 2)       pool = PROCESS_EARLY;
+      else if (stage === 3) pool = PROCESS_SCAN;
+      else if (stage === 4) pool = PROCESS_FILTER;
+      else if (stage === 5) pool = PROCESS_METRIC;
+      else if (stage === 6) pool = PROCESS_SCORE;
+      else                  pool = PROCESS_COMPILE;
+
+      const text = pool[Math.floor(Math.random() * pool.length)];
+      return { text, amber: false, isHero: false };
+    };
+
+    // ── Spawn a word/phrase reveal ─────────────────────────────────────────
     const spawnReveal = (s: typeof stateRef.current) => {
       if (!s) return;
-      const text = getRevealPhrase();
-      const maxCol = Math.max(2, s.cols - text.length - 2);
-      const col = Math.floor(Math.random() * maxCol);
-      const row = 2 + Math.floor(Math.random() * Math.max(1, s.rows - 4));
-      s.reveals.push({
-        lines: [text],
-        row, col,
-        startMs: performance.now(),
-        totalMs: 1600 + Math.random() * 1200,
-        amber: true,
-      });
+      const { text, amber, isHero } = getContent();
+
+      const maxCol = Math.max(2, s.cols - text.length - 4);
+      let row: number, col: number;
+      let attempts = 0;
+      do {
+        // Spread across full screen including top and bottom areas
+        row = 1 + Math.floor(Math.random() * Math.max(1, s.rows - 3));
+        col = Math.floor(Math.random() * maxCol);
+        attempts++;
+      } while (overlapsExisting(s, row, 1) && attempts < 6);
+
+      s.reveals.push(makeReveal([text], row, col, 400, 1200, 400, amber, isHero));
     };
 
-    // ── Spawn an ASCII shape ────────────────────────────────────────────────
+    // ── Spawn an ASCII shape (FIX 4) ──────────────────────────────────────
     const spawnShape = (s: typeof stateRef.current) => {
       if (!s) return;
-      const shape = ASCII_SHAPES[Math.floor(Math.random() * ASCII_SHAPES.length)];
-      const maxRow = Math.max(2, s.rows - shape.length - 4);
-      const maxCol = Math.max(2, s.cols - 16);
-      s.reveals.push({
-        lines: shape,
-        row: 3 + Math.floor(Math.random() * maxRow),
-        col: Math.floor(Math.random() * maxCol),
-        startMs: performance.now(),
-        totalMs: 2800,
-        amber: false,
-      });
+      const shape = ASCII_SHAPES[s.shapeIndex % ASCII_SHAPES.length];
+      s.shapeIndex++;
+      const maxWidth = Math.max(...shape.map(l => l.length));
+      // Center horizontally, random vertical position avoiding UI chrome
+      const col = Math.max(2, Math.floor((s.cols - maxWidth) / 2) + Math.floor((Math.random() - 0.5) * (s.cols / 3)));
+      let row: number;
+      let attempts = 0;
+      do {
+        row = 3 + Math.floor(Math.random() * Math.max(1, s.rows - shape.length - 6));
+        attempts++;
+      } while (overlapsExisting(s, row, shape.length) && attempts < 8);
+
+      s.reveals.push(makeReveal(shape, row, Math.max(0, col), 500, 1500, 500, false, true));
     };
 
-    // ── Main animation loop ─────────────────────────────────────────────────
+    // ── Main animation loop ────────────────────────────────────────────────
     let raf: number;
     let lastFrame = 0;
-    const FRAME_MS = 38; // ~26fps
+    const FRAME_MS = 40; // 25fps
 
     const frame = (ts: number) => {
       raf = requestAnimationFrame(frame);
@@ -176,12 +294,11 @@ function useCharGrid(
 
       const s = stateRef.current;
       if (!s) return;
-      const t = ts / 800; // time in "wave units"
+      const t = ts / 800;
 
-      // ── Update wave activations ─────────────────────────────────────────
+      // ── Wave update ──────────────────────────────────────────────────────
       for (let r = 0; r < s.rows; r++) {
         for (let c = 0; c < s.cols; c++) {
-          // Organic interference of 3 overlapping waves
           const w1 = Math.sin(c * 0.28 + t * 1.8) * 0.5 + 0.5;
           const w2 = Math.sin(r * 0.22 - t * 1.1) * 0.5 + 0.5;
           const w3 = Math.sin((c * 0.12 + r * 0.18) + t * 0.9) * 0.5 + 0.5;
@@ -189,105 +306,112 @@ function useCharGrid(
         }
       }
 
-      // ── Shuffle chars based on wave activation ──────────────────────────
+      // FIX 1: Background shuffle — noise only, lower probability
       for (let i = 0; i < s.cols * s.rows; i++) {
-        const activation = s.wave[i];
-        const prob = (0.06 + activation * 0.45) * (dt / 38);
-        if (Math.random() < prob) s.grid[i] = rchar();
+        const prob = (0.04 + s.wave[i] * 0.25) * (dt / 40);
+        if (Math.random() < prob) s.grid[i] = rnoiseChar();
       }
 
-      // ── Spawn reveals / shapes ──────────────────────────────────────────
+      // ── Spawn reveals ────────────────────────────────────────────────────
       const now = performance.now();
-      // Spawn a word reveal every 1.3-1.8s (2-3 active at once)
-      if (now - s.lastRevealMs > 1300 + Math.random() * 500) {
+      if (now - s.lastRevealMs > 900 + Math.random() * 600) {
         spawnReveal(s);
         s.lastRevealMs = now;
       }
-      // Spawn a shape every 9-13s
-      if (now - s.lastShapeMs > 9000 + Math.random() * 4000) {
+      // Shape every 7-11s
+      if (now - s.lastShapeMs > 7000 + Math.random() * 4000) {
         spawnShape(s);
         s.lastShapeMs = now;
       }
-      // Expire old reveals
-      s.reveals = s.reveals.filter(rv => (now - rv.startMs) < rv.totalMs);
+      // Expire finished reveals
+      s.reveals = s.reveals.filter(rv => {
+        const total = rv.materializeMs + rv.holdMs + rv.dissolveMs;
+        return (now - rv.startMs) < total;
+      });
 
-      // ── Render ──────────────────────────────────────────────────────────
+      // ── Build cell override map from reveals ──────────────────────────────
+      // cell index → { targetChar, drawScramble, alpha, amber }
+      const overrideMap = new Map<number, { targetChar: string; scramble: boolean; alpha: number; amber: boolean }>();
+
+      for (const rv of s.reveals) {
+        const elapsed = now - rv.startMs;
+        const total = rv.materializeMs + rv.holdMs + rv.dissolveMs;
+        if (elapsed >= total) continue;
+
+        // Phase
+        let dissolveAlpha = 1.0;
+        if (elapsed > rv.materializeMs + rv.holdMs) {
+          // Dissolve phase: simple fade out
+          const dElapsed = elapsed - rv.materializeMs - rv.holdMs;
+          dissolveAlpha = Math.max(0, 1 - dElapsed / rv.dissolveMs);
+        }
+
+        for (const { li, ci, ch, lockMs } of rv.chars) {
+          const r = rv.row + li;
+          const c = rv.col + ci;
+          if (r < 0 || r >= s.rows || c < 0 || c >= s.cols) continue;
+          const idx = r * s.cols + c;
+
+          let scramble = false;
+          if (elapsed < rv.materializeMs) {
+            // Materialize: locked = elapsed >= lockMs
+            scramble = elapsed < lockMs;
+          }
+          overrideMap.set(idx, { targetChar: ch, scramble, alpha: dissolveAlpha, amber: rv.amber });
+        }
+      }
+
+      // ── Render ────────────────────────────────────────────────────────────
       const W = s.cols * CW;
       const H = s.rows * CH;
 
       ctx.fillStyle = '#F2EEE8';
       ctx.fillRect(0, 0, W, H);
 
-      // Build a "reveal override" lookup: cellIndex → { char, alpha, amber }
-      const overrideChar: Record<number, string> = {};
-      const overrideAlpha: Record<number, number> = {};
-      const overrideAmber: Record<number, boolean> = {};
-
-      for (const rv of s.reveals) {
-        const elapsed = now - rv.startMs;
-        const progress = elapsed / rv.totalMs;
-        // Fade in: 0-0.22, hold: 0.22-0.78, fade out: 0.78-1.0
-        let alpha = 1;
-        if (progress < 0.22) alpha = progress / 0.22;
-        else if (progress > 0.78) alpha = (1 - progress) / 0.22;
-
-        for (let li = 0; li < rv.lines.length; li++) {
-          const line = rv.lines[li];
-          const r = rv.row + li;
-          if (r >= s.rows) continue;
-          for (let ci = 0; ci < line.length; ci++) {
-            const c = rv.col + ci;
-            if (c >= s.cols) continue;
-            const idx = r * s.cols + c;
-            const ch = line[ci];
-            if (ch !== ' ') {
-              overrideChar[idx] = ch;
-              overrideAlpha[idx] = alpha;
-              overrideAmber[idx] = rv.amber;
-            }
-          }
-        }
-      }
-
-      // Draw background chars row by row (dark, low opacity)
+      // Pass 1 — FIX 1: Background noise at very low opacity
+      ctx.font = `${NOISE_PX}px "IBM Plex Mono","Courier New",monospace`;
       for (let r = 0; r < s.rows; r++) {
-        const y = r * CH;
+        const y = r * CH + 2; // slight vertical offset for smaller font
         for (let c = 0; c < s.cols; c++) {
           const idx = r * s.cols + c;
-          const x = c * CW;
-
-          if (overrideChar[idx] !== undefined) {
-            // Reveal cell
-            const alpha = overrideAlpha[idx];
-            if (overrideAmber[idx]) {
-              ctx.fillStyle = `rgba(184,120,10,${0.85 * alpha})`;
-            } else {
-              // Non-amber reveal (shapes) use dark chars
-              ctx.fillStyle = `rgba(28,25,23,${0.6 * alpha})`;
-            }
-            ctx.fillText(overrideChar[idx], x, y);
-          } else {
-            // Regular background char
-            const activation = s.wave[idx];
-            // Amber highlight at high activation
-            if (activation > 0.82) {
-              ctx.fillStyle = `rgba(184,120,10,${0.15 + (activation - 0.82) * 2.5})`;
-            } else {
-              ctx.fillStyle = `rgba(28,25,23,${0.07 + activation * 0.12})`;
-            }
-            ctx.fillText(s.grid[idx], x, y);
-          }
+          if (overrideMap.has(idx)) continue; // will be drawn in pass 2
+          // FIX 1: Noise chars — barely visible, no amber activation
+          const opacity = 0.08 + s.wave[idx] * 0.09; // 8-17% max
+          ctx.fillStyle = `rgba(180,170,160,${opacity})`;
+          ctx.fillText(s.grid[idx], c * CW, y);
         }
       }
+
+      // Pass 2 — FIX 1 + 2: Reveal chars at full opacity, larger font, with decode effect
+      ctx.font = `bold ${REVEAL_PX}px "IBM Plex Mono","Courier New",monospace`;
+      overrideMap.forEach((override, idx) => {
+        const r = Math.floor(idx / s.cols);
+        const c = idx % s.cols;
+        const x = c * CW;
+        const y = r * CH + 0.5;
+
+        if (override.scramble) {
+          // FIX 2: Decode effect — scramble char at medium opacity
+          ctx.fillStyle = `rgba(120,100,80,${0.5 * override.alpha})`;
+          ctx.fillText(rscramble(), x, y);
+        } else if (override.amber) {
+          // FIX 1: Amber content — full opacity amber
+          ctx.fillStyle = `rgba(184,120,10,${0.95 * override.alpha})`;
+          ctx.fillText(override.targetChar, x, y);
+        } else {
+          // FIX 1: Dark content — near-black full opacity
+          ctx.fillStyle = `rgba(28,25,23,${0.92 * override.alpha})`;
+          ctx.fillText(override.targetChar, x, y);
+        }
+      });
     };
 
     raf = requestAnimationFrame(frame);
-
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', setup);
     };
-  }, [query, stage, reviewCount, filteredCount, flickerScore]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query, stage, reviewCount, filteredCount, flickerScore, showComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
