@@ -147,11 +147,7 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
   const [distance,            setDistance]            = useState("Any");
   const [mode,                setMode]                = useState("Any");
   const [price,               setPrice]               = useState("Any");
-  // FIX 2: Two-stage state
-  // showSuggestions (Stage A): auto, shows quiet TRY ADDING chips when typing
-  // showFullRefinements (Stage B): set by Enter, shows full panel with heading
-  const [showFullRefinements, setShowFullRefinements] = useState(false);
-  const [confirmPulse,        setConfirmPulse]        = useState(false);
+  const [confirmPulse, setConfirmPulse] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset on open
@@ -159,11 +155,10 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
     if (isOpen) {
       setQuery("");
       setDistance("Any"); setMode("Any"); setPrice("Any");
-      setClosing(false); setShowFullRefinements(false); setConfirmPulse(false);
+      setClosing(false); setConfirmPulse(false);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
-  // (No auto-trigger for showFullRefinements — Enter controls that)
 
   // Escape closes
   useEffect(() => {
@@ -198,16 +193,12 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
     handleClose();
   }, [query, mode, price, distance, onSearch, handleClose]);
 
-  // FIX 2: Enter opens Stage B (full refinement panel). Never submits.
+  // Enter: amber pulse feedback, never submits — RUN SEARCH is the only submit path
   const handleEnter = useCallback(() => {
-    if (!showFullRefinements) {
-      setShowFullRefinements(true);
-    }
-    // Underline amber pulse as "confirmed" feedback each time
     setConfirmPulse(true);
     setTimeout(() => setConfirmPulse(false), 400);
     inputRef.current?.focus();
-  }, [showFullRefinements]);
+  }, []);
 
   // Add-on suggestion chip (appended after query)
   const appendChip = (chip: string) => {
@@ -224,11 +215,10 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
 
   if (!isOpen && !closing) return null;
 
-  // Stage A: typing started (quiet add-on chips only)
-  const showSuggestions = query.length >= 2;
-  // Stage B: Enter pressed (full refinement panel)
-  const narrowEntry  = showSuggestions ? getNarrowing(query) : GENERIC_NARROW;
-  const suggestions  = showSuggestions ? getSuggestions(query) : [];
+  // All refinements appear immediately at 2+ chars — no Enter required
+  const showRefinements = query.length >= 2;
+  const narrowEntry     = showRefinements ? getNarrowing(query) : GENERIC_NARROW;
+  const suggestions     = showRefinements ? getSuggestions(query) : [];
 
   return (
     <>
@@ -301,56 +291,11 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
             }} />
           </div>
 
-          {/* ── FIX 2 STAGE A: quiet TRY ADDING chips (while typing, before Enter) ── */}
-          {showSuggestions && !showFullRefinements && suggestions.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", color: "#C8B8A8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>
-                TRY ADDING
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                {suggestions.slice(0, 6).map((chip, i) => (
-                  <button
-                    key={chip}
-                    className="ts-chip"
-                    onClick={() => appendChip(chip)}
-                    style={{
-                      background: "#FFFFFF", border: "1px solid #E8E3DC",
-                      borderRadius: 20, padding: "6px 12px",
-                      fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
-                      fontSize: "0.75rem", color: "#6B6560",
-                      cursor: "pointer", whiteSpace: "nowrap",
-                      animation: "ts-chip 0.2s ease both",
-                      animationDelay: `${i * 30}ms`,
-                      transition: "border-color 0.15s, color 0.15s, background 0.15s",
-                    }}
-                  >{chip}</button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* ── Refinements — appear immediately at 2+ chars ─────────────── */}
+          {showRefinements && (
+            <div style={{ marginTop: 24, animation: "ts-refine-in 0.3s ease both" }}>
 
-          {/* ── FIX 2 STAGE B: full refinement panel (after Enter) ────────── */}
-          {showFullRefinements && (
-            <div
-              key="refine-panel"
-              style={{
-                marginTop: 24,
-                animation: "ts-refine-in 0.35s cubic-bezier(0.4,0,0.2,1) both",
-              }}
-            >
-              {/* Panel heading */}
-              <div style={{
-                fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
-                fontSize: "0.875rem", fontWeight: 700,
-                color: "#B8780A", letterSpacing: "0.04em",
-                marginBottom: 20,
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
-                <span>›</span>
-                <span>REFINE YOUR SEARCH</span>
-              </div>
-
-              {/* NARROW IT DOWN — always shows (specific or generic fallback) */}
+              {/* NARROW IT DOWN — specific category match or generic fallback */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
                   NARROW IT DOWN // {narrowEntry.label}
@@ -376,7 +321,7 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                 </div>
               </div>
 
-              {/* TRY ADDING — full list */}
+              {/* TRY ADDING — contextual add-on suggestions */}
               {suggestions.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                   <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#A89F99", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
@@ -469,12 +414,10 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
           </button>
         </div>
 
-        {/* Hint text — stage-aware */}
+        {/* Hint text */}
         <div style={{ textAlign: "center", padding: "0 24px 24px", fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", color: "#C8B8A8", textTransform: "uppercase", letterSpacing: "0.2em", flexShrink: 0 }}>
-          {showFullRefinements
+          {showRefinements
             ? "Tap RUN SEARCH to launch · Esc to close"
-            : showSuggestions
-            ? "Enter to refine · Esc to close"
             : "Type what you're hungry for · Esc to close"}
         </div>
       </div>

@@ -320,6 +320,23 @@ function DishIntel() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Restore stashed search after sign-in redirect
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const raw = sessionStorage.getItem("dr-return-search");
+      if (!raw) return;
+      sessionStorage.removeItem("dr-return-search"); // consume immediately
+      const { query: q, results, meta: m } = JSON.parse(raw);
+      if (q && Array.isArray(results) && m) {
+        setSearchedDish(q);
+        setRestaurants(results.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 })));
+        setMeta(m);
+        setPhase("done");
+      }
+    } catch {}
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Background persistence
   useEffect(() => {
     const onVis = () => {
@@ -437,7 +454,18 @@ function DishIntel() {
 
   // ─── LIST MANAGEMENT ──────────────────────────────────────────────────────
   const openAddToList = (target: AddToListTarget) => {
-    if (!user) { router.push("/auth/signin"); return; }
+    if (!user) {
+      // Stash current search so the user lands back here after signing in
+      try {
+        sessionStorage.setItem("dr-return-search", JSON.stringify({
+          query:     searchedDish,
+          results:   restaurants,
+          meta,
+        }));
+      } catch {}
+      router.push("/auth/signin");
+      return;
+    }
     setAddToListTarget(target); setNewListName("");
     if (userLists.length === 0) {
       setLoadingLists(true);
