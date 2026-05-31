@@ -217,6 +217,9 @@ function DishIntel() {
   const abortRef         = useRef<AbortController | null>(null);
   const wasHiddenRef     = useRef(false);
   const autoSearchFired  = useRef(false);
+  // Session caches — instant recall without re-hitting the API
+  const deepDiveCache    = useRef<Record<string, DeepDiveData>>({});
+  const searchResultCache = useRef<{ key: string; results: Restaurant[]; meta: SearchMeta } | null>(null);
   // Kept in sync so event listeners don't close over stale values
   const isSearchingRef   = useRef(false);
   const apiCompleteRef   = useRef(false);
@@ -493,6 +496,18 @@ function DishIntel() {
     searchArea = area,
     searchRadius = radius
   ) => {
+    const cacheKey = `${d}|${searchCity}|${searchLocMode}|${searchArea}|${searchRadius}`;
+
+    // Check session search cache — same query + params returns instantly
+    if (searchResultCache.current?.key === cacheKey) {
+      pushNav();
+      setMeta(searchResultCache.current.meta);
+      setRestaurants(searchResultCache.current.results);
+      setSearchedDish(d);
+      setPhase("done");
+      return;
+    }
+
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -507,11 +522,14 @@ function DishIntel() {
         { mode: "search", dish: d, city: searchCity, area: searchArea, locMode: searchLocMode, radius: searchRadius, exclude: [] },
         ctrl.signal
       );
-      setMeta({ dish: data.dish, city: data.city });
+      const meta = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      setRestaurants(res.map((r, i) => ({ ...r, rank: i + 1 })));
+      const ranked = res.map((r, i) => ({ ...r, rank: i + 1 }));
+      setMeta(meta);
+      setRestaurants(ranked);
+      searchResultCache.current = { key: cacheKey, results: ranked, meta }; // cache for session
       setPendingPhase("done");
-      setApiComplete(true); // signal to LoadingTracker; it will call handleAnalysisDone
+      setApiComplete(true);
       abortRef.current = null;
     } catch (e) {
       abortRef.current = null;
@@ -523,10 +541,9 @@ function DishIntel() {
   };
 
   // Unified search handler — called by SearchBar with (query, filters)
-  const handleSearchFromBar = async (q: string, filters: FilterState) => {
+  const handleSearchFromBar = async (q: string, filters: FilterState, skipClassify = false) => {
     if (!q.trim()) return;
     const searchRadius = filters.radius || radius;
-    console.log('SEARCH TRIGGERED:', q, 'phase before:', phase);
 
     // Append filter context to query for API
     let enriched = q;
@@ -536,22 +553,24 @@ function DishIntel() {
     if (filters.priceRange.length) enriched += ` ${filters.priceRange.join("")}`;
 
     setNarrowQuestions(null);
-    setPhase("classifying");
 
+    // Terminal-origin searches skip classify — user already set distance/mode/price
+    if (skipClassify) {
+      await runSearch(enriched, city, locMode, area, searchRadius);
+      return;
+    }
+
+    setPhase("classifying");
     try {
       const cls = await apiFetch("/api/search", { mode: "classify", dish: enriched });
-      console.log('CLASSIFY RESULT:', JSON.stringify(cls));
       if (cls.broad && cls.questions?.length) {
         setNarrowQuestions(cls.questions);
         setPhase("narrowing");
         setSearchedDish(enriched);
-        console.log('NARROW QUESTIONS SET:', JSON.stringify(cls.questions));
       } else {
-        console.log('CLASSIFY: broad=false, going straight to search');
         await runSearch(enriched, city, locMode, area, searchRadius);
       }
-    } catch (err) {
-      console.log('CLASSIFY ERROR (going to runSearch):', err);
+    } catch {
       await runSearch(enriched, city, locMode, area, searchRadius);
     }
   };
@@ -605,11 +624,24 @@ function DishIntel() {
   };
 
   const handleDeepDive = async (name: string, cityStr?: string) => {
-    pushNav(); const c = cityStr || ddCity;
+    const c = cityStr || ddCity;
+    const cacheKey = `${name}|${c}`.toLowerCase();
+
+    // Instant recall from session cache — no API, no loading screen
+    if (deepDiveCache.current[cacheKey]) {
+      pushNav();
+      setDeepData(deepDiveCache.current[cacheKey]);
+      setDdCity(c);
+      setPhase("deepdone");
+      return;
+    }
+
+    pushNav();
     setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
     setLoadingQuery(`Deep diving ${name}`);
     try {
       const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
+      deepDiveCache.current[cacheKey] = data; // cache for session
       setDeepData(data);
       setPendingPhase("deepdone"); setApiComplete(true);
     } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
@@ -1112,7 +1144,7 @@ function DishIntel() {
       {/* ── Terminal search overlay ─────────────────────────────────── */}
       <TerminalSearch
         isOpen={showTerminal}
-        onSearch={(q, f) => { setShowTerminal(false); handleSearchFromBar(q, f); }}
+        onSearch={(q, f) => { setShowTerminal(false); handleSearchFromBar(q, f, true); }}
         onClose={() => setShowTerminal(false)}
       />
 
