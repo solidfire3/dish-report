@@ -2,34 +2,53 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { FilterState } from "@/components/SearchBar";
 
-// ─── DISH NARROWING MAP (synced with classify prompt CASE 1) ─────────────────
-// When typed query matches a key, show specific dish options ("NARROW IT DOWN")
+// ─── DISH NARROWING MAP ───────────────────────────────────────────────────────
+// Sorted longest-first at runtime for best-specificity matching.
+// A GENERIC_NARROW fallback guarantees a narrowing row for any food term.
 type NarrowEntry = { label: string; options: string[] };
+
+// Dynamic fallback — always shown when no specific match found
+const GENERIC_NARROW: NarrowEntry = {
+  label: "NARROW IT DOWN",
+  options: ["Authentic", "Upscale", "Hole-in-the-Wall", "Best Rated", "Most Popular", "Budget"],
+};
+
 const NARROW_MAP: [string, NarrowEntry][] = [
-  ["taco",    { label: "WHAT KIND?",    options: ["Carne Asada", "Al Pastor", "Birria", "Carnitas", "Fish", "Suadero", "Veggie"] }],
-  ["pizza",   { label: "WHAT STYLE?",   options: ["Neapolitan", "NY Slice", "Detroit", "Sicilian", "Deep Dish", "Grandma", "Bar"] }],
-  ["sushi",   { label: "WHAT FORMAT?",  options: ["Omakase", "Nigiri", "AYCE", "Hand Rolls", "Sashimi", "Chirashi"] }],
-  ["ramen",   { label: "WHAT BROTH?",   options: ["Tonkotsu", "Shoyu", "Miso", "Shio", "Tantanmen", "Tsukemen", "Vegan"] }],
-  ["burger",  { label: "WHAT STYLE?",   options: ["Smash", "Classic Pub", "Wagyu", "Gourmet", "Double Smash"] }],
-  ["bbq",     { label: "WHAT REGION?",  options: ["Texas", "Kansas City", "Carolina", "Memphis", "Korean", "Hawaiian"] }],
-  ["steak",   { label: "WHAT SETTING?", options: ["Steakhouse", "Bistro", "Argentinian", "Korean BBQ", "French"] }],
-  ["chicken", { label: "WHAT PREP?",    options: ["Fried", "Korean Fried", "Nashville Hot", "Grilled", "Rotisserie", "Karaage"] }],
-  ["noodle",  { label: "WHAT STYLE?",   options: ["Chinese", "Japanese", "Thai", "Vietnamese", "Korean", "Italian"] }],
-  ["dumpling",{ label: "WHAT TYPE?",    options: ["XLB Soup", "Pan-fried", "Gyoza", "Mandu", "Har Gow", "Pierogi"] }],
-  ["seafood", { label: "WHAT TYPE?",    options: ["Oysters", "Ceviche", "Grilled Fish", "Raw Bar", "Crab", "Lobster"] }],
-  ["pasta",   { label: "WHAT STYLE?",   options: ["Carbonara", "Cacio e Pepe", "Bolognese", "Seafood", "Baked"] }],
-  ["curry",   { label: "WHAT CUISINE?", options: ["Indian", "Thai", "Japanese", "Sri Lankan", "Caribbean", "Malaysian"] }],
-  ["dim sum", { label: "WHAT FOCUS?",   options: ["Har Gow", "XLB Soup", "Pan-fried", "Baked BBQ Pork", "Congee"] }],
-  ["poke",    { label: "WHAT BASE?",    options: ["Ahi", "Salmon", "Spicy Tuna", "Shrimp", "Mixed"] }],
-  ["brunch",  { label: "WHAT VIBE?",    options: ["Eggs Benedict", "Pancakes", "Chilaquiles", "Avocado Toast", "Shakshuka"] }],
+  // ── Existing entries ──────────────────────────────────────────────────────
+  ["dim sum",    { label: "WHAT FOCUS?",      options: ["Har Gow", "XLB Soup", "Pan-fried", "Baked BBQ Pork", "Congee"] }],
+  ["sandwich",   { label: "WHAT KIND?",       options: ["Italian Sub", "Banh Mi", "Cubano", "Deli", "Breakfast", "Grilled Cheese"] }],
+  ["breakfast",  { label: "WHAT VIBE?",       options: ["Diner", "Brunch Spot", "Cafe", "Taco Spot", "Bakery"] }],
+  ["dumpling",   { label: "WHAT TYPE?",       options: ["XLB Soup", "Pan-fried", "Gyoza", "Pierogi", "Momo"] }],
+  ["dessert",    { label: "WHAT KIND?",       options: ["Ice Cream", "Bakery", "Pastry", "Asian Dessert", "Pie"] }],
+  ["seafood",    { label: "WHAT KIND?",       options: ["Oysters", "Lobster", "Crab", "Ceviche", "Whole Fish", "Raw Bar"] }],
+  ["chicken",    { label: "HOW IS IT PREPPED?", options: ["Fried", "Korean Fried", "Nashville Hot", "Grilled", "Rotisserie", "Karaage"] }],
+  ["noodle",     { label: "WHICH CUISINE?",   options: ["Chinese", "Japanese", "Thai", "Vietnamese", "Korean", "Italian"] }],
+  ["burger",     { label: "WHAT STYLE?",      options: ["Smash", "Classic Pub", "Wagyu", "Gourmet", "Double Smash"] }],
+  ["brunch",     { label: "WHAT VIBE?",       options: ["Eggs Benedict", "Pancakes", "Chilaquiles", "Avocado Toast", "Shakshuka"] }],
+  ["steak",      { label: "WHAT SETTING?",    options: ["Steakhouse", "Bistro", "Argentinian", "Korean BBQ", "French"] }],
+  ["pasta",      { label: "WHAT STYLE?",      options: ["Carbonara", "Cacio e Pepe", "Bolognese", "Seafood", "Baked"] }],
+  ["pizza",      { label: "WHAT STYLE?",      options: ["Neapolitan", "NY Slice", "Detroit", "Sicilian", "Deep Dish", "Grandma", "Bar"] }],
+  ["curry",      { label: "WHICH CUISINE?",   options: ["Thai", "Indian", "Japanese", "Sri Lankan", "Malaysian"] }],
+  ["wings",      { label: "WHAT FLAVOR?",     options: ["Buffalo", "Korean", "Lemon Pepper", "BBQ", "Garlic Parm", "Nashville Hot"] }],
+  ["ramen",      { label: "WHAT BROTH?",      options: ["Tonkotsu", "Shoyu", "Miso", "Shio", "Tantanmen", "Tsukemen", "Vegan"] }],
+  ["sushi",      { label: "WHAT FORMAT?",     options: ["Omakase", "Nigiri", "AYCE", "Hand Rolls", "Sashimi", "Chirashi"] }],
+  ["salad",      { label: "WHAT STYLE?",      options: ["Composed", "Chopped", "Grain Bowl", "Caesar", "Mediterranean"] }],
+  ["taco",       { label: "WHAT KIND?",       options: ["Carne Asada", "Al Pastor", "Birria", "Carnitas", "Fish", "Suadero", "Veggie"] }],
+  ["poke",       { label: "WHAT BASE?",       options: ["Ahi", "Salmon", "Spicy Tuna", "Shrimp", "Mixed"] }],
+  ["bbq",        { label: "WHAT REGION?",     options: ["Texas", "Kansas City", "Carolina", "Memphis", "Korean", "Hawaiian"] }],
+  ["pho",        { label: "WHAT KIND?",       options: ["Beef (Tai)", "Brisket", "Meatball", "Chicken", "Veggie", "Combination"] }],
 ];
 
-function getNarrowing(q: string): NarrowEntry | null {
+// Sorted longest-key-first so "dim sum" beats "sum", "sandwich" beats "and", etc.
+const NARROW_MAP_SORTED = [...NARROW_MAP].sort((a, b) => b[0].length - a[0].length);
+
+// Always returns a narrowing entry — specific match or generic fallback
+function getNarrowing(q: string): NarrowEntry {
   const lower = q.toLowerCase();
-  for (const [key, entry] of NARROW_MAP) {
+  for (const [key, entry] of NARROW_MAP_SORTED) {
     if (lower.includes(key)) return entry;
   }
-  return null;
+  return GENERIC_NARROW;
 }
 
 // ─── ADD-ON SUGGESTION MAP (richer pools, change 3) ──────────────────────────
@@ -99,6 +118,10 @@ const TERMINAL_CSS = `
     50%  { opacity: 0.5; }
     100% { opacity: 0.12; }
   }
+  @keyframes ts-refine-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
   .ts-chip:hover {
     border-color: #B8780A !important;
     color: #B8780A !important;
@@ -119,13 +142,16 @@ export type TerminalSearchProps = {
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProps) {
-  const [query,        setQuery]        = useState("");
-  const [closing,      setClosing]      = useState(false);
-  const [distance,     setDistance]     = useState("Any");
-  const [mode,         setMode]         = useState("Any");
-  const [price,        setPrice]        = useState("Any");
-  const [showRefinements, setShowRefinements] = useState(false);
-  const [confirmPulse, setConfirmPulse] = useState(false);
+  const [query,               setQuery]               = useState("");
+  const [closing,             setClosing]             = useState(false);
+  const [distance,            setDistance]            = useState("Any");
+  const [mode,                setMode]                = useState("Any");
+  const [price,               setPrice]               = useState("Any");
+  // FIX 2: Two-stage state
+  // showSuggestions (Stage A): auto, shows quiet TRY ADDING chips when typing
+  // showFullRefinements (Stage B): set by Enter, shows full panel with heading
+  const [showFullRefinements, setShowFullRefinements] = useState(false);
+  const [confirmPulse,        setConfirmPulse]        = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset on open
@@ -133,15 +159,11 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
     if (isOpen) {
       setQuery("");
       setDistance("Any"); setMode("Any"); setPrice("Any");
-      setClosing(false); setShowRefinements(false); setConfirmPulse(false);
+      setClosing(false); setShowFullRefinements(false); setConfirmPulse(false);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
-
-  // Auto-show refinements when user has typed 2+ chars
-  useEffect(() => {
-    if (query.length >= 2) setShowRefinements(true);
-  }, [query]);
+  // (No auto-trigger for showFullRefinements — Enter controls that)
 
   // Escape closes
   useEffect(() => {
@@ -176,14 +198,16 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
     handleClose();
   }, [query, mode, price, distance, onSearch, handleClose]);
 
-  // CHANGE 1: Enter expands refinements but does NOT submit
+  // FIX 2: Enter opens Stage B (full refinement panel). Never submits.
   const handleEnter = useCallback(() => {
-    setShowRefinements(true);
-    // Brief pulse on the underline as visual "confirmed" feedback
+    if (!showFullRefinements) {
+      setShowFullRefinements(true);
+    }
+    // Underline amber pulse as "confirmed" feedback each time
     setConfirmPulse(true);
     setTimeout(() => setConfirmPulse(false), 400);
     inputRef.current?.focus();
-  }, []);
+  }, [showFullRefinements]);
 
   // Add-on suggestion chip (appended after query)
   const appendChip = (chip: string) => {
@@ -200,8 +224,11 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
 
   if (!isOpen && !closing) return null;
 
-  const narrowEntry   = query.length >= 2 ? getNarrowing(query) : null;
-  const suggestions   = query.length >= 2 ? getSuggestions(query) : [];
+  // Stage A: typing started (quiet add-on chips only)
+  const showSuggestions = query.length >= 2;
+  // Stage B: Enter pressed (full refinement panel)
+  const narrowEntry  = showSuggestions ? getNarrowing(query) : GENERIC_NARROW;
+  const suggestions  = showSuggestions ? getSuggestions(query) : [];
 
   return (
     <>
@@ -274,57 +301,26 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
             }} />
           </div>
 
-          {/* ── CHANGE 2: NARROW IT DOWN (dish-specific options) ────────── */}
-          {showRefinements && narrowEntry && (
-            <div style={{ marginTop: 24, animation: "ts-filters 0.25s ease both" }}>
-              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
-                NARROW IT DOWN // {narrowEntry.label}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {narrowEntry.options.map((opt, i) => (
-                  <button
-                    key={opt}
-                    className="ts-chip"
-                    onClick={() => prependNarrowChip(opt)}
-                    style={{
-                      background: "#FDF3E3",
-                      border: "1.5px solid #F0D5A0",
-                      borderRadius: 20, padding: "7px 14px",
-                      fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
-                      fontSize: "0.8125rem", color: "#B8780A",
-                      cursor: "pointer", whiteSpace: "nowrap",
-                      fontWeight: 600,
-                      animation: "ts-chip 0.25s ease both",
-                      animationDelay: `${i * 35}ms`,
-                      transition: "border-color 0.15s, color 0.15s, background 0.15s",
-                    }}
-                  >{opt}</button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── CHANGE 3: TRY ADDING (richer add-on suggestions) ────────── */}
-          {showRefinements && suggestions.length > 0 && (
-            <div style={{ marginTop: narrowEntry ? 20 : 24 }}>
-              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#A89F99", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+          {/* ── FIX 2 STAGE A: quiet TRY ADDING chips (while typing, before Enter) ── */}
+          {showSuggestions && !showFullRefinements && suggestions.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", color: "#C8B8A8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>
                 TRY ADDING
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {suggestions.map((chip, i) => (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                {suggestions.slice(0, 6).map((chip, i) => (
                   <button
                     key={chip}
                     className="ts-chip"
                     onClick={() => appendChip(chip)}
                     style={{
-                      background: "#FFFFFF",
-                      border: "1px solid #E8E3DC",
-                      borderRadius: 20, padding: "7px 14px",
+                      background: "#FFFFFF", border: "1px solid #E8E3DC",
+                      borderRadius: 20, padding: "6px 12px",
                       fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
-                      fontSize: "0.8125rem", color: "#4A4540",
+                      fontSize: "0.75rem", color: "#6B6560",
                       cursor: "pointer", whiteSpace: "nowrap",
-                      animation: "ts-chip 0.25s ease both",
-                      animationDelay: `${(narrowEntry ? narrowEntry.options.length * 35 : 0) + i * 35}ms`,
+                      animation: "ts-chip 0.2s ease both",
+                      animationDelay: `${i * 30}ms`,
                       transition: "border-color 0.15s, color 0.15s, background 0.15s",
                     }}
                   >{chip}</button>
@@ -333,11 +329,83 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
             </div>
           )}
 
-          {/* ── Filters (unchanged visual, layout moved below narrowing) ── */}
-          {showRefinements && (
-            <div style={{ marginTop: 28, animation: "ts-filters 0.3s ease both" }}>
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {/* ── FIX 2 STAGE B: full refinement panel (after Enter) ────────── */}
+          {showFullRefinements && (
+            <div
+              key="refine-panel"
+              style={{
+                marginTop: 24,
+                animation: "ts-refine-in 0.35s cubic-bezier(0.4,0,0.2,1) both",
+              }}
+            >
+              {/* Panel heading */}
+              <div style={{
+                fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+                fontSize: "0.875rem", fontWeight: 700,
+                color: "#B8780A", letterSpacing: "0.04em",
+                marginBottom: 20,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <span>›</span>
+                <span>REFINE YOUR SEARCH</span>
+              </div>
 
+              {/* NARROW IT DOWN — always shows (specific or generic fallback) */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+                  NARROW IT DOWN // {narrowEntry.label}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {narrowEntry.options.map((opt, i) => (
+                    <button
+                      key={opt}
+                      className="ts-chip"
+                      onClick={() => prependNarrowChip(opt)}
+                      style={{
+                        background: "#FDF3E3", border: "1.5px solid #F0D5A0",
+                        borderRadius: 20, padding: "7px 14px",
+                        fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+                        fontSize: "0.8125rem", color: "#B8780A",
+                        cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600,
+                        animation: "ts-chip 0.25s ease both",
+                        animationDelay: `${i * 35}ms`,
+                        transition: "border-color 0.15s, color 0.15s, background 0.15s",
+                      }}
+                    >{opt}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* TRY ADDING — full list */}
+              {suggestions.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#A89F99", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+                    TRY ADDING
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {suggestions.map((chip, i) => (
+                      <button
+                        key={chip}
+                        className="ts-chip"
+                        onClick={() => appendChip(chip)}
+                        style={{
+                          background: "#FFFFFF", border: "1px solid #E8E3DC",
+                          borderRadius: 20, padding: "7px 14px",
+                          fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+                          fontSize: "0.8125rem", color: "#4A4540",
+                          cursor: "pointer", whiteSpace: "nowrap",
+                          animation: "ts-chip 0.25s ease both",
+                          animationDelay: `${narrowEntry.options.length * 35 + i * 35}ms`,
+                          transition: "border-color 0.15s, color 0.15s, background 0.15s",
+                        }}
+                      >{chip}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* HOW FAR / MODE / BUDGET */}
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div>
                   <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>HOW FAR?</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -348,7 +416,6 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>MODE?</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -359,7 +426,6 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>BUDGET?</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -403,9 +469,13 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
           </button>
         </div>
 
-        {/* CHANGE 1: Updated hint text — Enter no longer submits */}
+        {/* Hint text — stage-aware */}
         <div style={{ textAlign: "center", padding: "0 24px 24px", fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", color: "#C8B8A8", textTransform: "uppercase", letterSpacing: "0.2em", flexShrink: 0 }}>
-          Enter to expand options · Esc to close
+          {showFullRefinements
+            ? "Tap RUN SEARCH to launch · Esc to close"
+            : showSuggestions
+            ? "Enter to refine · Esc to close"
+            : "Type what you're hungry for · Esc to close"}
         </div>
       </div>
     </>
