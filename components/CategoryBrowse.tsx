@@ -3,46 +3,87 @@ import { useState, useEffect } from "react";
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { id: "American",      descriptor: "Burgers, BBQ, comfort",         code: "AM" },
-  { id: "Mexican",       descriptor: "Tacos, burritos, regional",      code: "MX" },
-  { id: "Japanese",      descriptor: "Ramen, sushi, izakaya",          code: "JP" },
-  { id: "Italian",       descriptor: "Pasta, pizza, regional",         code: "IT" },
-  { id: "Korean",        descriptor: "BBQ, fried chicken, stews",      code: "KR" },
-  { id: "Asian",         descriptor: "Chinese, Thai, Vietnamese",      code: "AS" },
-  { id: "Mediterranean", descriptor: "Greek, Lebanese, Turkish",       code: "MD" },
-  { id: "Indian",        descriptor: "Regional, street food, curries", code: "IN" },
-  { id: "Seafood",       descriptor: "Fresh catch, raw bar, coastal",  code: "SF" },
-  { id: "BBQ & Smoked",  descriptor: "Brisket, ribs, low and slow",    code: "BB" },
-  { id: "Breakfast",     descriptor: "Morning only, all day, brunch",  code: "BK" },
-  { id: "Late Night",    descriptor: "Open past midnight",             code: "LN" },
-  { id: "Pizza",         descriptor: "Neapolitan, NY, Detroit, more",  code: "PZ" },
-  { id: "Burgers",       descriptor: "Smash, pub, gourmet, wagyu",     code: "BG" },
-  { id: "Vegetarian",    descriptor: "Plant-based, meat-free",         code: "VG" },
-  { id: "Desserts",      descriptor: "Ice cream, pastry, sweets",      code: "DS" },
+  {
+    id: "American", code: "AM", descriptor: "Burgers, BBQ, comfort",
+    bg: "#FFF5F0", codeClr: "#8B3A20",
+    dishes: ["Smash burger", "Brisket", "Fried chicken"],
+  },
+  {
+    id: "Mexican", code: "MX", descriptor: "Tacos, burritos, regional",
+    bg: "#FFF8F0", codeClr: "#8B5A20",
+    dishes: ["Birria tacos", "Carnitas", "Al pastor"],
+  },
+  {
+    id: "Japanese", code: "JP", descriptor: "Ramen, sushi, izakaya",
+    bg: "#F0F4FF", codeClr: "#20408B",
+    dishes: ["Tonkotsu ramen", "Omakase", "Karaage"],
+  },
+  {
+    id: "Italian", code: "IT", descriptor: "Pasta, pizza, regional",
+    bg: "#F5F0FF", codeClr: "#50208B",
+    dishes: ["Cacio e pepe", "Margherita", "Tiramisu"],
+  },
+  {
+    id: "Korean", code: "KR", descriptor: "BBQ, fried chicken, stews",
+    bg: "#FFF0F5", codeClr: "#8B2050",
+    dishes: ["KBBQ", "Fried chicken", "Sundubu"],
+  },
+  {
+    id: "Asian", code: "AS", descriptor: "Chinese, Thai, Vietnamese",
+    bg: "#F0FFF4", codeClr: "#1A6B3A",
+    dishes: ["Dim sum", "Pad thai", "Pho"],
+  },
+  {
+    id: "Mediterranean", code: "MD", descriptor: "Greek, Lebanese, Turkish",
+    bg: "#F0F8FF", codeClr: "#1A4A8B",
+    dishes: ["Hummus", "Kebab", "Shakshuka"],
+  },
+  {
+    id: "Indian", code: "IN", descriptor: "Regional, street food, curries",
+    bg: "#FFF9F0", codeClr: "#8B6020",
+    dishes: ["Butter chicken", "Biryani", "Dosa"],
+  },
+  {
+    id: "Seafood", code: "SF", descriptor: "Fresh catch, raw bar, coastal",
+    bg: "#F0FFFF", codeClr: "#1A7A7A",
+    dishes: ["Oysters", "Ceviche", "Fish tacos"],
+  },
+  {
+    id: "BBQ & Smoked", code: "BB", descriptor: "Brisket, ribs, low and slow",
+    bg: "#FFF3F0", codeClr: "#8B2A1A",
+    dishes: ["Brisket", "Ribs", "Burnt ends"],
+  },
+  {
+    id: "Breakfast", code: "BK", descriptor: "Morning only, all day, brunch",
+    bg: "#FFFBF0", codeClr: "#8B7020",
+    dishes: ["Eggs benedict", "Pancakes", "Chilaquiles"],
+  },
+  {
+    id: "Late Night", code: "LN", descriptor: "Open past midnight",
+    bg: "#F5F0FF", codeClr: "#40208B",
+    dishes: ["Tacos", "Ramen", "KBBQ"],
+  },
+  {
+    id: "Pizza", code: "PZ", descriptor: "Neapolitan, NY, Detroit, more",
+    bg: "#FFF5F0", codeClr: "#8B3A1A",
+    dishes: ["Neapolitan", "Detroit", "NY slice"],
+  },
+  {
+    id: "Burgers", code: "BG", descriptor: "Smash, pub, gourmet, wagyu",
+    bg: "#FFF8F0", codeClr: "#8B5020",
+    dishes: ["Smash", "Wagyu", "Double smash"],
+  },
+  {
+    id: "Vegetarian", code: "VG", descriptor: "Plant-based, meat-free",
+    bg: "#F0FFF4", codeClr: "#1A6B3A",
+    dishes: ["Falafel", "Shakshuka", "Grain bowl"],
+  },
+  {
+    id: "Desserts", code: "DS", descriptor: "Ice cream, pastry, sweets",
+    bg: "#FFF0F8", codeClr: "#8B2060",
+    dishes: ["Gelato", "Mochi", "Croissant"],
+  },
 ];
-
-const QUICK_SEARCHES = [
-  "Open now near me",
-  "Best rated",
-  "Late night",
-  "Takeout",
-];
-
-// ─── THEME ────────────────────────────────────────────────────────────────────
-function th(dark: boolean) {
-  return {
-    cardBg:       dark ? "#161616" : "#FFFFFF",
-    cardBorder:   dark ? "#2C2C2C" : "#E8E3DC",
-    hoverBorder:  dark ? "#FFB800" : "#B8780A",
-    text:         dark ? "#F0EDE8" : "#1C1917",
-    secondary:    dark ? "#9A9390" : "#6B6560",
-    tertiary:     dark ? "#6B6866" : "#A89F99",
-    accent:       dark ? "#FFB800" : "#B8780A",
-    accentLight:  dark ? "#2A2010" : "#FDF3E3",
-    accentBorder: dark ? "#4A3810" : "#F0D5A0",
-    codeColor:    dark ? "#3A3A3A" : "#E0D8CE",
-  };
-}
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 type BrowseProps = {
@@ -52,9 +93,8 @@ type BrowseProps = {
 };
 
 export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowseProps) {
-  const [dark, setDark]       = useState(darkProp ?? false);
-  const [active, setActive]   = useState<string | null>(null);
-  const [hovered, setHovered] = useState<string | null>(null);
+  const [dark, setDark]     = useState(darkProp ?? false);
+  const [active, setActive] = useState<string | null>(null);
 
   useEffect(() => {
     if (darkProp !== undefined) { setDark(darkProp); return; }
@@ -63,149 +103,111 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
 
   useEffect(() => { if (!disabled) setActive(null); }, [disabled]);
 
-  const t = th(dark);
-
   const handleSelect = (term: string) => {
     if (disabled) return;
     setActive(term);
     onSelect(term);
   };
 
-  const cardStyle = (id: string): React.CSSProperties => {
-    const isActive  = active === id;
-    const isHovered = hovered === id;
-    const highlight = isActive || isHovered;
-    return {
-      background:   t.cardBg,
-      // Always 3px left border slot — transparent at rest, amber on hover/active
-      borderLeft:   `3px solid ${highlight ? t.hoverBorder : "transparent"}`,
-      borderTop:    `1px solid ${t.cardBorder}`,
-      borderRight:  `1px solid ${t.cardBorder}`,
-      borderBottom: `1px solid ${t.cardBorder}`,
-      borderRadius: 10,
-      padding:      "14px 14px 14px 13px",
-      cursor:       disabled ? "default" : "pointer",
-      boxShadow:    isHovered
-        ? "0 4px 16px rgba(0,0,0,0.12)"
-        : "0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-      transition:   "border-color 0.15s ease-out, box-shadow 0.15s ease-out",
-      display:      "flex",
-      flexDirection: "column" as const,
-      gap:          4,
-      minHeight:    100,
-      opacity:      disabled && !isActive ? 0.6 : 1,
-      position:     "relative" as const,
-    };
-  };
-
-  // Shared pill style
-  const pillStyle = (hov: boolean): React.CSSProperties => ({
-    background:   hov ? (dark ? "#3A2A15" : "#F5E6C8") : t.accentLight,
-    border:       `1.5px solid ${hov ? (dark ? "#FFB800" : "#C8860A") : t.accentBorder}`,
-    borderRadius: 20,
-    padding:      "0 18px",
-    height:       40,
-    fontFamily:   "'Inter', sans-serif",
-    fontSize:     "0.875rem",
-    fontWeight:   600,
-    color:        t.accent,
-    cursor:       disabled ? "default" : "pointer",
-    whiteSpace:   "nowrap" as const,
-    flexShrink:   0,
-    opacity:      disabled ? 0.5 : 1,
-    display:      "flex",
-    alignItems:   "center",
-    transition:   "background 0.15s, border-color 0.15s",
-  });
-
-  const [hoveredPill, setHoveredPill] = useState<string | null>(null);
+  const cardBg    = (bg: string) => dark ? "#161616" : bg;
+  const cardBord  = dark ? "#2C2C2C" : "transparent";
+  const nameClr   = dark ? "#F0EDE8" : "#1C1917";
+  const descClr   = dark ? "#9A9390" : "#6B6560";
+  const pillBg    = dark ? "rgba(255,184,0,0.08)" : "rgba(0,0,0,0.06)";
+  const pillBord  = dark ? "rgba(255,184,0,0.2)"  : "rgba(0,0,0,0.1)";
+  const pillClr   = dark ? "rgba(255,184,0,0.75)" : "#6B6560";
 
   return (
     <div>
       <style>{`
-        .dr-cat-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
+        .dr-carousel {
+          display: flex;
           gap: 10px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          padding-bottom: 8px;
         }
-        @media (min-width: 640px) {
-          .dr-cat-grid { grid-template-columns: repeat(4, 1fr); }
+        .dr-carousel::-webkit-scrollbar { display: none; }
+        .dr-cat-card {
+          scroll-snap-align: start;
+          flex-shrink: 0;
+          width: 160px;
+          cursor: pointer;
         }
-        .dr-quick-pills {
-          display: flex; gap: 8px;
-          overflow-x: auto; scrollbar-width: none; padding-bottom: 4px;
-        }
-        .dr-quick-pills::-webkit-scrollbar { display: none; }
       `}</style>
 
-      {/* ── RAPID SEARCH PROTOCOLS section label ─────────────────────────── */}
-      <div style={{
-        fontFamily:    "'Sevastopol', Georgia, serif",
-        fontSize:      "0.625rem", fontWeight: 400,
-        color:         t.accent, textTransform: "uppercase",
-        letterSpacing: "0.12em", marginBottom: 10,
-      }}>RAPID SEARCH PROTOCOLS //</div>
+      <div className="dr-carousel">
+        {CATEGORIES.map(cat => {
+          const isActive = active === cat.id;
+          const codeColor = dark ? "rgba(255,184,0,0.2)" : cat.codeClr + "30";
+          return (
+            <div
+              key={cat.id}
+              className="dr-cat-card"
+              onClick={() => handleSelect(cat.id)}
+              style={{
+                background: cardBg(cat.bg),
+                border: `1px solid ${isActive ? (dark ? "#FFB800" : "#B8780A") : cardBord}`,
+                borderRadius: 12,
+                padding: 14,
+                opacity: disabled && !isActive ? 0.6 : 1,
+                transition: "border-color 0.15s, box-shadow 0.15s",
+                boxShadow: isActive
+                  ? `0 4px 16px rgba(0,0,0,0.12)`
+                  : "0 1px 4px rgba(0,0,0,0.06)",
+                display: "flex", flexDirection: "column", minHeight: 180,
+              }}
+            >
+              {/* Code */}
+              <div style={{
+                fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                fontSize: "1.75rem", fontWeight: 900, lineHeight: 1,
+                color: dark ? "rgba(255,184,0,0.25)" : cat.codeClr + "40",
+                letterSpacing: "0.02em", marginBottom: 8,
+              }}>{cat.code}</div>
 
-      {/* ── Quick-tap pills ──────────────────────────────────────────────── */}
-      <div className="dr-quick-pills" style={{ marginBottom: 32 }}>
-        {QUICK_SEARCHES.map(q => (
-          <button
-            key={q}
-            onClick={() => handleSelect(q)}
-            disabled={disabled}
-            style={pillStyle(hoveredPill === q)}
-            onMouseEnter={() => !disabled && setHoveredPill(q)}
-            onMouseLeave={() => setHoveredPill(null)}
-          >{q}</button>
-        ))}
-      </div>
+              {/* Name */}
+              <div style={{
+                fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                fontSize: "0.875rem", fontWeight: 700, lineHeight: 1.2,
+                color: isActive ? (dark ? "#FFB800" : "#B8780A") : nameClr,
+                letterSpacing: "0.02em", marginBottom: 4,
+                transition: "color 0.15s",
+              }}>{cat.id}</div>
 
-      {/* ── SELECT QUERY TYPE section label ──────────────────────────────── */}
-      <div style={{
-        fontFamily:    "'Sevastopol', Georgia, serif",
-        fontSize:      "0.625rem", fontWeight: 400,
-        color:         t.accent, textTransform: "uppercase",
-        letterSpacing: "0.12em", marginBottom: 12,
-      }}>SELECT QUERY TYPE //</div>
+              {/* Descriptor */}
+              <div style={{
+                fontFamily: "'DM Sans', 'Inter', sans-serif",
+                fontSize: "0.75rem", color: descClr, lineHeight: 1.3,
+                marginBottom: 12, flex: 1,
+              }}>{cat.descriptor}</div>
 
-      {/* ── Category grid ────────────────────────────────────────────────── */}
-      <div className="dr-cat-grid">
-        {CATEGORIES.map(cat => (
-          <div
-            key={cat.id}
-            style={cardStyle(cat.id)}
-            onClick={() => handleSelect(cat.id)}
-            onMouseEnter={() => !disabled && setHovered(cat.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            {/* Classification code — Orbitron, top-left */}
-            <div style={{
-              fontFamily:   "var(--font-orbitron), 'Courier New', monospace",
-              fontSize:     "1.75rem", fontWeight: 700,
-              color:        t.codeColor, lineHeight: 1,
-              marginBottom: 8, letterSpacing: "0.02em",
-            }}>{cat.code}</div>
-
-            {/* Name */}
-            <div style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize:   "1.0625rem",
-              fontWeight: 700,
-              color:      active === cat.id || hovered === cat.id ? t.accent : t.text,
-              lineHeight: 1.2,
-              transition: "color 0.15s",
-            }}>{cat.id}</div>
-
-            {/* Descriptor */}
-            <div style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize:   "0.8125rem",
-              fontWeight: 400,
-              color:      "#6B6560",
-              lineHeight: 1.3,
-            }}>{cat.descriptor}</div>
-          </div>
-        ))}
+              {/* Dish pills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {cat.dishes.map(dish => (
+                  <button
+                    key={dish}
+                    onClick={e => { e.stopPropagation(); handleSelect(dish); }}
+                    style={{
+                      background: pillBg,
+                      border: `1px solid ${pillBord}`,
+                      borderRadius: 20, padding: "3px 8px",
+                      fontFamily: "'Sevastopol', Georgia, serif",
+                      fontSize: 9, color: pillClr,
+                      textTransform: "uppercase", letterSpacing: "0.1em",
+                      cursor: "pointer", whiteSpace: "nowrap",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = dark ? "rgba(255,184,0,0.15)" : "rgba(0,0,0,0.1)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = pillBg; }}
+                  >{dish}</button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

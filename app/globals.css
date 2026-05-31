@@ -42,6 +42,14 @@
   0%, 100% { opacity: 0.6; }
   50%       { opacity: 0.2; }
 }
+@keyframes dr-ambient-grid {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(24px, 24px); }
+}
+
+/* ── Header height tokens ──────────────────────────────────── */
+:root { --hh: 64px; }
+@media (max-width: 640px) { :root { --hh: 56px; } }
 
 *, *::before, *::after { box-sizing: border-box; }
 

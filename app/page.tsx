@@ -41,36 +41,171 @@ const sb = () => {
   return _sb;
 };
 
-function generateSuggestions(locationLabel: string): string[] {
+// ─── SUGGESTION TYPES ────────────────────────────────────────────────────────
+type Suggestion = { text: string; initial: string };
+
+function generateSuggestions(locationLabel: string): Suggestion[] {
   const h = new Date().getHours();
-  if (h < 12) return [`Best breakfast near ${locationLabel}`, `Breakfast spots open now`];
-  if (h < 15) return [`Best lunch near ${locationLabel}`, `Lunch under $15 near you`];
-  if (h < 22) return [`Top dinner spots near ${locationLabel}`, `Best dinner open now`];
-  return [`Open late near ${locationLabel}`, `Late night food near you`];
+  if (h < 11) return [
+    { text: `Best breakfast near ${locationLabel}`, initial: "B" },
+    { text: "Chilaquiles or eggs benedict open now", initial: "C" },
+    { text: "Pancakes worth leaving the house for", initial: "P" },
+  ];
+  if (h < 15) return [
+    { text: `Best lunch near ${locationLabel}`, initial: "L" },
+    { text: "Birria tacos open right now", initial: "B" },
+    { text: "Top ramen spots near you", initial: "R" },
+  ];
+  if (h < 22) return [
+    { text: `Top dinner spots near ${locationLabel}`, initial: "D" },
+    { text: "Korean BBQ worth the wait tonight", initial: "K" },
+    { text: "Best pasta open for dinner", initial: "P" },
+  ];
+  return [
+    { text: `Open late near ${locationLabel}`, initial: "L" },
+    { text: "Late night tacos or ramen", initial: "T" },
+    { text: "KBBQ spots still open now", initial: "K" },
+  ];
 }
 
-// ─── SUGGEST PILL ─────────────────────────────────────────────────────────────
-function SuggestPill({ label, accent, accentBg, accentBdr, onClick }: {
-  label: string; accent: string; accentBg: string; accentBdr: string; onClick: () => void;
+// ─── HERO EXAMPLE QUERIES ────────────────────────────────────────────────────
+const HERO_EXAMPLES = [
+  "Best birria tacos open now near Serra Mesa",
+  "Top ramen spots within 2 miles",
+  "Where to take clients for dinner tonight",
+  "Best happy hour in North Park right now",
+  "Carnitas that travel well for takeout",
+  "Late night Korean BBQ near downtown",
+];
+
+// ─── QUICK HERO FILTERS ───────────────────────────────────────────────────────
+const HERO_FILTERS = [
+  { label: "Open now",   query: "open now restaurants near me" },
+  { label: "Takeout",    query: "best takeout near me" },
+  { label: "Happy hour", query: "happy hour deals near me" },
+  { label: "Late night", query: "late night food near me" },
+];
+
+// ─── NEAR YOU CARD ────────────────────────────────────────────────────────────
+function NearYouCard({ suggestion, dark, onSearch }: {
+  suggestion: Suggestion; dark: boolean; onSearch: () => void;
 }) {
   const [hov, setHov] = useState(false);
   return (
     <button
-      onClick={onClick}
+      onClick={onSearch}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background:   hov ? "#F5E6C8" : accentBg,
-        border:       `1.5px solid ${hov ? "#C8860A" : accentBdr}`,
-        color:        accent, fontFamily: "'Inter', sans-serif",
-        fontSize:     "0.875rem", fontWeight: 600,
-        height:       40, padding: "0 18px",
-        borderRadius: 20, cursor: "pointer",
-        whiteSpace:   "nowrap", flexShrink: 0,
-        display:      "flex", alignItems: "center",
-        transition:   "background 0.15s, border-color 0.15s",
+        width: "100%", textAlign: "left", cursor: "pointer",
+        display: "flex", alignItems: "center", gap: 14,
+        height: 56, padding: "0 16px",
+        background: dark ? "#161616" : "#FFFFFF",
+        borderLeft: "3px solid #B8780A",
+        borderTop: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
+        borderRight: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
+        borderBottom: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
+        borderRadius: 10,
+        boxShadow: hov
+          ? "0 4px 12px rgba(0,0,0,0.10)"
+          : "0 2px 6px rgba(0,0,0,0.06)",
+        transition: "box-shadow 0.15s",
       }}
-    >{label}</button>
+    >
+      {/* Initial */}
+      <div style={{
+        fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+        fontSize: "1.5rem", fontWeight: 700,
+        color: "#B8780A", lineHeight: 1,
+        minWidth: 28, flexShrink: 0,
+      }}>{suggestion.initial}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: "0.9375rem", fontWeight: 600,
+          color: dark ? "#F0EDE8" : "#1C1917",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>{suggestion.text}</div>
+        <div style={{
+          fontFamily: "'Sevastopol', Georgia, serif",
+          fontSize: 9, color: dark ? "#6B6866" : "#A89F99",
+          textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 2,
+        }}>Tap to search</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={dark ? "#6B6866" : "#A89F99"} strokeWidth="2" strokeLinecap="round">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </button>
+  );
+}
+
+// ─── CONTEXT FILTER ───────────────────────────────────────────────────────────
+function ContextFilter({ icon, label, options, value, onChange, dark }: {
+  icon: string; label: string; options: string[];
+  value: string; onChange: (v: string) => void; dark: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = !!value;
+  const bg     = dark ? "#1F1F1F" : "#FFFFFF";
+  const bord   = dark ? (active ? "#FFB800" : "#2C2C2C") : (active ? "#B8780A" : "#D4CBC0");
+  const clr    = dark ? (active ? "#FFB800" : "#9A9390") : (active ? "#B8780A" : "#6B6560");
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          height: 36, padding: "0 14px",
+          background: bg, border: `1px solid ${bord}`,
+          borderRadius: 20, cursor: "pointer",
+          fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+          fontWeight: active ? 600 : 400, color: clr,
+          whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
+        }}
+      >
+        <span>{icon}</span>
+        <span>{value || label}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 200,
+          background: dark ? "#1A1A1A" : "#FFFFFF",
+          border: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
+          borderRadius: 10, padding: 6, minWidth: 140,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          display: "flex", flexDirection: "column", gap: 2,
+        }}>
+          {value && (
+            <button onClick={() => { onChange(""); setOpen(false); }}
+              style={{
+                background: "none", border: "none", padding: "7px 10px",
+                textAlign: "left", cursor: "pointer", borderRadius: 6,
+                fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
+                color: dark ? "#EF4444" : "#991B1B",
+              }}>Clear</button>
+          )}
+          {options.map(opt => (
+            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
+              style={{
+                background: value === opt ? (dark ? "#2A2010" : "#FDF3E3") : "none",
+                border: "none", padding: "8px 10px",
+                textAlign: "left", cursor: "pointer", borderRadius: 6,
+                fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
+                color: value === opt ? (dark ? "#FFB800" : "#B8780A") : (dark ? "#F0EDE8" : "#1C1917"),
+                fontWeight: value === opt ? 600 : 400,
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={e => { if (value !== opt) (e.currentTarget as HTMLButtonElement).style.background = dark ? "#232323" : "#F7F4F0"; }}
+              onMouseLeave={e => { if (value !== opt) (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+            >{opt}</button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -103,7 +238,20 @@ function DishIntel() {
   const [locMode, setLocMode] = useState("city");
   const [area,    setArea]    = useState("");
   const [radius,  setRadius]  = useState(5);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+
+  // ── Hero typewriter ───────────────────────────────────────────────────────
+  const [heroExIdx, setHeroExIdx] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setHeroExIdx(i => (i + 1) % HERO_EXAMPLES.length), 4000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── Contextual filters ────────────────────────────────────────────────────
+  const [ctxRadius, setCtxRadius] = useState("");
+  const [ctxTime,   setCtxTime]   = useState("");
+  const [ctxBudget, setCtxBudget] = useState("");
+  const [ctxMode,   setCtxMode]   = useState("");
 
   // ── Search state ──────────────────────────────────────────────────────────
   const [phase,         setPhase]        = useState("idle");
@@ -182,7 +330,7 @@ function DishIntel() {
         const cityName = addr.city || addr.town || addr.county || "your area";
         setCity(cityName);
         setDdCity(cityName);
-        setSuggestions(generateSuggestions(neighborhood || cityName));
+        setSuggestions(generateSuggestions(neighborhood || cityName) as Suggestion[]);
       } catch { /* GPS failed silently */ }
     }, () => { /* permission denied — silently continue */ });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -519,20 +667,94 @@ function DishIntel() {
           }}
         />
 
-        {/* ── Search bar — sticky below header ────────────────────────── */}
-        <div style={{
-          position: "sticky", top: 56, zIndex: 90,
-          background: bg,
-          borderBottom: `1px solid ${border}`,
-          padding: "12px 20px",
-        }}>
-          <SearchBar
-            onSearch={handleSearchFromBar}
-            onStop={stopSearch}
-            isSearching={isSearching}
-            dark={dark}
-          />
-        </div>
+        {/* ── Sticky search bar — shown only when not idle ────────────── */}
+        <style>{`
+          .dr-sticky-search { position: sticky; top: 64px; z-index: 90; }
+          @media (max-width: 640px) { .dr-sticky-search { top: 56px; } }
+        `}</style>
+        {phase !== "idle" && (
+          <div className="dr-sticky-search" style={{
+            background: bg, borderBottom: `1px solid ${border}`, padding: "10px 20px",
+          }}>
+            <SearchBar onSearch={handleSearchFromBar} onStop={stopSearch} isSearching={isSearching} dark={dark} />
+          </div>
+        )}
+
+        {/* ── SECTION 2: HERO SEARCH BAND — idle only ─────────────────── */}
+        {showIdle && (
+          <div style={{
+            width: "100%", position: "relative", overflow: "hidden",
+            background: dark
+              ? "linear-gradient(135deg, #0A0A0A 0%, #1A1000 100%)"
+              : "linear-gradient(135deg, #1C1917 0%, #2D1F0E 100%)",
+          }}>
+            {/* Ambient dot grid */}
+            <div style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              backgroundImage: "radial-gradient(circle, rgba(255,184,0,0.06) 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+              animation: "dr-ambient-grid 20s linear infinite",
+            }} />
+
+            <div style={{ position: "relative", zIndex: 1, padding: "20px 20px 16px", maxWidth: 900, margin: "0 auto" }}>
+              {/* TRY // + rotating example */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, minHeight: 18 }}>
+                <span style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: 10, color: "rgba(255,184,0,0.7)",
+                  textTransform: "uppercase", letterSpacing: "0.2em", flexShrink: 0,
+                }}>TRY //</span>
+                <span key={heroExIdx} style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: 13, color: "rgba(255,184,0,0.6)",
+                  animation: "fadeIn 0.4s ease",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{HERO_EXAMPLES[heroExIdx]}</span>
+              </div>
+
+              {/* Search bar — always light/white inside the dark band */}
+              <SearchBar
+                onSearch={handleSearchFromBar}
+                onStop={stopSearch}
+                isSearching={isSearching}
+                dark={false}
+              />
+
+              {/* Quick filter pills */}
+              <div style={{
+                display: "flex", gap: 8, marginTop: 12,
+                overflowX: "auto", scrollbarWidth: "none" as const,
+                paddingBottom: 4,
+              }}>
+                {HERO_FILTERS.map(f => (
+                  <button
+                    key={f.label}
+                    onClick={() => runSearch(f.query)}
+                    style={{
+                      background: "rgba(255,184,0,0.06)",
+                      border: "1px solid rgba(255,184,0,0.3)",
+                      borderRadius: 20, padding: "0 16px", height: 32,
+                      fontFamily: "'Sevastopol', Georgia, serif",
+                      fontSize: 11, color: "rgba(255,184,0,0.7)",
+                      textTransform: "uppercase", letterSpacing: "0.12em",
+                      cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                      transition: "background 0.15s, border-color 0.15s",
+                      display: "flex", alignItems: "center",
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = "rgba(255,184,0,0.12)";
+                      e.currentTarget.style.borderColor = "rgba(255,184,0,0.6)";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = "rgba(255,184,0,0.06)";
+                      e.currentTarget.style.borderColor = "rgba(255,184,0,0.3)";
+                    }}
+                  >{f.label}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Main content ────────────────────────────────────────────── */}
         <main style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px" }}>
@@ -574,65 +796,60 @@ function DishIntel() {
             </div>
           )}
 
-          {/* ── Idle: GPS suggestions + category browse ──────────────── */}
+          {/* ── Idle state ───────────────────────────────────────────────── */}
           {showIdle && (
             <>
-              {/* GPS suggested searches */}
+              {/* ── SECTION 3: NEAR YOU NOW ─────────────────────────────── */}
               {suggestions.length > 0 && (
-                <div style={{ paddingTop: 40, marginBottom: 0 }}>
+                <section style={{ paddingTop: 28, paddingBottom: 24 }}>
                   <div style={{
                     fontFamily: "'Sevastopol', Georgia, serif",
-                    fontSize: "0.625rem", fontWeight: 400,
-                    color: accent, textTransform: "uppercase",
-                    letterSpacing: "0.12em", marginBottom: 10,
-                  }}>
-                    Near you now
-                  </div>
-                  <div style={{ display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" as const, paddingBottom: 4 }}>
-                    {suggestions.map(s => (
-                      <SuggestPill key={s} label={s} accent={accent} accentBg={accentBg} accentBdr={accentBdr} onClick={() => handleBrowse(s)} />
+                    fontSize: "0.625rem", color: accent,
+                    textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10,
+                  }}>NEAR YOU NOW //</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {suggestions.map((s, i) => (
+                      <NearYouCard key={i} suggestion={s} dark={dark} onSearch={() => handleBrowse(s.text)} />
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Category browse */}
-              <div style={{ paddingTop: suggestions.length ? 24 : 20, paddingBottom: 24 }}>
+              {/* ── SECTION 4: CATEGORY CAROUSEL ────────────────────────── */}
+              <section style={{ paddingBottom: 24 }}>
+                <div style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: "0.625rem", color: accent,
+                  textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
+                }}>SELECT QUERY TYPE //</div>
                 <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
-              </div>
+              </section>
 
-              {/* Look up a specific spot */}
-              <div style={{ paddingBottom: 24 }}>
-                <button
-                  onClick={() => setShowSpotSearch(v => !v)}
-                  style={{
-                    background: "none", border: `1px solid ${border}`,
-                    borderRadius: 8, color: secondary,
-                    fontFamily: "'Inter',sans-serif", fontSize: "0.8rem",
-                    padding: "8px 16px", cursor: "pointer",
-                    width: "100%", textAlign: "left",
-                    transition: "border-color 0.15s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = border; e.currentTarget.style.color = secondary; }}
-                >
-                  {showSpotSearch ? "↑ Close" : "Look up a specific restaurant..."}
-                </button>
-
-                {showSpotSearch && (
-                  <div style={{ marginTop: 12, animation: "up 0.15s ease" }}>
-                    <DeepDiveInputs
-                      ddName={ddName} onDdNameChange={setDdName}
-                      ddCity={ddCity} onDdCityChange={setDdCity}
-                      isIdle={!isSearching} confirming={confirming} onConfirm={handleConfirm}
-                      confirmMatches={confirmMatches} onClearMatches={() => setConfirmMatches(null)}
-                      confirmIsMarket={confirmIsMarket}
-                      onDeepDive={handleDeepDive} onMarketGuide={handleMarketGuide}
-                      dark={dark}
-                    />
-                  </div>
-                )}
-              </div>
+              {/* ── SECTION 5: CONTEXTUAL FILTERS ───────────────────────── */}
+              <section style={{ paddingBottom: 32 }}>
+                <div style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: "0.625rem", color: tertiary,
+                  textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
+                }}>SEARCH PARAMETERS //</div>
+                <div style={{
+                  display: "flex", gap: 8, overflowX: "auto",
+                  scrollbarWidth: "none" as const, paddingBottom: 4,
+                }}>
+                  <ContextFilter icon="📍" label="Distance" dark={dark}
+                    options={["1 mi", "2 mi", "5 mi", "10 mi"]}
+                    value={ctxRadius} onChange={setCtxRadius} />
+                  <ContextFilter icon="🕐" label="Time" dark={dark}
+                    options={["Now Open", "After 10pm", "Lunch", "Dinner"]}
+                    value={ctxTime} onChange={setCtxTime} />
+                  <ContextFilter icon="💰" label="Budget" dark={dark}
+                    options={["$", "$$", "$$$", "$$$$"]}
+                    value={ctxBudget} onChange={setCtxBudget} />
+                  <ContextFilter icon="🍱" label="Mode" dark={dark}
+                    options={["Dine-in", "Takeout", "Delivery"]}
+                    value={ctxMode} onChange={setCtxMode} />
+                </div>
+              </section>
             </>
           )}
 
