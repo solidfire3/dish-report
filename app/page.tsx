@@ -14,6 +14,7 @@ import { DEFAULT_FILTERS } from "@/components/SearchBar";
 
 import { Header, BackBtn }                         from "@/components/Header";
 import { SearchBar, NarrowingFlow, DeepDiveInputs } from "@/components/SearchBar";
+import { TerminalSearch }                           from "@/components/TerminalSearch";
 import { LoadingTracker }                           from "@/components/LoadingTracker";
 import { RestCard }                                 from "@/components/RestaurantCard";
 import { Browse }                                   from "@/components/CategoryBrowse";
@@ -260,6 +261,7 @@ function DishIntel() {
 
   // ── Search state ──────────────────────────────────────────────────────────
   const [phase,         setPhase]        = useState("idle");
+  const [showTerminal,  setShowTerminal] = useState(false);
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -728,7 +730,12 @@ function DishIntel() {
           <div className="dr-sticky-search" style={{
             background: bg, borderBottom: `1px solid ${border}`, padding: "10px 20px",
           }}>
-            <SearchBar onSearch={handleSearchFromBar} onStop={stopSearch} isSearching={isSearching} dark={dark} />
+            {/* Click interceptor — opens terminal instead of inline input */}
+            <div onClick={() => !isSearching && setShowTerminal(true)} style={{ cursor: isSearching ? "default" : "text" }}>
+              <div style={{ pointerEvents: isSearching ? "auto" : "none" }}>
+                <SearchBar onSearch={handleSearchFromBar} onStop={stopSearch} isSearching={isSearching} dark={dark} />
+              </div>
+            </div>
           </div>
         )}
 
@@ -764,13 +771,17 @@ function DishIntel() {
                 }}>{HERO_EXAMPLES[heroExIdx]}</span>
               </div>
 
-              {/* Search bar — always light/white inside the dark band */}
-              <SearchBar
-                onSearch={handleSearchFromBar}
-                onStop={stopSearch}
-                isSearching={isSearching}
-                dark={false}
-              />
+              {/* Search bar — click opens terminal overlay */}
+              <div onClick={() => setShowTerminal(true)} style={{ cursor: "text" }}>
+                <div style={{ pointerEvents: "none" }}>
+                  <SearchBar
+                    onSearch={handleSearchFromBar}
+                    onStop={stopSearch}
+                    isSearching={isSearching}
+                    dark={false}
+                  />
+                </div>
+              </div>
 
               {/* Quick filter pills */}
               <div style={{
@@ -1097,6 +1108,13 @@ function DishIntel() {
           </footer>
         )}
       </div>
+
+      {/* ── Terminal search overlay ─────────────────────────────────── */}
+      <TerminalSearch
+        isOpen={showTerminal}
+        onSearch={(q, f) => { setShowTerminal(false); handleSearchFromBar(q, f); }}
+        onClose={() => setShowTerminal(false)}
+      />
 
       {/* ── Full-screen loading overlay ─────────────────────────────── */}
       {isSearching && (
