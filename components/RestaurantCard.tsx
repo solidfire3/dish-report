@@ -89,40 +89,19 @@ export function ScoreRing({ score, size = 52, dark: darkProp }: { score: number;
   const t    = th(dark);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-      {/* ANALYTICAL SCORE label */}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
+      {/* Score number */}
       <div style={{
-        fontFamily: "'Sevastopol', Georgia, serif",
-        fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A",
-        textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
-      }}>ANALYTICAL SCORE</div>
-
-      {/* Score number in targeting box */}
-      <div style={{ position: "relative", display: "inline-block" }}>
-        {/* Border box */}
-        <div style={{
-          fontFamily: "var(--font-orbitron), 'Courier New', monospace", fontSize: fs, fontWeight: 700,
-          color: clr, lineHeight: 1,
-          border: `1px solid ${clr}`,
-          padding: "4px 8px", borderRadius: 2,
-        }}>{safe.toFixed(1)}</div>
-        {/* Corner marks — targeting reticle */}
-        {[
-          { top: -3, left: -3, borderTop: `2px solid ${clr}`, borderLeft: `2px solid ${clr}` },
-          { top: -3, right: -3, borderTop: `2px solid ${clr}`, borderRight: `2px solid ${clr}` },
-          { bottom: -3, left: -3, borderBottom: `2px solid ${clr}`, borderLeft: `2px solid ${clr}` },
-          { bottom: -3, right: -3, borderBottom: `2px solid ${clr}`, borderRight: `2px solid ${clr}` },
-        ].map((s, i) => (
-          <div key={i} style={{ position: "absolute", width: 5, height: 5, ...s }} />
-        ))}
-      </div>
-
-      {/* / 10.0 MAX */}
+        fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+        fontSize: fs, fontWeight: 900, color: clr, lineHeight: 1,
+      }}>{safe.toFixed(1)}</div>
+      {/* Colored underline */}
+      <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
+      {/* / 10 */}
       <div style={{
-        fontFamily: "'Sevastopol', Georgia, serif",
-        fontSize: "0.6875rem", fontWeight: 400, color: t.tertiary,
-        textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
-      }}>/ 10.0 MAX</div>
+        fontFamily: "'Inter', sans-serif",
+        fontSize: "0.75rem", color: t.tertiary, lineHeight: 1,
+      }}>/ 10</div>
     </div>
   );
 }
@@ -472,36 +451,20 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                 WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
               }}>{r.name}</div>
 
-              {/* Score with targeting reticle */}
+              {/* Score — confident number, no box */}
               {(() => {
                 const clr = scoreColor(r.food_score ?? 5, dark);
                 return (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
                     <div style={{
-                      fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.6875rem", color: "#B8780A",
-                      textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
-                    }}>ANALYTICAL SCORE</div>
-                    <div style={{ position: "relative", display: "inline-block" }}>
-                      <div style={{
-                        fontFamily: "var(--font-orbitron), 'Courier New', monospace", fontSize: "2.25rem", fontWeight: 700,
-                        color: clr, lineHeight: 1,
-                        border: `1px solid ${clr}`, padding: "4px 8px", borderRadius: 2,
-                      }}>{(r.food_score ?? 5).toFixed(1)}</div>
-                      {[
-                        { top: -3, left: -3, borderTop: `2px solid ${clr}`, borderLeft: `2px solid ${clr}` },
-                        { top: -3, right: -3, borderTop: `2px solid ${clr}`, borderRight: `2px solid ${clr}` },
-                        { bottom: -3, left: -3, borderBottom: `2px solid ${clr}`, borderLeft: `2px solid ${clr}` },
-                        { bottom: -3, right: -3, borderBottom: `2px solid ${clr}`, borderRight: `2px solid ${clr}` },
-                      ].map((s, i) => (
-                        <div key={i} style={{ position: "absolute", width: 5, height: 5, ...s }} />
-                      ))}
-                    </div>
+                      fontFamily: "var(--font-orbitron), 'Courier New', monospace",
+                      fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
+                    }}>{(r.food_score ?? 5).toFixed(1)}</div>
+                    <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
                     <div style={{
-                      fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.6875rem", color: t.tertiary,
-                      textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1,
-                    }}>/ 10.0 MAX</div>
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: "0.75rem", color: t.tertiary, lineHeight: 1,
+                    }}>/ 10</div>
                   </div>
                 );
               })()}

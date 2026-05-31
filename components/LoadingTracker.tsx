@@ -111,6 +111,8 @@ export function LoadingTracker({
   const [subStatusIdx, setSubStatusIdx] = useState(0);
   const [showStandBy,  setShowStandBy]  = useState(false);
   const [canComplete,  setCanComplete]  = useState(false);
+  const [completing,   setCompleting]   = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
 
   // ── Stage advancement ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -157,14 +159,20 @@ export function LoadingTracker({
     if (stage === 7) setProgress(progress7);
   }, [stage, progress7]);
 
-  // Completion trigger
+  // Completion trigger — bar animates to 100% over 600ms, flash, then call onDone
   useEffect(() => {
-    if (apiDone && canComplete && stage === 7) {
+    if (apiDone && canComplete && stage === 7 && !completing) {
+      setCompleting(true);  // switches bar to 600ms transition
       setProgress(100);
-      const t = setTimeout(() => { onDoneRef.current?.(); }, 600);
+      setShowComplete(true);
+      // 600ms bar + 400ms flash = 1000ms before revealing results
+      const t = setTimeout(() => {
+        setShowComplete(false);
+        onDoneRef.current?.();
+      }, 1000);
       return () => clearTimeout(t);
     }
-  }, [apiDone, canComplete, stage]);
+  }, [apiDone, canComplete, stage, completing]);
 
   // ── Stage 3: review counter animation ────────────────────────────────────
   useEffect(() => {
@@ -310,7 +318,9 @@ export function LoadingTracker({
               background: "linear-gradient(90deg, #C8860A 0%, #FFB800 50%, #FFD033 100%)",
               backgroundSize: "300px 100%",
               animation: "dr-progress-shimmer 2s linear infinite",
-              transition: "width 1.2s ease-in-out",
+              transition: completing
+                ? "width 600ms cubic-bezier(0.4, 0, 0.2, 1)"
+                : "width 1200ms cubic-bezier(0.4, 0, 0.2, 1)",
             }} />
           </div>
         </div>
@@ -441,7 +451,17 @@ export function LoadingTracker({
           {/* Stage 7: Writing report */}
           {stage === 7 && (
             <div style={{ textAlign: "center" }}>
-              {showStandBy ? (
+              {/* REPORT COMPLETE flash — appears when 100% is reached */}
+              {showComplete ? (
+                <div style={{
+                  fontFamily: "'Sevastopol', Georgia, serif",
+                  fontSize: "0.875rem", color: "#FFB800",
+                  textTransform: "uppercase", letterSpacing: "0.25em",
+                  animation: "dr-fade-in 0.3s ease both",
+                  marginBottom: 16,
+                  textShadow: "0 0 12px rgba(255,184,0,0.6)",
+                }}>REPORT COMPLETE</div>
+              ) : showStandBy ? (
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
                   fontSize: "0.6875rem", color: "#FFB800",
