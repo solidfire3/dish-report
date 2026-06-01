@@ -442,39 +442,44 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
           {/* Row 1 — Score LEFT + Name RIGHT */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px 10px" }}>
-            {/* Score — left anchor */}
+            {/* Score — left anchor. Always shows base food_score — no adjustment applied. */}
             {(() => {
-              const displayScore = r._effective_score ?? r.food_score ?? 5;
-              const clr = scoreColor(displayScore, dark);
-              const hasFit = Math.abs(r.fit_adjustment ?? 0) >= 0.1;
-              const fitPos = (r.fit_adjustment ?? 0) >= 0;
+              const score = r.food_score ?? 5;
+              const clr = scoreColor(score, dark);
               return (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
                   <div style={{
                     fontFamily: "var(--font-orbitron), 'Courier New', monospace",
                     fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
-                  }}>{displayScore.toFixed(1)}</div>
+                  }}>{score.toFixed(1)}</div>
                   <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
-                  {hasFit && (
-                    <div style={{
-                      fontSize: "0.62rem", fontFamily: "'IBM Plex Mono', monospace",
-                      color: fitPos ? "#2D6A4F" : "#9B1C1C",
-                      marginTop: 1, whiteSpace: "nowrap",
-                    }}>
-                      {fitPos ? "+" : ""}{(r.fit_adjustment ?? 0).toFixed(1)} this dish
-                    </div>
-                  )}
                 </div>
               );
             })()}
-            {/* Restaurant name */}
-            <div style={{
-              fontFamily: "'Playfair Display',Georgia,serif",
-              fontSize: "1.5rem", fontWeight: 700,
-              color: t.text, lineHeight: 1.2, flex: 1, minWidth: 0,
-              overflow: "hidden", display: "-webkit-box",
-              WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-            }}>{r.name}</div>
+            {/* Restaurant name + optional dish relevance badge */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: "'Playfair Display',Georgia,serif",
+                fontSize: "1.5rem", fontWeight: 700,
+                color: t.text, lineHeight: 1.2,
+                overflow: "hidden", display: "-webkit-box",
+                WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+              }}>{r.name}</div>
+              {r.dish_badge && (
+                <div style={{
+                  display: "inline-block", marginTop: 5,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: "0.68rem", fontWeight: 600,
+                  color: "#B8780A",
+                  background: "rgba(184,120,10,0.08)",
+                  border: "1px solid rgba(184,120,10,0.25)",
+                  borderRadius: 4, padding: "2px 7px",
+                  letterSpacing: "0.02em",
+                }}>
+                  {r.dish_badge}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Row 2 — Location · Type · Price */}

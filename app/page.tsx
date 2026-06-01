@@ -669,11 +669,7 @@ function DishIntel() {
         console.log("[search] exact-match HIT -> serving stored");
         pushNav();
         const res = (Array.isArray(quick.results.results) ? quick.results.results : []) as Restaurant[];
-        const noDishtFlagQ = isLikelyRestaurantName(d);
-        const ranked = res.map((r: Restaurant, i: number) => ({
-          ...r, rank: i + 1,
-          ...(noDishtFlagQ ? { fit_adjustment: 0, _effective_score: r.food_score } : {}),
-        }));
+        const ranked = res.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
         const m: SearchMeta = { dish: quick.results.dish || d, city: quick.results.city || searchCity };
         setMeta(m);
         setRestaurants(ranked);
@@ -705,14 +701,7 @@ function DishIntel() {
       );
       const meta = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      // Fix 3: defensive guard — zero dish-fit modifiers when the query has no dish signal.
-      // A restaurant-name query that somehow slipped through must never show "for this dish" badges.
-      const noDishtFlag = isLikelyRestaurantName(d);
-      const ranked = res.map((r, i) => ({
-        ...r,
-        rank: i + 1,
-        ...(noDishtFlag ? { fit_adjustment: 0, _effective_score: r.food_score } : {}),
-      }));
+      const ranked = res.map((r, i) => ({ ...r, rank: i + 1 }));
       setMeta(meta);
       setRestaurants(ranked);
       searchResultCache.current = { key: cacheKey, results: ranked, meta }; // cache for session

@@ -10,9 +10,8 @@ export type Restaurant = {
   warnings?: (string | null)[]; address?: string; cuisine?: string;
   // Phase 2 normalization fields
   restaurant_id?: string;      // uuid from restaurants table
-  fit_adjustment?: number;     // per-search dish-fit nudge, -1.5..+1.5
-  fit_reason?: string;         // short "why this fits" note
-  _effective_score?: number;   // clamp(food_score + fit_adjustment, 0, 10)
+  dish_badge?: string | null;  // contextual label when place is celebrated for the searched dish
+  // fit_adjustment / _effective_score removed — base food_score is the one displayed score
 };
 
 export type DeepDiveData = {

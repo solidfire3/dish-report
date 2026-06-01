@@ -23,17 +23,24 @@ SKIP: 1-3 items reviewers consistently find disappointing (food quality only). O
 
 INSIDER TIPS: 2-4 specific tips (best time for fresh prep, what to request, secret menu items, seasonal specials, best seat in house for food experience, etc.)
 
-SCORING (food quality only — use the SAME demanding scale as search results; anchor against these named tiers):
+SCORING (food quality only — be genuinely critical; use the SAME scale as search results):
+DEFAULT ASSUMPTION: a restaurant is AVERAGE. Average = 6.0, not 8.0. Most places are unremarkable.
+HIGH SCORES ARE EARNED AND RARE. Being "fine" or "popular" is not enough for 8+.
+USE THE FULL SCALE — including low scores without hesitation. Resist rounding up or softening.
+If review signal is mixed, the score reflects that. No benefit of the doubt.
+
+Score tiers:
 9.2-10.0: Michelin level. Internationally recognized or technically exceptional. Extremely rare.
-8.7-9.1:  Local legend. A true city destination; repeatedly cited as among the very best. Rare.
-8.1-8.6:  Always great. Consistently excellent; strong local reputation; dishes that earn repeat visits.
-7.5-8.0:  Solid spot. Reliable neighborhood restaurant; positive but no citywide standout reputation.
-6.9-7.4:  Hit and miss. Inconsistent quality or one standout dish on an otherwise ordinary menu.
+8.7-9.1:  Local legend. A true city destination repeatedly cited as among the very best. Rare.
+8.1-8.6:  Always great. Consistently excellent; specific dishes that earn repeat visits.
+7.5-8.0:  Solid spot. Reliable neighborhood restaurant; positive but no citywide reputation.
+6.9-7.4:  Hit and miss. Inconsistent quality or one standout dish on an ordinary menu.
 6.0-6.8:  Convenience. Acceptable; chosen for location or price, not quality.
 5.0-5.9:  Compromise. Below expectations; noticeable quality issues.
 2.5-4.9:  Disappointment. Significant problems documented across reviews.
 0.1-2.4:  Disgust. Repeated serious food-quality failures.
-Calibration: Most genuinely good neighborhood restaurants land 7.5-8.6. A 9.0+ is RARE — do not award it for popularity alone. Score based on honest review signal.
+
+Typical good local spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6. 9.0+ is for true standouts only.
 
 Return ONLY valid JSON:
 {"name":"string","neighborhood":"string","address":"string|null","cuisine":"string","venue_type":"string","vibe_tags":["string"],"food_score":number,"confidence":"high|medium|low","price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","why":"string"}],"also_try":[{"dish":"string","note":"string"}],"skip":["string"],"insider_tips":["string"],"verdict":"string (2 punchy sentences)"}`;
