@@ -14,7 +14,18 @@ const GENERIC_NARROW: NarrowEntry = {
 };
 
 const NARROW_MAP: [string, NarrowEntry][] = [
-  // ── Existing entries ──────────────────────────────────────────────────────
+  // ── Specific fillings / dishes (checked before their parent category) ─────
+  ["quesabirria", { label: "WHAT FORMAT?",   options: ["Tacos", "Mulitas", "Bowl", "Consomé Only", "Combo"] }],
+  ["birria",       { label: "WHAT FORMAT?",   options: ["Tacos", "Quesabirria", "Bowl", "Ramen Birria", "Consomé"] }],
+  ["carnitas",     { label: "HOW DO YOU WANT IT?", options: ["Street Tacos", "Burrito", "Bowl", "Torta", "Quesadilla"] }],
+  ["al pastor",    { label: "HOW DO YOU WANT IT?", options: ["Street Tacos", "Burrito", "Quesadilla", "Vampiro", "Bowl"] }],
+  ["carne asada",  { label: "HOW DO YOU WANT IT?", options: ["Street Tacos", "Burrito", "Fries", "Mulitas", "Bowl"] }],
+  ["tonkotsu",     { label: "WHAT RICHNESS?", options: ["Extra Rich", "Classic", "Spicy Tonkotsu", "Black Garlic", "Light"] }],
+  ["shoyu",        { label: "WHAT NOODLE?",   options: ["Wavy", "Straight", "Thick", "Thin", "Handmade"] }],
+  ["omakase",      { label: "WHAT PRICE RANGE?", options: ["Under $100", "$100–150", "$150–200", "$200+"] }],
+  ["wagyu",        { label: "WHAT FORMAT?",   options: ["Steak", "Burger", "Yakiniku", "Hotpot", "Rice Bowl"] }],
+  ["brisket",      { label: "WHAT STYLE?",    options: ["Texas Smoked", "Korean", "Jewish Deli", "Sandwich", "Plate"] }],
+  // ── Category keywords ─────────────────────────────────────────────────────
   ["dim sum",    { label: "WHAT FOCUS?",      options: ["Har Gow", "XLB Soup", "Pan-fried", "Baked BBQ Pork", "Congee"] }],
   ["sandwich",   { label: "WHAT KIND?",       options: ["Italian Sub", "Banh Mi", "Cubano", "Deli", "Breakfast", "Grilled Cheese"] }],
   ["breakfast",  { label: "WHAT VIBE?",       options: ["Diner", "Brunch Spot", "Cafe", "Taco Spot", "Bakery"] }],
@@ -42,13 +53,21 @@ const NARROW_MAP: [string, NarrowEntry][] = [
 // Sorted longest-key-first so "dim sum" beats "sum", "sandwich" beats "and", etc.
 const NARROW_MAP_SORTED = [...NARROW_MAP].sort((a, b) => b[0].length - a[0].length);
 
-// Always returns a narrowing entry — specific match or generic fallback
+// Always returns a narrowing entry — specific match or generic fallback.
+// Filters out options the user has already typed so narrowing always moves forward.
 function getNarrowing(q: string): NarrowEntry {
   const lower = q.toLowerCase();
+  let matched: NarrowEntry = GENERIC_NARROW;
   for (const [key, entry] of NARROW_MAP_SORTED) {
-    if (lower.includes(key)) return entry;
+    if (lower.includes(key)) { matched = entry; break; }
   }
-  return GENERIC_NARROW;
+  // Remove options already present in the query (case-insensitive)
+  const filtered = matched.options.filter(opt => !lower.includes(opt.toLowerCase()));
+  // If all options were filtered, fall back to GENERIC_NARROW (filtered too)
+  const finalOptions = filtered.length > 0
+    ? filtered
+    : GENERIC_NARROW.options.filter(opt => !lower.includes(opt.toLowerCase()));
+  return { label: matched.label, options: finalOptions.length > 0 ? finalOptions : matched.options };
 }
 
 // ─── ADD-ON SUGGESTION MAP (richer pools, change 3) ──────────────────────────

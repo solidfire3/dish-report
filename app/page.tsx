@@ -322,19 +322,24 @@ function DishIntel() {
 
   // Restore stashed search after sign-in redirect
   useEffect(() => {
+    console.log('[RESTORE] effect fired, user:', user ? user.email : 'null');
     if (!user) return;
     try {
       const raw = sessionStorage.getItem("dr-return-search");
+      console.log('[RESTORE] sessionStorage key present:', !!raw);
       if (!raw) return;
-      sessionStorage.removeItem("dr-return-search"); // consume immediately
+      sessionStorage.removeItem("dr-return-search");
       const { query: q, results, meta: m } = JSON.parse(raw);
+      console.log('[RESTORE] restoring search:', q, 'results:', results?.length);
       if (q && Array.isArray(results) && m) {
         setSearchedDish(q);
         setRestaurants(results.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 })));
         setMeta(m);
         setPhase("done");
       }
-    } catch {}
+    } catch (e) {
+      console.log('[RESTORE] failed:', e);
+    }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Background persistence
@@ -449,6 +454,17 @@ function DishIntel() {
   const saveFavs  = (next: Fav[]) => { setFavs(next); try { localStorage.setItem("di-favs", JSON.stringify(next)); } catch {} };
   const isFav     = (name: string) => favs.some(f => f.name === name);
   const toggleFav = (r: { name: string; neighborhood?: string; venue_type?: string; price_range?: string; food_score?: number }) => {
+    if (!user) {
+      // Unauthenticated user clicked Save — stash search and prompt sign-in
+      try {
+        sessionStorage.setItem("dr-return-search", JSON.stringify({
+          query: searchedDish, results: restaurants, meta,
+        }));
+        console.log('[STASH] written from toggleFav for unauthenticated user');
+      } catch {}
+      router.push("/auth/signin");
+      return;
+    }
     saveFavs(isFav(r.name) ? favs.filter(f => f.name !== r.name) : [...favs, r as Fav]);
   };
 
@@ -457,12 +473,12 @@ function DishIntel() {
     if (!user) {
       // Stash current search so the user lands back here after signing in
       try {
-        sessionStorage.setItem("dr-return-search", JSON.stringify({
-          query:     searchedDish,
-          results:   restaurants,
-          meta,
-        }));
-      } catch {}
+        const payload = { query: searchedDish, results: restaurants, meta };
+        sessionStorage.setItem("dr-return-search", JSON.stringify(payload));
+        console.log('[STASH] written from openAddToList:', searchedDish, 'results:', restaurants.length);
+      } catch (e) {
+        console.log('[STASH] write FAILED:', e);
+      }
       router.push("/auth/signin");
       return;
     }

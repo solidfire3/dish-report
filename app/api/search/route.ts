@@ -147,10 +147,16 @@ export async function POST(req: Request) {
       }
     }
 
+    // Use radius in the prompt whenever a specific distance was chosen.
+    // Previously radius was only used when locMode === "area", which meant
+    // the terminal's distance filter was silently ignored in city mode.
+    const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
     const locStr =
       locMode === "area" && area
         ? `within ${radius} miles of ${area}`
-        : `in ${city}`;
+        : effectiveRadius
+          ? `within ${effectiveRadius} miles of ${city}`
+          : `in ${city}`;
     const userMsg = `Best places for "${dish}" ${locStr}.${
       exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""
     } Return JSON.`;
