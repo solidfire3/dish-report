@@ -298,6 +298,7 @@ function DishIntel() {
   const [phase,         setPhase]        = useState("idle");
   const [showTerminal,  setShowTerminal] = useState(false);
   const [fromCache,     setFromCache]    = useState(false);   // true when results served from DB cache
+  const [searchMode,   setSearchMode]   = useState<"original" | "refresh" | undefined>(undefined);
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -446,6 +447,13 @@ function DishIntel() {
       setPhase("done");
     } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cache-reveal phase: auto-advance to "done" after 750ms (honest brief flash, not fake work)
+  useEffect(() => {
+    if (phase !== "cache-reveal") return;
+    const t = setTimeout(() => setPhase("done"), 750);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   // GPS location on first load
   useEffect(() => {
@@ -602,6 +610,7 @@ function DishIntel() {
   const handleForceRefresh = async () => {
     if (!searchedDish) return;
     setFromCache(false);
+    setSearchMode("refresh");   // LoadingTracker shows "REFRESHING · re-running live analysis"
     searchResultCache.current = null;
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -643,7 +652,8 @@ function DishIntel() {
       setMeta(searchResultCache.current.meta);
       setRestaurants(searchResultCache.current.results);
       setSearchedDish(d);
-      setPhase("done");
+      setFromCache(true);
+      setPhase("cache-reveal");  // brief honest flash: "CACHED RESULT FOUND"
       return;
     }
     console.log("[cache] REF MISS — key:", cacheKey);
@@ -670,13 +680,14 @@ function DishIntel() {
         setSearchedDish(d);
         searchResultCache.current = { key: cacheKey, results: ranked, meta: m };
         setFromCache(true);
-        setPhase("done");
+        setPhase("cache-reveal");  // brief honest flash: "CACHED RESULT FOUND"
         return;
       }
     } catch {}
 
     console.log("[search] no match -> running pipeline");
     setFromCache(false);
+    setSearchMode("original");  // LoadingTracker shows "NEW QUERY DETECTED"
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -741,7 +752,22 @@ function DishIntel() {
 
   // Unified search handler — called by SearchBar with (query, filters)
   const handleSearchFromBar = async (q: string, filters: FilterState, skipClassify = false) => {
-    if (!q.trim()) return;
+    const trimmed = q.trim();
+    if (!trimmed) return;
+
+    // ── Pre-flight validation ────────────────────────────────────────────────
+    // Catch obviously malformed queries before they consume an Anthropic call.
+    if (trimmed.length < 2) {
+      setErrMsg("Search needs at least 2 characters.");
+      setPhase("error");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(trimmed)) {
+      setErrMsg("Search must include words, not just numbers or symbols.");
+      setPhase("error");
+      return;
+    }
+
     const searchRadius = filters.radius || radius;
 
     // Step 0: client-side restaurant name detection — runs BEFORE skipClassify check
@@ -1301,7 +1327,8 @@ function DishIntel() {
 
           {/* ── Results ──────────────────────────────────────────────── */}
           {phase === "done" && meta && (
-            <div style={{ paddingTop: 32 }}>
+            <div style={{ paddingTop: 32, animation: fromCache ? "results-in 0.45s cubic-bezier(0.4,0,0.2,1) both" : undefined }}>
+            <style>{`@keyframes results-in { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }`}</style>
               {/* Piece 1: Cached-result indicator */}
               {fromCache && (
                 <div style={{
@@ -1431,7 +1458,38 @@ function DishIntel() {
           apiDone={apiComplete}
           onDone={handleAnalysisDone}
           onStop={stopSearch}
+          searchMode={searchMode}
         />
+      )}
+
+      {/* ── Cache-reveal: honest brief flash for cache hits ─────────── */}
+      {phase === "cache-reveal" && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9400,
+          background: "#F2EEE8",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+          animation: "cr-in 0.15s ease both",
+        }}>
+          <style>{`
+            @keyframes cr-in  { from{opacity:0} to{opacity:1} }
+            @keyframes cr-bar { from{width:0%}  to{width:100%} }
+          `}</style>
+          <div style={{ textAlign: "center", maxWidth: 320 }}>
+            <div style={{ fontSize: "0.65rem", color: "#A89F99", letterSpacing: "0.2em", marginBottom: 16 }}>
+              DISH REPORT // CACHE
+            </div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#B8780A", letterSpacing: "0.07em", marginBottom: 8 }}>
+              CACHED RESULT FOUND
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "#6B6560", letterSpacing: "0.06em", marginBottom: 28 }}>
+              loading from archive
+            </div>
+            <div style={{ width: 200, height: 2, background: "rgba(184,120,10,0.15)", borderRadius: 1, margin: "0 auto", overflow: "hidden" }}>
+              <div style={{ height: "100%", background: "#B8780A", borderRadius: 1, animation: "cr-bar 0.7s cubic-bezier(0.4,0,0.2,1) both" }} />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Add to list modal ──────────────────────────────────────────── */}

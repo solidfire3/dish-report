@@ -458,6 +458,7 @@ export type LoadingTrackerProps = {
   lstep?: number;
   resultsReady?: boolean;
   onSeeResults?: () => void;
+  searchMode?: "original" | "refresh";
 };
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -466,7 +467,16 @@ export function LoadingTracker({
   apiDone = false,
   onDone,
   onStop,
+  searchMode,
 }: LoadingTrackerProps) {
+  // Boot message — shown for first 1.5s for original or refresh searches
+  const [showBoot, setShowBoot] = useState(!!searchMode);
+  useEffect(() => {
+    if (!searchMode) return;
+    const t = setTimeout(() => setShowBoot(false), 1500);
+    return () => clearTimeout(t);
+  }, [searchMode]);
+
   const onDoneRef = useRef(onDone);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
@@ -657,12 +667,24 @@ export function LoadingTracker({
           </div>
         </div>
 
-        {/* Center — query label */}
-        {query && (
-          <div style={{
-            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "0 24px",
-          }}>
+        {/* Center — boot message OR query label */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 24px" }}>
+          {showBoot && searchMode ? (
+            <div style={{
+              fontFamily: "'IBM Plex Mono', monospace", textAlign: "center",
+              background: "rgba(242,238,232,0.92)", backdropFilter: "blur(6px)",
+              padding: "14px 24px", borderRadius: 8,
+              border: "1px solid rgba(184,120,10,0.3)",
+              animation: "lt-fadein 0.4s ease both",
+            }}>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#B8780A", letterSpacing: "0.08em", marginBottom: 6 }}>
+                {searchMode === "refresh" ? "REFRESHING" : "NEW QUERY DETECTED"}
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "#6B6560", letterSpacing: "0.06em" }}>
+                {searchMode === "refresh" ? "re-running live analysis" : "initializing full analysis"}
+              </div>
+            </div>
+          ) : query ? (
             <div style={{
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: "0.75rem", color: "#B8780A",
@@ -671,11 +693,12 @@ export function LoadingTracker({
               backdropFilter: "blur(4px)",
               padding: "6px 16px", borderRadius: 6,
               border: "1px solid rgba(184,120,10,0.2)",
+              animation: "lt-fadein 0.3s ease both",
             }}>
               › {query}
             </div>
-          </div>
-        )}
+          ) : null}
+        </div>
 
         {/* Bottom bar */}
         <div style={{ padding: "0 24px 0", flexShrink: 0 }}>
@@ -721,7 +744,10 @@ export function LoadingTracker({
         </div>
       </div>
 
-      <style>{`@keyframes lt-cursor { 0%,49%{opacity:1} 50%,100%{opacity:0} }`}</style>
+      <style>{`
+        @keyframes lt-cursor { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+        @keyframes lt-fadein { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
     </div>
   );
 }
