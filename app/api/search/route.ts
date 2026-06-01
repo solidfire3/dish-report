@@ -157,7 +157,7 @@ async function lookupCache(sig: string): Promise<CacheRow | null> {
     .select("id, results, expires_at, refreshing_at")
     .eq("dish_key", sig)
     .maybeSingle();
-  console.log("[cache:lookup] sig=", sig, "| found=", !!data, "| error=", error?.message ?? null);
+  console.log("[cache] DB LOOKUP — sig:", sig, "| row found:", !!data, "| has results:", !!(data as CacheRow | null)?.results, "| error:", error ? JSON.stringify(error) : null);
   return data as CacheRow | null;
 }
 
@@ -182,7 +182,7 @@ async function upsertCache(
     p_occasion:   tags.occasion || null,
     p_raw_query:  rawQuery,
   });
-  console.log("[cache:upsert] sig=", sig, "| returned_id=", data, "| error=", error ? JSON.stringify(error) : null);
+  console.log("[cache] DB WRITE — sig:", sig, "| returned_id:", data, "| error:", error ? JSON.stringify(error) : null);
   if (error) return null;
   return data as string;
 }
@@ -246,14 +246,14 @@ export async function POST(req: Request) {
           const isRefreshing = !!cached.refreshing_at &&
             (Date.now() - new Date(cached.refreshing_at).getTime() < STAMPEDE_GUARD_MS);
           if (!isRefreshing) {
-            console.log("[cache] HIT stale — backgrounding refresh");
+            console.log("[cache] DB HIT stale — sig:", sig, "| backgrounding refresh");
             triggerBackgroundRefresh(
               cached.id,
               () => runPipeline(client, dish, city, area, locMode, radius, [])
             ).catch(() => {});
           }
         } else {
-          console.log("[cache] HIT fresh — zero Anthropic/Places calls");
+          console.log("[cache] DB HIT fresh — sig:", sig, "| ZERO Anthropic/Places calls");
         }
 
         // Log to user history with the cache id (fire-and-forget, never blocks)
@@ -262,7 +262,7 @@ export async function POST(req: Request) {
       }
 
       // Cache miss — run full pipeline (Anthropic + Places)
-      console.log("[cache] MISS — running pipeline");
+      console.log("[cache] DB MISS — sig:", sig, "| running pipeline");
       const result = await runPipeline(client, dish, city, area, locMode, radius, []);
 
       // Await upsert to get the search_cache_id; it's a cheap DB write, not Anthropic

@@ -576,6 +576,7 @@ function DishIntel() {
 
     // Check session search cache — same query + params returns instantly
     if (searchResultCache.current?.key === cacheKey) {
+      console.log("[cache] REF HIT — key:", cacheKey);
       pushNav();
       setMeta(searchResultCache.current.meta);
       setRestaurants(searchResultCache.current.results);
@@ -583,6 +584,7 @@ function DishIntel() {
       setPhase("done");
       return;
     }
+    console.log("[cache] REF MISS — key:", cacheKey, "(sending to server)");
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
