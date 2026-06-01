@@ -3,6 +3,10 @@ import { createClient as createSupabase } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { buildTags, computeSignature } from "@/lib/search-signature";
+
+const CACHE_TTL_DAYS = 120;
+const STAMPEDE_GUARD_MS = 2 * 60 * 1000;
 
 const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad OR contains location intent without specifying distance/mode/price, provide sequential narrowing questions.
 
@@ -40,8 +44,6 @@ Broad: { "broad": true, "questions": [{ "question": "short punchy question 6-9 w
   Include 1-3 question objects.
 Specific: { "broad": false }`;
 
-// Pre-check: detect location intent without making an AI call.
-// Returns true for queries that need distance/mode/price follow-up.
 function hasLocationIntent(query: string): boolean {
   const terms = [
     'near me', 'nearby', 'close to', 'around me',
@@ -98,23 +100,120 @@ function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
   return JSON.parse(match[0]);
 }
 
-function makeCacheKey(dish: string, city: string, locMode: string, area: string, radius: number): string {
-  const base = dish.toLowerCase().trim();
-  if (locMode === "area" && area) return `${base}|area|${area.toLowerCase().trim()}|${radius}`;
-  return `${base}|city|${city.toLowerCase().trim()}`;
+// ─── SERVICE CLIENT ────────────────────────────────────────────────────────────
+
+function makeSvc() {
+  return createSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 }
+
+// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+
+async function runPipeline(
+  client: Anthropic,
+  dish: string,
+  city: string,
+  area: string,
+  locMode: string,
+  radius: number,
+  exclude: string[]
+): Promise<unknown> {
+  const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
+  const locStr =
+    locMode === "area" && area
+      ? `within ${radius} miles of ${area}`
+      : effectiveRadius
+        ? `within ${effectiveRadius} miles of ${city}`
+        : `in ${city}`;
+  const userMsg = `Best places for "${dish}" ${locStr}.${
+    exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""
+  } Return JSON.`;
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8000,
+    system: makeSearchPrompt(exclude),
+    // @ts-ignore
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    messages: [{ role: "user", content: userMsg }],
+  });
+  return extractJson(msg.content);
+}
+
+// ─── CACHE LAYER ──────────────────────────────────────────────────────────────
+
+type CacheRow = {
+  id: string;
+  results: unknown;
+  expires_at: string;
+  refreshing_at: string | null;
+};
+
+async function lookupCache(sig: string): Promise<CacheRow | null> {
+  const { data } = await makeSvc()
+    .from("searches")
+    .select("id, results, expires_at, refreshing_at")
+    .eq("dish_key", sig)
+    .maybeSingle();
+  return data as CacheRow | null;
+}
+
+async function upsertCache(
+  sig: string,
+  result: unknown,
+  tags: ReturnType<typeof buildTags>,
+  rawQuery: string
+): Promise<string | null> {
+  const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await makeSvc().rpc("upsert_search", {
+    p_dish_key:   sig,
+    p_results:    result,
+    p_expires_at: expiresAt,
+    p_location:   tags.location || null,
+    p_cuisine:    tags.cuisine  || null,
+    p_dish:       tags.dish     || null,
+    p_flavor:     tags.flavor   || null,
+    p_vibe:       tags.vibe     || null,
+    p_health:     tags.health   || null,
+    p_price:      tags.price    || null,
+    p_occasion:   tags.occasion || null,
+    p_raw_query:  rawQuery,
+  });
+  if (error) { console.error("[cache] upsert_search:", error.message); return null; }
+  return data as string;
+}
+
+async function triggerBackgroundRefresh(
+  cachedId: string,
+  pipelineFn: () => Promise<unknown>
+): Promise<void> {
+  try {
+    const db = makeSvc();
+    await db.from("searches")
+      .update({ refreshing_at: new Date().toISOString() })
+      .eq("id", cachedId);
+    const freshResult = await pipelineFn();
+    const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    await db.from("searches")
+      .update({ results: freshResult, expires_at: expiresAt, refreshing_at: null })
+      .eq("id", cachedId);
+  } catch (e) {
+    console.error("[cache] background refresh failed:", e);
+  }
+}
+
+// ─── ROUTE HANDLER ────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { mode, dish, city, area, locMode, radius, exclude = [] } = await req.json();
 
+    // ── Classify ──────────────────────────────────────────────────────────────
     if (mode === "classify") {
-      // Fast path: location-intent queries skip AI and return hardcoded follow-up
-      if (hasLocationIntent(dish || "")) {
-        return NextResponse.json(LOCATION_QUESTIONS);
-      }
-      // Normal path: ask Claude to classify
+      if (hasLocationIntent(dish || "")) return NextResponse.json(LOCATION_QUESTIONS);
       const msg = await client.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 700,
@@ -124,86 +223,71 @@ export async function POST(req: Request) {
       return NextResponse.json(extractJson(msg.content));
     }
 
-    // mode === "search" — check cache first (only when not excluding)
-    const svc = createSupabase(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // ── Search ────────────────────────────────────────────────────────────────
+    const isLoadMore = (exclude as string[]).length > 0;
 
-    if (exclude.length === 0) {
-      const cacheKey = makeCacheKey(dish, city, locMode, area, radius);
-      const { data: cached } = await svc
-        .from("searches")
-        .select("results")
-        .eq("dish_key", cacheKey)
-        .gt("expires_at", new Date().toISOString())
-        .limit(1)
-        .single();
+    if (!isLoadMore) {
+      // Layer 1 (in-memory ref cache) is handled client-side in page.tsx.
+      // Layer 2: DB cache lookup.
+      const tags = buildTags({ dish, city, area, locMode, radius });
+      const sig  = computeSignature(tags);
+      const cached = await lookupCache(sig);
 
       if (cached?.results) {
-        // Log user search (fire-and-forget)
-        logUserSearch(req, dish, city, area, locMode, radius).catch(() => {});
+        const isFresh = new Date(cached.expires_at).getTime() > Date.now();
+
+        if (!isFresh) {
+          // Stale-while-revalidate: return cached immediately, refresh in background.
+          const isRefreshing = !!cached.refreshing_at &&
+            (Date.now() - new Date(cached.refreshing_at).getTime() < STAMPEDE_GUARD_MS);
+          if (!isRefreshing) {
+            console.log("[cache] HIT stale — backgrounding refresh");
+            triggerBackgroundRefresh(
+              cached.id,
+              () => runPipeline(client, dish, city, area, locMode, radius, [])
+            ).catch(() => {});
+          }
+        } else {
+          console.log("[cache] HIT fresh — zero Anthropic/Places calls");
+        }
+
+        // Log to user history with the cache id (fire-and-forget, never blocks)
+        logUserSearch(dish, city, area, locMode, radius, cached.id).catch(() => {});
         return NextResponse.json(cached.results);
       }
+
+      // Cache miss — run full pipeline (Anthropic + Places)
+      console.log("[cache] MISS — running pipeline");
+      const result = await runPipeline(client, dish, city, area, locMode, radius, []);
+
+      // Await upsert to get the search_cache_id; it's a cheap DB write, not Anthropic
+      const searchCacheId = await upsertCache(sig, result, tags, dish);
+
+      // Log with linked id (fire-and-forget after we already have the id)
+      logUserSearch(dish, city, area, locMode, radius, searchCacheId).catch(() => {});
+      return NextResponse.json(result);
     }
 
-    // Use radius in the prompt whenever a specific distance was chosen.
-    // Previously radius was only used when locMode === "area", which meant
-    // the terminal's distance filter was silently ignored in city mode.
-    const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
-    const locStr =
-      locMode === "area" && area
-        ? `within ${radius} miles of ${area}`
-        : effectiveRadius
-          ? `within ${effectiveRadius} miles of ${city}`
-          : `in ${city}`;
-    const userMsg = `Best places for "${dish}" ${locStr}.${
-      exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""
-    } Return JSON.`;
-
-    const msg = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 8000,
-      system: makeSearchPrompt(exclude),
-      // @ts-ignore
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      messages: [{ role: "user", content: userMsg }],
-    });
-
-    const result = extractJson(msg.content);
-
-    // Cache result if this is a fresh search (not a "load more")
-    if (exclude.length === 0) {
-      const cacheKey = makeCacheKey(dish, city, locMode, area, radius);
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      svc.from("searches").upsert({
-        dish_key: cacheKey,
-        city: city || area || "",
-        loc_mode: locMode || "city",
-        area: area || null,
-        radius: radius || null,
-        results: result,
-        expires_at: expiresAt,
-      }, { onConflict: "dish_key" }).then(() => {}, () => {});
-    }
-
-    // Log user search (fire-and-forget)
-    logUserSearch(req, dish, city, area, locMode, radius).catch(() => {});
-
+    // Load more (exclude list present) — skip cache entirely, no cache write
+    const result = await runPipeline(client, dish, city, area, locMode, radius, exclude as string[]);
+    logUserSearch(dish, city, area, locMode, radius, null).catch(() => {});
     return NextResponse.json(result);
+
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Search failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
+// ─── USER HISTORY ─────────────────────────────────────────────────────────────
+
 async function logUserSearch(
-  req: Request,
   dish: string,
   city: string,
   area: string,
   locMode: string,
-  radius: number
+  radius: number,
+  searchCacheId: string | null
 ) {
   try {
     const cookieStore = await cookies();
@@ -214,18 +298,14 @@ async function logUserSearch(
     );
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const svc = createSupabase(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    await svc.from("user_searches").insert({
-      user_id: user.id,
+    await makeSvc().from("user_searches").insert({
+      user_id:          user.id,
       dish,
-      city: city || "",
-      area: area || null,
-      loc_mode: locMode || "city",
-      radius: radius || null,
+      city:             city    || "",
+      area:             area    || null,
+      loc_mode:         locMode || "city",
+      radius:           radius  || null,
+      search_cache_id:  searchCacheId || null,
     });
   } catch {}
 }

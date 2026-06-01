@@ -382,6 +382,26 @@ function DishIntel() {
     } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Restore stored search result from dashboard "Open results" click — instant, zero API calls
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("dr-open-search-results");
+      if (!raw) return;
+      sessionStorage.removeItem("dr-open-search-results");
+      const { dish, city: c, restaurants: res } = JSON.parse(raw);
+      if (!Array.isArray(res) || res.length === 0) return;
+      const ranked = (res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
+      const m: SearchMeta = { dish: dish || "", city: c || "" };
+      setRestaurants(ranked);
+      setMeta(m);
+      setSearchedDish(dish || "");
+      if (c) setCity(c);
+      if (c) setDdCity(c);
+      searchResultCache.current = { key: `restored|${dish}|${c}`, results: ranked, meta: m };
+      setPhase("done");
+    } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // GPS location on first load
   useEffect(() => {
     if (!navigator.geolocation) return;

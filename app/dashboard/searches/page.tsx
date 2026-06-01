@@ -11,11 +11,13 @@ type SavedSearch = {
   loc_mode: string;
   radius: number | null;
   created_at: string;
+  search_cache_id: string | null;
 };
 
 export default function SavedSearchesPage() {
   const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [opening, setOpening] = useState<string | null>(null);
   const router = useRouter();
 
   const supabase = createBrowserClient(
@@ -24,22 +26,48 @@ export default function SavedSearchesPage() {
   );
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { router.push("/auth/signin"); return; }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) { router.push("/auth/signin"); return; }
       supabase
         .from("user_searches")
-        .select("*")
+        .select("id, dish, city, area, loc_mode, radius, created_at, search_cache_id")
         .order("created_at", { ascending: false })
         .limit(20)
         .then(({ data }) => { setSearches(data ?? []); setLoading(false); });
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Open stored results instantly — zero API calls, zero Anthropic calls
+  const handleOpenResults = async (s: SavedSearch) => {
+    if (!s.search_cache_id) { handleResearch(s); return; }
+    setOpening(s.id);
+    try {
+      const { data } = await supabase
+        .from("searches")
+        .select("results")
+        .eq("id", s.search_cache_id)
+        .single();
+      const blob = data?.results as { dish?: string; city?: string; results?: unknown[] } | null;
+      const restaurants = Array.isArray(blob?.results) ? blob.results : [];
+      if (restaurants.length === 0) { handleResearch(s); return; }
+      sessionStorage.setItem("dr-open-search-results", JSON.stringify({
+        dish: blob?.dish || s.dish,
+        city: blob?.city || s.city,
+        restaurants,
+      }));
+      router.push("/");
+    } catch {
+      handleResearch(s);
+    } finally {
+      setOpening(null);
+    }
+  };
+
   const handleResearch = (s: SavedSearch) => {
     const params = new URLSearchParams({
       dish: s.dish, city: s.city, locMode: s.loc_mode,
-      ...(s.area ? { area: s.area } : {}),
-      ...(s.radius ? { radius: String(s.radius) } : {}),
+      ...(s.area   ? { area:   s.area }            : {}),
+      ...(s.radius ? { radius: String(s.radius) }  : {}),
       autoSearch: "1",
     });
     router.push(`/?${params.toString()}`);
@@ -140,21 +168,35 @@ export default function SavedSearchesPage() {
                     fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: "0.72rem", color: "#A89F99",
                   }}>{timeAgo(s.created_at)}</span>
+                  {s.search_cache_id && (
+                    <span style={{
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: "0.68rem", color: "#C8860A",
+                      background: "#FDF3E3", border: "1px solid #F0D5A0",
+                      borderRadius: 4, padding: "1px 5px",
+                    }}>cached</span>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button
-                  onClick={() => handleResearch(s)}
+                  onClick={() => handleOpenResults(s)}
+                  disabled={opening === s.id}
                   style={{
-                    background: "#FDF3E3", border: "1px solid #F0D5A0",
-                    color: "#C8860A", fontFamily: "'Inter', sans-serif",
+                    background: s.search_cache_id ? "#C8860A" : "#FDF3E3",
+                    border: s.search_cache_id ? "none" : "1px solid #F0D5A0",
+                    color: s.search_cache_id ? "#FFFFFF" : "#C8860A",
+                    fontFamily: "'Inter', sans-serif",
                     fontSize: "0.8rem", fontWeight: 600,
                     padding: "7px 14px", borderRadius: 8, cursor: "pointer",
-                    transition: "background 0.15s",
+                    opacity: opening === s.id ? 0.6 : 1,
+                    transition: "background 0.15s, opacity 0.15s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#F0D5A0"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "#FDF3E3"; }}
-                >Search again</button>
+                  onMouseEnter={e => { if (!s.search_cache_id) e.currentTarget.style.background = "#F0D5A0"; }}
+                  onMouseLeave={e => { if (!s.search_cache_id) e.currentTarget.style.background = "#FDF3E3"; }}
+                >
+                  {opening === s.id ? "Opening…" : s.search_cache_id ? "Open results" : "Search again"}
+                </button>
                 <button
                   onClick={() => handleDelete(s.id)}
                   style={{
