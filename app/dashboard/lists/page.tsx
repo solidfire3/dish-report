@@ -318,6 +318,25 @@ export default function ListsPage() {
                         }}>{item.food_score.toFixed(1)}</span>
                       )}
                       <button
+                        onClick={() => {
+                          sessionStorage.setItem("dr-open-deep-dive", JSON.stringify({
+                            name: item.restaurant_name,
+                            food_score: item.food_score,
+                          }));
+                          router.push("/");
+                        }}
+                        style={{
+                          background: "#FDF3E3", border: "1px solid #F0D5A0",
+                          borderRadius: 6, color: "#C8860A",
+                          fontFamily: "'Inter', sans-serif", fontSize: "0.75rem",
+                          fontWeight: 600, padding: "5px 10px",
+                          cursor: "pointer", flexShrink: 0,
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#F0D5A0"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#FDF3E3"; }}
+                      >Deep Dive</button>
+                      <button
                         onClick={() => removeItem(list.id, item.id)}
                         style={{
                           background: "none", border: "none", cursor: "pointer",

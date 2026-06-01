@@ -382,6 +382,18 @@ function DishIntel() {
     } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Open deep dive for a restaurant navigated here from the Lists page
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("dr-open-deep-dive");
+      if (!raw) return;
+      sessionStorage.removeItem("dr-open-deep-dive");
+      const { name, food_score } = JSON.parse(raw);
+      if (!name) return;
+      setTimeout(() => handleDeepDive(name, undefined, food_score ?? undefined), 50);
+    } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Restore stored search result from dashboard "Open results" click — instant, zero API calls
   useEffect(() => {
     try {
@@ -1168,7 +1180,7 @@ function DishIntel() {
                 {hasBack && <BackBtn onBack={goBack} dark={dark} />}
                 <button onClick={reset} style={{ marginLeft: "auto", background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}>New search</button>
               </div>
-              <CompareResult data={compareData} originalScore={compareData._originalScore} onDeepDive={(name) => handleDeepDive(name, ddCity)} />
+              <CompareResult data={compareData} originalScore={compareData._originalScore} onDeepDive={(name, _city, score) => handleDeepDive(name, ddCity, score)} />
             </div>
           )}
 

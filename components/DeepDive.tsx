@@ -799,7 +799,7 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
 type CompareResultProps = {
   data: CompareData;
   originalScore?: number;
-  onDeepDive: (name: string, city: string) => void;
+  onDeepDive: (name: string, city: string, score?: number) => void;
 };
 
 export function CompareResult({ data, originalScore, onDeepDive }: CompareResultProps) {
@@ -884,7 +884,7 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
 
               <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  onClick={() => onDeepDive(a.name ?? "", "")}
+                  onClick={() => onDeepDive(a.name ?? "", "", a.food_score)}
                   style={{ flex: 1, height: 38, borderRadius: 8, background: accentBg, border: `1px solid ${accentBorder}`, color: accentClr, fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", fontWeight: 500, cursor: "pointer" }}
                 >Deep Dive</button>
                 {(a.address || a.name) && (

@@ -2,6 +2,9 @@ import { createHash } from "crypto";
 
 const STOPWORDS = new Set(["best", "top", "good", "great", "find", "show", "the", "a"]);
 const LOC_INTENT_RE = /\b(near me|nearby|around me|in my area|open now|open late|tonight|right now|this weekend|for dinner|for lunch|for breakfast|happy hour)\b/gi;
+// Strip filter-mode words that handleSearchFromBar appends to the dish string.
+// These encode user UX choices, not food intent, so they must not affect the signature.
+const FILTER_STRIP_RE = /\b(dine-?in|takeout|take\s?out|delivery|either)\b|\$+/gi;
 
 function normalizeTag(s: string | null | undefined): string {
   if (!s) return "";
@@ -44,7 +47,11 @@ export function buildTags({
   const locationBase = normalizeTag(rawLocation);
   const location = effectiveRadius ? `${locationBase}|r${effectiveRadius}` : locationBase;
 
-  const dishClean = (dish || "").replace(LOC_INTENT_RE, "").trim();
+  const dishClean = (dish || "")
+    .replace(LOC_INTENT_RE, "")
+    .replace(FILTER_STRIP_RE, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return {
     location,
