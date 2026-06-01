@@ -33,22 +33,34 @@ export default function SavedSearchesPage() {
         .select("id, dish, city, area, loc_mode, radius, created_at, search_cache_id")
         .order("created_at", { ascending: false })
         .limit(20)
-        .then(({ data }) => { setSearches(data ?? []); setLoading(false); });
+        .then(({ data, error }) => {
+          console.log("[dashboard:searches] rows=", data?.length, "error=", error?.message ?? null);
+          console.log("[dashboard:searches] cache_ids=", data?.map(s => ({ dish: s.dish, cache_id: s.search_cache_id })));
+          setSearches(data ?? []);
+          setLoading(false);
+        });
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Open stored results instantly — zero API calls, zero Anthropic calls
   const handleOpenResults = async (s: SavedSearch) => {
-    if (!s.search_cache_id) { handleResearch(s); return; }
+    console.log("[dashboard:open] search_cache_id=", s.search_cache_id, "dish=", s.dish);
+    if (!s.search_cache_id) {
+      console.log("[dashboard:open] no cache_id — falling back to handleResearch");
+      handleResearch(s);
+      return;
+    }
     setOpening(s.id);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("searches")
         .select("results")
         .eq("id", s.search_cache_id)
         .single();
+      console.log("[dashboard:open] searches fetch: data=", !!data, "error=", error?.message ?? null);
       const blob = data?.results as { dish?: string; city?: string; results?: unknown[] } | null;
       const restaurants = Array.isArray(blob?.results) ? blob.results : [];
+      console.log("[dashboard:open] restaurant count=", restaurants.length);
       if (restaurants.length === 0) { handleResearch(s); return; }
       sessionStorage.setItem("dr-open-search-results", JSON.stringify({
         dish: blob?.dish || s.dish,
@@ -56,7 +68,8 @@ export default function SavedSearchesPage() {
         restaurants,
       }));
       router.push("/");
-    } catch {
+    } catch (e) {
+      console.log("[dashboard:open] exception:", e);
       handleResearch(s);
     } finally {
       setOpening(null);

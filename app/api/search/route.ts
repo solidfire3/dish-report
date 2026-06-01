@@ -152,11 +152,12 @@ type CacheRow = {
 };
 
 async function lookupCache(sig: string): Promise<CacheRow | null> {
-  const { data } = await makeSvc()
+  const { data, error } = await makeSvc()
     .from("searches")
     .select("id, results, expires_at, refreshing_at")
     .eq("dish_key", sig)
     .maybeSingle();
+  console.log("[cache:lookup] sig=", sig, "| found=", !!data, "| error=", error?.message ?? null);
   return data as CacheRow | null;
 }
 
@@ -181,7 +182,8 @@ async function upsertCache(
     p_occasion:   tags.occasion || null,
     p_raw_query:  rawQuery,
   });
-  if (error) { console.error("[cache] upsert_search:", error.message); return null; }
+  console.log("[cache:upsert] sig=", sig, "| returned_id=", data, "| error=", error ? JSON.stringify(error) : null);
+  if (error) return null;
   return data as string;
 }
 
@@ -231,6 +233,9 @@ export async function POST(req: Request) {
       // Layer 2: DB cache lookup.
       const tags = buildTags({ dish, city, area, locMode, radius });
       const sig  = computeSignature(tags);
+      console.log("[cache:sig] dish=", JSON.stringify(dish), "city=", city, "area=", area, "locMode=", locMode, "radius=", radius);
+      console.log("[cache:sig] tags=", JSON.stringify(tags));
+      console.log("[cache:sig] signature=", sig);
       const cached = await lookupCache(sig);
 
       if (cached?.results) {
