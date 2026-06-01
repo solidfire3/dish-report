@@ -315,7 +315,7 @@ function DishIntel() {
   // Auth
   useEffect(() => {
     const client = sb();
-    client.auth.getUser().then((res: { data: { user: User | null } }) => setUser(res.data.user));
+    client.auth.getSession().then((res: { data: { session: Session | null } }) => { if (res.data.session?.user) setUser(res.data.session.user); });
     const { data: { subscription } } = client.auth.onAuthStateChange((_: string, session: Session | null) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
   }, []);
@@ -667,14 +667,17 @@ function DishIntel() {
     } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
   };
 
-  const handleDeepDive = async (name: string, cityStr?: string) => {
+  const handleDeepDive = async (name: string, cityStr?: string, searchScore?: number) => {
     const c = cityStr || ddCity;
     const cacheKey = `${name}|${c}`.toLowerCase();
 
     // Instant recall from session cache — no API, no loading screen
     if (deepDiveCache.current[cacheKey]) {
+      const cached = deepDiveCache.current[cacheKey];
+      // Always stamp the search score over the cached deep dive score
+      if (searchScore != null) cached.food_score = searchScore;
       pushNav();
-      setDeepData(deepDiveCache.current[cacheKey]);
+      setDeepData(cached);
       setDdCity(c);
       setPhase("deepdone");
       return;
@@ -685,6 +688,9 @@ function DishIntel() {
     setLoadingQuery(`Deep diving ${name}`);
     try {
       const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
+      // Override deep dive's recomputed score with the search result score so users
+      // never see two different scores for the same restaurant.
+      if (searchScore != null) data.food_score = searchScore;
       deepDiveCache.current[cacheKey] = data; // cache for session
       setDeepData(data);
       setPendingPhase("deepdone"); setApiComplete(true);
@@ -1073,7 +1079,7 @@ function DishIntel() {
                         <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: text }}>{f.name}</div>
                         {f.neighborhood && <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", color: secondary, marginTop: 2 }}>{f.neighborhood}</div>}
                       </div>
-                      <button onClick={() => handleDeepDive(f.name)} style={{ background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 8, color: accent, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", fontWeight: 500, padding: "6px 12px", cursor: "pointer", flexShrink: 0 }}>Deep Dive</button>
+                      <button onClick={() => handleDeepDive(f.name, undefined, f.food_score)} style={{ background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 8, color: accent, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", fontWeight: 500, padding: "6px 12px", cursor: "pointer", flexShrink: 0 }}>Deep Dive</button>
                       <button onClick={() => saveFavs(favs.filter(fv => fv.name !== f.name))} style={{ background: "none", border: "none", cursor: "pointer", color: accent, fontSize: "1rem", padding: 4, flexShrink: 0 }}>♥</button>
                     </div>
                   ))}
@@ -1106,7 +1112,7 @@ function DishIntel() {
                   <RestCard
                     key={i} r={r} i={i} expanded={expanded}
                     onToggle={j => setExpanded(expanded === j ? null : j)}
-                    onDeepDive={name => handleDeepDive(name, meta.city)}
+                    onDeepDive={(name, score) => handleDeepDive(name, meta.city, score)}
                     meta={meta} searchedDish={searchedDish}
                     isFav={isFav(r.name)} onToggleFav={toggleFav}
                     onAddToList={openAddToList}

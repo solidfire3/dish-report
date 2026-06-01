@@ -315,7 +315,7 @@ function MoreMenu({ onAddToList, onDeepDive, onShare, onClose, t }: {
 // ─── REST CARD ────────────────────────────────────────────────────────────────
 type RestCardProps = {
   r: Restaurant; i: number; expanded: number | null;
-  onToggle: (i: number) => void; onDeepDive: (name: string) => void;
+  onToggle: (i: number) => void; onDeepDive: (name: string, score?: number) => void;
   meta: SearchMeta | null; searchedDish: string;
   isFav: boolean; onToggleFav: (r: Restaurant) => void;
   onAddToList?: (r: Restaurant) => void;
@@ -548,7 +548,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               {showMoreMenu && (
                 <MoreMenu
                   onAddToList={onAddToList ? () => onAddToList(r) : undefined}
-                  onDeepDive={() => { setShowMoreMenu(false); onDeepDive(r.name); }}
+                  onDeepDive={() => { setShowMoreMenu(false); onDeepDive(r.name, r.food_score); }}
                   onShare={handleShare}
                   onClose={() => setShowMoreMenu(false)}
                   t={t}
@@ -744,7 +744,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
             {/* Deep Dive button */}
             <button
-              onClick={e => { e.stopPropagation(); onDeepDive(r.name); }}
+              onClick={e => { e.stopPropagation(); onDeepDive(r.name, r.food_score); }}
               style={{
                 width: "100%", background: t.accent, border: "none",
                 borderRadius: 10, color: "#FFFFFF",
