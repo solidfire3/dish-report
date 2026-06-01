@@ -1,5 +1,21 @@
 import { createHash } from "crypto";
 
+// Replicates make_identity_key(name, address) SQL function exactly.
+// TypeScript chosen over RPC to avoid a DB round-trip per restaurant.
+// Logic: lowercase, strip non-alphanum (except spaces and pipe), collapse whitespace, trim.
+export function makeIdentityKey(
+  name: string | null | undefined,
+  address: string | null | undefined
+): string {
+  const n = (name ?? "").trim();
+  const a = (address ?? "").trim();
+  return (n + "|" + a)
+    .replace(/[^a-zA-Z0-9 |]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 const STOPWORDS = new Set(["best", "top", "good", "great", "find", "show", "the", "a"]);
 const LOC_INTENT_RE = /\b(near me|nearby|around me|in my area|open now|open late|tonight|right now|this weekend|for dinner|for lunch|for breakfast|happy hour)\b/gi;
 // Strip filter-mode words that handleSearchFromBar appends to the dish string.

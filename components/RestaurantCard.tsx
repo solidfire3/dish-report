@@ -315,7 +315,7 @@ function MoreMenu({ onAddToList, onDeepDive, onShare, onClose, t }: {
 // ─── REST CARD ────────────────────────────────────────────────────────────────
 type RestCardProps = {
   r: Restaurant; i: number; expanded: number | null;
-  onToggle: (i: number) => void; onDeepDive: (name: string, score?: number) => void;
+  onToggle: (i: number) => void; onDeepDive: (name: string, score?: number, restaurantId?: string) => void;
   meta: SearchMeta | null; searchedDish: string;
   isFav: boolean; onToggleFav: (r: Restaurant) => void;
   onAddToList?: (r: Restaurant) => void;
@@ -444,14 +444,26 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
           <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px 10px" }}>
             {/* Score — left anchor */}
             {(() => {
-              const clr = scoreColor(r.food_score ?? 5, dark);
+              const displayScore = r._effective_score ?? r.food_score ?? 5;
+              const clr = scoreColor(displayScore, dark);
+              const hasFit = Math.abs(r.fit_adjustment ?? 0) >= 0.1;
+              const fitPos = (r.fit_adjustment ?? 0) >= 0;
               return (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
                   <div style={{
                     fontFamily: "var(--font-orbitron), 'Courier New', monospace",
                     fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
-                  }}>{(r.food_score ?? 5).toFixed(1)}</div>
+                  }}>{displayScore.toFixed(1)}</div>
                   <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
+                  {hasFit && (
+                    <div style={{
+                      fontSize: "0.62rem", fontFamily: "'IBM Plex Mono', monospace",
+                      color: fitPos ? "#2D6A4F" : "#9B1C1C",
+                      marginTop: 1, whiteSpace: "nowrap",
+                    }}>
+                      {fitPos ? "+" : ""}{(r.fit_adjustment ?? 0).toFixed(1)} this dish
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -548,7 +560,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               {showMoreMenu && (
                 <MoreMenu
                   onAddToList={onAddToList ? () => onAddToList(r) : undefined}
-                  onDeepDive={() => { setShowMoreMenu(false); onDeepDive(r.name, r.food_score); }}
+                  onDeepDive={() => { setShowMoreMenu(false); onDeepDive(r.name, r.food_score, r.restaurant_id); }}
                   onShare={handleShare}
                   onClose={() => setShowMoreMenu(false)}
                   t={t}
@@ -744,7 +756,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
             {/* Deep Dive button */}
             <button
-              onClick={e => { e.stopPropagation(); onDeepDive(r.name, r.food_score); }}
+              onClick={e => { e.stopPropagation(); onDeepDive(r.name, r.food_score, r.restaurant_id); }}
               style={{
                 width: "100%", background: t.accent, border: "none",
                 borderRadius: 10, color: "#FFFFFF",

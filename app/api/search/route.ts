@@ -3,10 +3,13 @@ import { createClient as createSupabase } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { buildTags, computeSignature } from "@/lib/search-signature";
+import { buildTags, computeSignature, makeIdentityKey } from "@/lib/search-signature";
 
-const CACHE_TTL_DAYS = 120;
-const STAMPEDE_GUARD_MS = 2 * 60 * 1000;
+const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
+const RESTAURANT_TTL_MS  = 120 * 24 * 60 * 60 * 1000;
+const STAMPEDE_GUARD_MS  = 2 * 60 * 1000;
+
+// ─── PROMPTS ──────────────────────────────────────────────────────────────────
 
 const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad OR contains location intent without specifying distance/mode/price, provide sequential narrowing questions.
 
@@ -51,25 +54,15 @@ function hasLocationIntent(query: string): boolean {
     'right now', 'this weekend', 'for dinner',
     'for lunch', 'for breakfast', 'happy hour',
   ];
-  const lower = query.toLowerCase();
-  return terms.some(term => lower.includes(term));
+  return terms.some(t => query.toLowerCase().includes(t));
 }
 
 const LOCATION_QUESTIONS = {
   broad: true,
   questions: [
-    {
-      question: "How far are you willing to go?",
-      options: ["Within 1 mile", "Within 2 miles", "Within 5 miles", "Within 10 miles", "Any distance"],
-    },
-    {
-      question: "Dining in or taking out?",
-      options: ["Dine-in", "Takeout", "Delivery", "Either"],
-    },
-    {
-      question: "Budget per person?",
-      options: ["Under $15", "$15–30", "$30–60", "$60+"],
-    },
+    { question: "How far are you willing to go?", options: ["Within 1 mile", "Within 2 miles", "Within 5 miles", "Within 10 miles", "Any distance"] },
+    { question: "Dining in or taking out?",        options: ["Dine-in", "Takeout", "Delivery", "Either"] },
+    { question: "Budget per person?",              options: ["Under $15", "$15–30", "$30–60", "$60+"] },
   ],
 };
 
@@ -80,21 +73,24 @@ EXCLUDE: service, décor, parking, generic praise without specifics.
 EXPERIENCE NOTE: ONLY if a non-food pattern (AYCE slowness drying food, etc.) is heavily documented AND directly degrades food quality. null otherwise.
 VENUE TYPES: hole-in-the-wall | counter service | food truck | casual dine-in | upscale casual | fine dining
 SCORING (food quality only, based on review signal):
-9.0-10: Exceptional. A destination dish/spot. Consistently praised as among the best of its category in the city. Reviewers rave specifically about the food.
-8.0-8.9: Excellent. Strong, consistent praise for specific dishes. A place locals genuinely recommend for the food. This should be COMMON for well-reviewed spots known for a dish.
+9.0-10: Exceptional. A destination dish/spot. Consistently praised as among the best of its category in the city.
+8.0-8.9: Excellent. Strong, consistent praise for specific dishes. A place locals genuinely recommend for the food. COMMON for well-reviewed spots.
 7.0-7.9: Good and solid. Reliable food, some standout items, generally positive but not remarkable.
 6.0-6.9: Mixed. Inconsistent food quality or underwhelming relative to reputation.
 Below 6: Notable food-quality problems in reviews.
-Calibration: A well-loved spot famous for a specific dish SHOULD score 8.0-8.9 — clear, consistent positive signal about the food is enough. Reserve 9+ for places repeatedly cited as best-in-city. The top result for a popular category in a major city should usually be high-8s or 9s. Be honest and food-focused, not stingy.
+Calibration: A well-loved spot famous for a specific dish SHOULD score 8.0-8.9. Reserve 9+ for places repeatedly cited as best-in-city.
+FIT ADJUSTMENT (per-search dish-fit nudge):
+- fit_adjustment: float -1.5..1.5. How well does THIS restaurant fit THIS specific query vs its general standing?
+  0 = neutral. +1.0..+1.5 = they are FAMOUS for exactly this dish/query; destination for it.
+  -1.0..-1.5 = this dish is secondary here; their strength is elsewhere.
+  Most entries should be near 0; use non-zero only for clear outliers.
+- fit_reason: 4-8 words (e.g. "legendary carnitas, locals swear by it" or "tacos are a sideline here")
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
-Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
+Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"fit_adjustment":number,"fit_reason":"string","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
 Exactly 5 results, by food_score desc.`;
 
 function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
-  const text = content
-    .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  const text = content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map(b => b.text).join("");
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Could not parse response");
   return JSON.parse(match[0]);
@@ -103,37 +99,22 @@ function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
 // ─── SERVICE CLIENT ────────────────────────────────────────────────────────────
 
 function makeSvc() {
-  return createSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  return createSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
 // ─── PIPELINE ─────────────────────────────────────────────────────────────────
 
 async function runPipeline(
-  client: Anthropic,
-  dish: string,
-  city: string,
-  area: string,
-  locMode: string,
-  radius: number,
-  exclude: string[]
+  client: Anthropic, dish: string, city: string, area: string,
+  locMode: string, radius: number, exclude: string[]
 ): Promise<unknown> {
   const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
-  const locStr =
-    locMode === "area" && area
-      ? `within ${radius} miles of ${area}`
-      : effectiveRadius
-        ? `within ${effectiveRadius} miles of ${city}`
-        : `in ${city}`;
-  const userMsg = `Best places for "${dish}" ${locStr}.${
-    exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""
-  } Return JSON.`;
-
+  const locStr = locMode === "area" && area
+    ? `within ${radius} miles of ${area}`
+    : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`;
+  const userMsg = `Best places for "${dish}" ${locStr}.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
   const msg = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8000,
+    model: "claude-sonnet-4-6", max_tokens: 8000,
     system: makeSearchPrompt(exclude),
     // @ts-ignore
     tools: [{ type: "web_search_20250305", name: "web_search" }],
@@ -142,14 +123,77 @@ async function runPipeline(
   return extractJson(msg.content);
 }
 
+// ─── RESTAURANT NORMALIZATION ──────────────────────────────────────────────────
+
+type RestaurantRow = { id: string; food_score: number | null; refreshed_at: string };
+
+async function processRestaurant(
+  db: ReturnType<typeof makeSvc>,
+  r: Record<string, unknown>
+): Promise<{ restaurant_id: string | null; durable_score: number }> {
+  const rawScore = Number(r.food_score) || 5;
+  const ikey = makeIdentityKey(r.name as string, r.address as string);
+  if (!ikey || ikey === "|" || !String(r.name ?? "").trim()) {
+    return { restaurant_id: null, durable_score: rawScore };
+  }
+
+  const fields = {
+    name:            String(r.name ?? ""),
+    address:         (r.address as string)         || null,
+    neighborhood:    (r.neighborhood as string)    || null,
+    price_range:     (r.price_range as string)     || null,
+    verdict:         (r.verdict as string)         || null,
+    what_it_is:      (r.what_it_is as string)      || null,
+    win_reason:      (r.win_reason as string)      || null,
+    venue_type:      (r.venue_type as string)      || null,
+    website_domain:  (r.website_domain as string)  || null,
+    must_orders:     r.must_orders                 || null,
+    warnings:        r.warnings                    || null,
+    top_descriptors: r.top_descriptors             || null,
+  };
+
+  try {
+    const { data: existing } = await db
+      .from("restaurants")
+      .select("id, food_score, refreshed_at")
+      .eq("identity_key", ikey)
+      .maybeSingle();
+
+    const row = existing as RestaurantRow | null;
+
+    if (!row) {
+      // New restaurant — insert with Anthropic's score as initial base score
+      const { data: ins } = await db
+        .from("restaurants")
+        .insert({ identity_key: ikey, food_score: rawScore, ...fields })
+        .select("id, food_score")
+        .single();
+      return { restaurant_id: ins?.id ?? null, durable_score: ins?.food_score ?? rawScore };
+    }
+
+    const ageMs = Date.now() - new Date(row.refreshed_at).getTime();
+    if (ageMs > RESTAURANT_TTL_MS) {
+      // Stale — refresh durable fields + score
+      const { data: upd } = await db
+        .from("restaurants")
+        .update({ food_score: rawScore, refreshed_at: new Date().toISOString(), ...fields })
+        .eq("id", row.id)
+        .select("id, food_score")
+        .single();
+      return { restaurant_id: upd?.id ?? row.id, durable_score: upd?.food_score ?? rawScore };
+    }
+
+    // Fresh — reuse durable score, don't overwrite
+    return { restaurant_id: row.id, durable_score: row.food_score ?? rawScore };
+
+  } catch {
+    return { restaurant_id: null, durable_score: rawScore };
+  }
+}
+
 // ─── CACHE LAYER ──────────────────────────────────────────────────────────────
 
-type CacheRow = {
-  id: string;
-  results: unknown;
-  expires_at: string;
-  refreshing_at: string | null;
-};
+type CacheRow = { id: string; results: unknown; expires_at: string; refreshing_at: string | null };
 
 async function lookupCache(sig: string): Promise<CacheRow | null> {
   const { data, error } = await makeSvc()
@@ -161,52 +205,32 @@ async function lookupCache(sig: string): Promise<CacheRow | null> {
   return data as CacheRow | null;
 }
 
-async function upsertCache(
-  sig: string,
-  result: unknown,
-  tags: ReturnType<typeof buildTags>,
-  rawQuery: string
-): Promise<string | null> {
-  const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+async function upsertCache(sig: string, result: unknown, tags: ReturnType<typeof buildTags>, rawQuery: string): Promise<string | null> {
+  const expiresAt = new Date(Date.now() + CACHE_TTL_MS).toISOString();
   const { data, error } = await makeSvc().rpc("upsert_search", {
-    p_dish_key:   sig,
-    p_results:    result,
-    p_expires_at: expiresAt,
-    p_location:   tags.location || null,
-    p_cuisine:    tags.cuisine  || null,
-    p_dish:       tags.dish     || null,
-    p_flavor:     tags.flavor   || null,
-    p_vibe:       tags.vibe     || null,
-    p_health:     tags.health   || null,
-    p_price:      tags.price    || null,
-    p_occasion:   tags.occasion || null,
-    p_raw_query:  rawQuery,
+    p_dish_key: sig, p_results: result, p_expires_at: expiresAt,
+    p_location: tags.location || null, p_cuisine: tags.cuisine || null,
+    p_dish: tags.dish || null, p_flavor: tags.flavor || null,
+    p_vibe: tags.vibe || null, p_health: tags.health || null,
+    p_price: tags.price || null, p_occasion: tags.occasion || null,
+    p_raw_query: rawQuery,
   });
   console.log("[cache] DB WRITE — sig:", sig, "| returned_id:", data, "| error:", error ? JSON.stringify(error) : null);
   if (error) return null;
   return data as string;
 }
 
-async function triggerBackgroundRefresh(
-  cachedId: string,
-  pipelineFn: () => Promise<unknown>
-): Promise<void> {
+async function triggerBackgroundRefresh(cachedId: string, pipelineFn: () => Promise<unknown>): Promise<void> {
   try {
     const db = makeSvc();
-    await db.from("searches")
-      .update({ refreshing_at: new Date().toISOString() })
-      .eq("id", cachedId);
+    await db.from("searches").update({ refreshing_at: new Date().toISOString() }).eq("id", cachedId);
     const freshResult = await pipelineFn();
-    const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    await db.from("searches")
-      .update({ results: freshResult, expires_at: expiresAt, refreshing_at: null })
-      .eq("id", cachedId);
-  } catch (e) {
-    console.error("[cache] background refresh failed:", e);
-  }
+    const expiresAt = new Date(Date.now() + CACHE_TTL_MS).toISOString();
+    await db.from("searches").update({ results: freshResult, expires_at: expiresAt, refreshing_at: null }).eq("id", cachedId);
+  } catch (e) { console.error("[cache] background refresh failed:", e); }
 }
 
-// ─── ROUTE HANDLER ────────────────────────────────────────────────────────────
+// ─── ROUTE ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -217,8 +241,7 @@ export async function POST(req: Request) {
     if (mode === "classify") {
       if (hasLocationIntent(dish || "")) return NextResponse.json(LOCATION_QUESTIONS);
       const msg = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 700,
+        model: "claude-sonnet-4-6", max_tokens: 700,
         system: CLASSIFY_PROMPT,
         messages: [{ role: "user", content: `Dish query: "${dish}"` }],
       });
@@ -229,51 +252,68 @@ export async function POST(req: Request) {
     const isLoadMore = (exclude as string[]).length > 0;
 
     if (!isLoadMore) {
-      // Layer 1 (in-memory ref cache) is handled client-side in page.tsx.
-      // Layer 2: DB cache lookup.
       const tags = buildTags({ dish, city, area, locMode, radius });
       const sig  = computeSignature(tags);
-      console.log("[cache:sig] dish=", JSON.stringify(dish), "city=", city, "area=", area, "locMode=", locMode, "radius=", radius);
-      console.log("[cache:sig] tags=", JSON.stringify(tags));
-      console.log("[cache:sig] signature=", sig);
+      console.log("[cache] DB LOOKUP starting — dish:", JSON.stringify(dish), "sig:", sig);
       const cached = await lookupCache(sig);
 
       if (cached?.results) {
         const isFresh = new Date(cached.expires_at).getTime() > Date.now();
-
         if (!isFresh) {
-          // Stale-while-revalidate: return cached immediately, refresh in background.
           const isRefreshing = !!cached.refreshing_at &&
             (Date.now() - new Date(cached.refreshing_at).getTime() < STAMPEDE_GUARD_MS);
           if (!isRefreshing) {
             console.log("[cache] DB HIT stale — sig:", sig, "| backgrounding refresh");
-            triggerBackgroundRefresh(
-              cached.id,
-              () => runPipeline(client, dish, city, area, locMode, radius, [])
-            ).catch(() => {});
+            triggerBackgroundRefresh(cached.id, () => runPipeline(client, dish, city, area, locMode, radius, [])).catch(() => {});
           }
         } else {
           console.log("[cache] DB HIT fresh — sig:", sig, "| ZERO Anthropic/Places calls");
         }
-
-        // Log to user history with the cache id (fire-and-forget, never blocks)
         logUserSearch(dish, city, area, locMode, radius, cached.id).catch(() => {});
         return NextResponse.json(cached.results);
       }
 
-      // Cache miss — run full pipeline (Anthropic + Places)
+      // Cache miss — run full pipeline
       console.log("[cache] DB MISS — sig:", sig, "| running pipeline");
-      const result = await runPipeline(client, dish, city, area, locMode, radius, []);
+      const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
+      const rawResults = ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[];
 
-      // Await upsert to get the search_cache_id; it's a cheap DB write, not Anthropic
-      const searchCacheId = await upsertCache(sig, result, tags, dish);
+      // Normalize: upsert each restaurant, get durable id + score
+      const db = makeSvc();
+      const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {
+        const { restaurant_id, durable_score } = await processRestaurant(db, r);
+        const fitAdj = Math.max(-1.5, Math.min(1.5, Number(r.fit_adjustment) || 0));
+        const effectiveScore = Math.round(Math.max(0, Math.min(10, durable_score + fitAdj)) * 10) / 10;
+        return { ...r, food_score: durable_score, fit_adjustment: fitAdj, _effective_score: effectiveScore, restaurant_id };
+      }));
 
-      // Log with linked id (fire-and-forget after we already have the id)
+      const augmentedResult = { ...(rawResult as Record<string, unknown>), results: augmentedResults };
+
+      // Await cache upsert (cheap) to get the search id for linking
+      const searchCacheId = await upsertCache(sig, augmentedResult, tags, dish);
+
+      // Write search_results join rows (fire-and-forget, never blocks response)
+      if (searchCacheId) {
+        (async () => {
+          for (const r of augmentedResults) {
+            if (!r.restaurant_id) continue;
+            try {
+              await db.from("search_results").upsert({
+                search_id: searchCacheId, restaurant_id: r.restaurant_id,
+                rank: r.rank || null,
+                fit_adjustment: r.fit_adjustment || 0,
+                fit_reason: (r.fit_reason as string) || null,
+              }, { onConflict: "search_id,restaurant_id" });
+            } catch {}
+          }
+        })().catch(() => {});
+      }
+
       logUserSearch(dish, city, area, locMode, radius, searchCacheId).catch(() => {});
-      return NextResponse.json(result);
+      return NextResponse.json(augmentedResult);
     }
 
-    // Load more (exclude list present) — skip cache entirely, no cache write
+    // Load more — skip cache, no normalization write
     const result = await runPipeline(client, dish, city, area, locMode, radius, exclude as string[]);
     logUserSearch(dish, city, area, locMode, radius, null).catch(() => {});
     return NextResponse.json(result);
@@ -287,30 +327,21 @@ export async function POST(req: Request) {
 // ─── USER HISTORY ─────────────────────────────────────────────────────────────
 
 async function logUserSearch(
-  dish: string,
-  city: string,
-  area: string,
-  locMode: string,
-  radius: number,
-  searchCacheId: string | null
+  dish: string, city: string, area: string, locMode: string,
+  radius: number, searchCacheId: string | null
 ) {
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     );
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await makeSvc().from("user_searches").insert({
-      user_id:          user.id,
-      dish,
-      city:             city    || "",
-      area:             area    || null,
-      loc_mode:         locMode || "city",
-      radius:           radius  || null,
-      search_cache_id:  searchCacheId || null,
+      user_id: user.id, dish, city: city || "", area: area || null,
+      loc_mode: locMode || "city", radius: radius || null,
+      search_cache_id: searchCacheId || null,
     });
   } catch {}
 }

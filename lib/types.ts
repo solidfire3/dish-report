@@ -8,6 +8,11 @@ export type Restaurant = {
   top_descriptors?: string[]; must_orders?: MustOrder[]; also_try?: AlsoTry[];
   food_score?: number; verdict?: string; best_quote?: string;
   warnings?: (string | null)[]; address?: string; cuisine?: string;
+  // Phase 2 normalization fields
+  restaurant_id?: string;      // uuid from restaurants table
+  fit_adjustment?: number;     // per-search dish-fit nudge, -1.5..+1.5
+  fit_reason?: string;         // short "why this fits" note
+  _effective_score?: number;   // clamp(food_score + fit_adjustment, 0, 10)
 };
 
 export type DeepDiveData = {

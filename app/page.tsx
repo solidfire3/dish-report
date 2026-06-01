@@ -701,17 +701,15 @@ function DishIntel() {
     } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
   };
 
-  const handleDeepDive = async (name: string, cityStr?: string, searchScore?: number) => {
+  const handleDeepDive = async (name: string, cityStr?: string, searchScore?: number, restaurantId?: string) => {
     const c = cityStr || ddCity;
-    const cacheKey = `${name}|${c}`.toLowerCase();
+    // Prefer restaurant_id for cache key stability — same restaurant from any path hits same session cache
+    const cacheKey = restaurantId ? `rid:${restaurantId}` : `${name}|${c}`.toLowerCase();
 
     // Instant recall from session cache — no API, no loading screen
     if (deepDiveCache.current[cacheKey]) {
-      const cached = deepDiveCache.current[cacheKey];
-      // Always stamp the search score over the cached deep dive score
-      if (searchScore != null) cached.food_score = searchScore;
       pushNav();
-      setDeepData(cached);
+      setDeepData(deepDiveCache.current[cacheKey]);
       setDdCity(c);
       setPhase("deepdone");
       return;
@@ -721,11 +719,11 @@ function DishIntel() {
     setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
     setLoadingQuery(`Deep diving ${name}`);
     try {
-      const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c });
-      // Override deep dive's recomputed score with the search result score so users
-      // never see two different scores for the same restaurant.
-      if (searchScore != null) data.food_score = searchScore;
-      deepDiveCache.current[cacheKey] = data; // cache for session
+      const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c, restaurant_id: restaurantId });
+      // DB-first path already serves the correct durable food_score.
+      // Stamp searchScore only for cold opens (no restaurant_id) as safety fallback.
+      if (searchScore != null && !restaurantId) data.food_score = searchScore;
+      deepDiveCache.current[cacheKey] = data;
       setDeepData(data);
       setPendingPhase("deepdone"); setApiComplete(true);
     } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
@@ -1146,7 +1144,7 @@ function DishIntel() {
                   <RestCard
                     key={i} r={r} i={i} expanded={expanded}
                     onToggle={j => setExpanded(expanded === j ? null : j)}
-                    onDeepDive={(name, score) => handleDeepDive(name, meta.city, score)}
+                    onDeepDive={(name, score, restaurantId) => handleDeepDive(name, meta.city, score, restaurantId)}
                     meta={meta} searchedDish={searchedDish}
                     isFav={isFav(r.name)} onToggleFav={toggleFav}
                     onAddToList={openAddToList}
@@ -1182,7 +1180,7 @@ function DishIntel() {
                 {hasBack && <BackBtn onBack={goBack} dark={dark} />}
                 <button onClick={reset} style={{ marginLeft: "auto", background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}>New search</button>
               </div>
-              <CompareResult data={compareData} originalScore={compareData._originalScore} onDeepDive={(name, _city, score) => handleDeepDive(name, ddCity, score)} />
+              <CompareResult data={compareData} originalScore={compareData._originalScore} onDeepDive={(name, _city, score) => handleDeepDive(name, ddCity, score, undefined)} />
             </div>
           )}
 
