@@ -512,7 +512,7 @@ function DishIntel() {
     setSavingList(true);
     const { data: { user: u } } = await sb().auth.getUser();
     if (!u) { setSavingList(false); return; }
-    const { data: list } = await sb().from("lists").insert({ name: newListName.trim() }).select().single();
+    const { data: list } = await sb().from("lists").insert({ name: newListName.trim(), user_id: u.id }).select().single();
     if (list) { setUserLists(prev => [{ id: list.id, name: list.name }, ...prev]); await addToList(list.id); }
     setSavingList(false); setAddToListTarget(null); setNewListName("");
   };
@@ -724,11 +724,10 @@ function DishIntel() {
   const redColor = dark ? "#EF4444" : "#9B1C1C";
   const redBg    = dark ? "#2D1B1B" : "#FEF2F2";
 
-  // ─── ADD TO LIST MODAL ────────────────────────────────────────────────────
-  const AddToListModal = () => {
-    if (!addToListTarget) return null;
-    return (
-      <div onClick={() => setAddToListTarget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+  // ─── ADD TO LIST MODAL (inline JSX — NOT a function component so React never remounts it,
+  //     which would cause the input to lose focus on every keystroke) ────────────────────────
+  const addToListModalJsx = addToListTarget ? (
+    <div onClick={() => setAddToListTarget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
         <div onClick={e => e.stopPropagation()} style={{ background: cardBg, borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 480, padding: "20px 16px 40px", border: `1px solid ${border}`, maxHeight: "80vh", overflowY: "auto" }}>
           <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Add to List</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: text, marginBottom: 16 }}>{addToListTarget.name}</div>
@@ -764,8 +763,7 @@ function DishIntel() {
           <button onClick={() => setAddToListTarget(null)} style={{ marginTop: 12, width: "100%", background: "none", border: `1px solid ${border}`, borderRadius: 8, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", padding: "11px", cursor: "pointer" }}>Cancel</button>
         </div>
       </div>
-    );
-  };
+  ) : null;
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
@@ -1203,7 +1201,7 @@ function DishIntel() {
       )}
 
       {/* ── Add to list modal ──────────────────────────────────────────── */}
-      <AddToListModal />
+      {addToListModalJsx}
     </>
   );
 }

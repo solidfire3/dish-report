@@ -20,7 +20,13 @@ SKIP: 1-3 items reviewers consistently find disappointing (food quality only). O
 
 INSIDER TIPS: 2-4 specific tips (best time for fresh prep, what to request, secret menu items, seasonal specials, best seat in house for food experience, etc.)
 
-SCORING: 9-10 unicorn, 7.5-8.9 excellent, 6-7.4 good, 4.5-5.9 mixed, <4.5 bad.
+SCORING (food quality only — use the SAME scale as the search results so scores are consistent):
+9.0-10: Exceptional. Destination-worthy. Consistently cited as best-in-city for its category.
+8.0-8.9: Excellent. Strong, consistent praise for specific dishes. This should be COMMON for well-reviewed spots known for a dish.
+7.0-7.9: Good and solid. Reliable food, some standout items, generally positive.
+6.0-6.9: Mixed. Inconsistent quality or underwhelming relative to reputation.
+Below 6: Notable food-quality problems.
+Calibration: A well-loved spot known for a specific dish SHOULD score 8.0-8.9. Clear, consistent positive signal is enough for an 8. Reserve 9+ for places repeatedly cited as best-in-city.
 
 Return ONLY valid JSON:
 {"name":"string","neighborhood":"string","address":"string|null","cuisine":"string","venue_type":"string","vibe_tags":["string"],"food_score":number,"confidence":"high|medium|low","price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","why":"string"}],"also_try":[{"dish":"string","note":"string"}],"skip":["string"],"insider_tips":["string"],"verdict":"string (2 punchy sentences)"}`;

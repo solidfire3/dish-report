@@ -83,6 +83,7 @@ type HeaderProps = {
 
 export function Header({
   user, onSignOut, hasBack, onBack, dark: darkProp, onToggleDark: onToggleDarkProp,
+  favCount, onFavsClick,
 }: HeaderProps) {
   const router = useRouter();
 
@@ -117,7 +118,7 @@ export function Header({
   const navItems: { label: string; sub: string; onClick: () => void }[] = [
     { label: "My Searches", sub: "Recent dish searches", onClick: () => { setShowNav(false); router.push("/dashboard/searches"); } },
     { label: "My Lists",    sub: "Saved collections",   onClick: () => { setShowNav(false); router.push("/dashboard/lists"); } },
-    { label: "Favorites",   sub: "Saved spots",         onClick: () => { setShowNav(false); } },
+    { label: "Favorites",   sub: "Saved spots",         onClick: () => { setShowNav(false); onFavsClick?.(); } },
   ];
 
   return (
