@@ -11,9 +11,15 @@ const STAMPEDE_GUARD_MS  = 2 * 60 * 1000;
 
 // ─── PROMPTS ──────────────────────────────────────────────────────────────────
 
-const CLASSIFY_PROMPT = `You are a food search narrowing assistant. When a dish query is broad OR contains location intent without specifying distance/mode/price, provide sequential narrowing questions.
+const CLASSIFY_PROMPT = `You are a food search intent classifier. Determine the type of query and respond accordingly.
 
-CASE 1 — Broad dish/cuisine (no location intent):
+CASE 1 — Specific restaurant lookup (the query is clearly a proper-noun RESTAURANT NAME, not a dish, cuisine, or food category):
+Signs: A business name (may include &, "the", location modifier, restaurant-type word like café/grill/kitchen/tavern/bistro/bar/house/co/co./company).
+Examples: "Juniper & Ivy", "Nobu San Diego", "In-N-Out", "The French Laundry", "Katsuya", "Sushi Ota", "Pizzeria Mozza".
+NOT restaurant_search: "wagyu", "omakase", "ramen", "korean bbq" — these are dish/cuisine types even if they look like proper nouns.
+Return: { "restaurant_search": true, "name": "<extracted restaurant name>", "broad": false }
+
+CASE 2 — Broad dish/cuisine (no location intent):
 Provide 1-3 questions narrowing the dish type.
 Examples:
 - "pizza" → Q1: style (Neapolitan/NY Slice/Detroit/New Haven/Sicilian/Chicago Deep Dish/Roman al Taglio/Grandma/Bar Pizza) → Q2: focus (Margherita/White Pizza/Clam/Truffle/Prosciutto/Meat Lovers/Veggie)
@@ -30,7 +36,7 @@ Examples:
 - "seafood" → Q1: type (Oysters/Lobster/Crab/Grilled whole fish/Ceviche/Raw bar)
 - "pasta" → Q1: style (Fresh pasta tasting/Carbonara/Cacio e Pepe/Bolognese/Seafood/Baked)
 
-CASE 2 — Location-based search (contains "near me", "nearby", "close to", "in [neighborhood]", or is a cuisine/restaurant type without explicit distance):
+CASE 3 — Location-based search (contains "near me", "nearby", "close to", "in [neighborhood]", or is a cuisine/restaurant type without explicit distance):
 Ask these questions in order to refine the search:
 
 Q1 (always ask): "How far are you willing to go?"
@@ -43,8 +49,8 @@ Q3 (ask only if no price signal in query): "What's your budget per person?"
 Options: Under $15 / $15–30 / $30–60 / $60+
 
 Return ONLY valid JSON:
+Restaurant: { "restaurant_search": true, "name": "<name>", "broad": false }
 Broad: { "broad": true, "questions": [{ "question": "short punchy question 6-9 words", "options": ["opt1","opt2",...5-12] }] }
-  Include 1-3 question objects.
 Specific: { "broad": false }`;
 
 function hasLocationIntent(query: string): boolean {
@@ -79,12 +85,14 @@ SCORING (food quality only, based on review signal):
 6.0-6.9: Mixed. Inconsistent food quality or underwhelming relative to reputation.
 Below 6: Notable food-quality problems in reviews.
 Calibration: A well-loved spot famous for a specific dish SHOULD score 8.0-8.9. Reserve 9+ for places repeatedly cited as best-in-city.
-FIT ADJUSTMENT (per-search dish-fit nudge):
+FIT ADJUSTMENT (per-search dish-fit nudge — apply CONSERVATIVELY):
 - fit_adjustment: float -1.5..1.5. How well does THIS restaurant fit THIS specific query vs its general standing?
-  0 = neutral. +1.0..+1.5 = they are FAMOUS for exactly this dish/query; destination for it.
-  -1.0..-1.5 = this dish is secondary here; their strength is elsewhere.
-  Most entries should be near 0; use non-zero only for clear outliers.
-- fit_reason: 4-8 words (e.g. "legendary carnitas, locals swear by it" or "tacos are a sideline here")
+  Default is 0. The base food_score is the anchor; fit_adjustment is a minor nudge only.
+  0 to ±0.3 = normal (most results — the dish fits their caliber as expected)
+  ±0.4 to ±0.8 = notable fit difference (dish is a clear strength or clear weakness)
+  ±0.9 to ±1.5 = exceptional/poor — ONLY for restaurants literally famous for or notably bad at this exact dish
+  Do NOT inflate fit_adjustment to make the effective score look better. Most results: 0 or ±0.1–0.3.
+- fit_reason: 4-8 words (e.g. "signature carnitas, their absolute best" or "tacos are a sideline here")
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"fit_adjustment":number,"fit_reason":"string","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
 Exactly 5 results, by food_score desc.`;
@@ -235,7 +243,22 @@ async function triggerBackgroundRefresh(cachedId: string, pipelineFn: () => Prom
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
-    const { mode, dish, city, area, locMode, radius, exclude = [] } = await req.json();
+    const { mode, dish, city, area, locMode, radius, exclude = [], forceRefresh = false } = await req.json();
+
+    // ── Piece 1: Quick cache check — DB lookup only, no pipeline ─────────────
+    // Used by the client before showing the loading screen.
+    if (mode === "quick") {
+      const tags = buildTags({ dish, city, area, locMode, radius });
+      const sig  = computeSignature(tags);
+      const cached = await lookupCache(sig);
+      if (cached?.results && new Date(cached.expires_at).getTime() > Date.now()) {
+        console.log("[search] exact-match HIT -> serving stored");
+        logUserSearch(dish, city, area, locMode, radius, cached.id).catch(() => {});
+        return NextResponse.json({ hit: true, results: cached.results, search_id: cached.id });
+      }
+      console.log("[search] no match -> running pipeline");
+      return NextResponse.json({ hit: false });
+    }
 
     // ── Classify ──────────────────────────────────────────────────────────────
     if (mode === "classify") {
@@ -251,9 +274,18 @@ export async function POST(req: Request) {
     // ── Search ────────────────────────────────────────────────────────────────
     const isLoadMore = (exclude as string[]).length > 0;
 
-    if (!isLoadMore) {
-      const tags = buildTags({ dish, city, area, locMode, radius });
-      const sig  = computeSignature(tags);
+    // Load more — skip cache entirely, no normalization write
+    if (isLoadMore) {
+      const result = await runPipeline(client, dish, city, area, locMode, radius, exclude as string[]);
+      logUserSearch(dish, city, area, locMode, radius, null).catch(() => {});
+      return NextResponse.json(result);
+    }
+
+    const tags = buildTags({ dish, city, area, locMode, radius });
+    const sig  = computeSignature(tags);
+
+    // Check DB cache (unless forceRefresh explicitly bypasses it)
+    if (!forceRefresh) {
       console.log("[cache] DB LOOKUP starting — dish:", JSON.stringify(dish), "sig:", sig);
       const cached = await lookupCache(sig);
 
@@ -272,51 +304,44 @@ export async function POST(req: Request) {
         logUserSearch(dish, city, area, locMode, radius, cached.id).catch(() => {});
         return NextResponse.json(cached.results);
       }
-
-      // Cache miss — run full pipeline
       console.log("[cache] DB MISS — sig:", sig, "| running pipeline");
-      const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
-      const rawResults = ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[];
-
-      // Normalize: upsert each restaurant, get durable id + score
-      const db = makeSvc();
-      const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {
-        const { restaurant_id, durable_score } = await processRestaurant(db, r);
-        const fitAdj = Math.max(-1.5, Math.min(1.5, Number(r.fit_adjustment) || 0));
-        const effectiveScore = Math.round(Math.max(0, Math.min(10, durable_score + fitAdj)) * 10) / 10;
-        return { ...r, food_score: durable_score, fit_adjustment: fitAdj, _effective_score: effectiveScore, restaurant_id };
-      }));
-
-      const augmentedResult = { ...(rawResult as Record<string, unknown>), results: augmentedResults };
-
-      // Await cache upsert (cheap) to get the search id for linking
-      const searchCacheId = await upsertCache(sig, augmentedResult, tags, dish);
-
-      // Write search_results join rows (fire-and-forget, never blocks response)
-      if (searchCacheId) {
-        (async () => {
-          for (const r of augmentedResults) {
-            if (!r.restaurant_id) continue;
-            try {
-              await db.from("search_results").upsert({
-                search_id: searchCacheId, restaurant_id: r.restaurant_id,
-                rank: r.rank || null,
-                fit_adjustment: r.fit_adjustment || 0,
-                fit_reason: (r.fit_reason as string) || null,
-              }, { onConflict: "search_id,restaurant_id" });
-            } catch {}
-          }
-        })().catch(() => {});
-      }
-
-      logUserSearch(dish, city, area, locMode, radius, searchCacheId).catch(() => {});
-      return NextResponse.json(augmentedResult);
+    } else {
+      console.log("[cache] forceRefresh — sig:", sig, "| skipping cache, running pipeline");
     }
 
-    // Load more — skip cache, no normalization write
-    const result = await runPipeline(client, dish, city, area, locMode, radius, exclude as string[]);
-    logUserSearch(dish, city, area, locMode, radius, null).catch(() => {});
-    return NextResponse.json(result);
+    // Pipeline + normalization + cache write (cache miss OR forceRefresh)
+    const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
+    const rawResults = ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[];
+
+    const db = makeSvc();
+    const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {
+      const { restaurant_id, durable_score } = await processRestaurant(db, r);
+      const fitAdj = Math.max(-1.5, Math.min(1.5, Number(r.fit_adjustment) || 0));
+      const effectiveScore = Math.round(Math.max(0, Math.min(10, durable_score + fitAdj)) * 10) / 10;
+      return { ...r, food_score: durable_score, fit_adjustment: fitAdj, _effective_score: effectiveScore, restaurant_id };
+    }));
+
+    const augmentedResult = { ...(rawResult as Record<string, unknown>), results: augmentedResults };
+    const searchCacheId = await upsertCache(sig, augmentedResult, tags, dish);
+
+    if (searchCacheId) {
+      (async () => {
+        for (const r of augmentedResults) {
+          if (!r.restaurant_id) continue;
+          try {
+            await db.from("search_results").upsert({
+              search_id: searchCacheId, restaurant_id: r.restaurant_id,
+              rank: r.rank || null,
+              fit_adjustment: r.fit_adjustment || 0,
+              fit_reason: (r.fit_reason as string) || null,
+            }, { onConflict: "search_id,restaurant_id" });
+          } catch {}
+        }
+      })().catch(() => {});
+    }
+
+    logUserSearch(dish, city, area, locMode, radius, searchCacheId).catch(() => {});
+    return NextResponse.json(augmentedResult);
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Search failed";

@@ -136,10 +136,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ ...fresh, food_score: durableScore });
     }
 
-    // Cold open (no restaurant_id) — call Anthropic directly, no DB write
-    console.log("[deepdive] cold open (no restaurant_id) — name:", name);
-    const result = await runDeepDivePipeline(client, name, city);
-    return NextResponse.json(result);
+    // Cold open (no restaurant_id) — try to find by name in restaurants table first
+    console.log("[deepdive] cold open (no restaurant_id) — name:", name, "| checking DB by name");
+    try {
+      const { data: byName } = await db
+        .from("restaurants")
+        .select("id, food_score, deep_dive, refreshed_at, refreshing_at")
+        .ilike("name", name.trim())
+        .maybeSingle();
+      const byNameRow = byName as { id: string; food_score: number | null; deep_dive: Record<string, unknown> | null; refreshed_at: string; refreshing_at: string | null } | null;
+
+      if (byNameRow?.deep_dive) {
+        const ageMs = Date.now() - new Date(byNameRow.refreshed_at).getTime();
+        if (ageMs < RESTAURANT_TTL_MS) {
+          console.log("[deepdive] DB HIT by name — returning stored deep dive");
+          return NextResponse.json({ ...byNameRow.deep_dive, food_score: byNameRow.food_score });
+        }
+      }
+
+      // Not in DB or stale — call Anthropic
+      const fresh = await runDeepDivePipeline(client, name, city) as Record<string, unknown>;
+
+      // If we found a restaurant row, stamp the deep dive back (name-based cold open)
+      if (byNameRow?.id) {
+        db.from("restaurants").update({
+          deep_dive: fresh,
+          refreshed_at: new Date().toISOString(),
+          refreshing_at: null,
+          ...(byNameRow.food_score == null ? { food_score: fresh.food_score } : {}),
+        }).eq("id", byNameRow.id).then(() => {}, () => {});
+      }
+
+      return NextResponse.json(fresh);
+    } catch {
+      const result = await runDeepDivePipeline(client, name, city);
+      return NextResponse.json(result);
+    }
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Deep dive failed";

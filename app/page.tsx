@@ -265,6 +265,7 @@ function DishIntel() {
   // ── Search state ──────────────────────────────────────────────────────────
   const [phase,         setPhase]        = useState("idle");
   const [showTerminal,  setShowTerminal] = useState(false);
+  const [fromCache,     setFromCache]    = useState(false);   // true when results served from DB cache
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -565,6 +566,35 @@ function DishIntel() {
     try { localStorage.removeItem("dr-active-search"); } catch {}
   };
 
+  // Force a live re-run, bypassing the DB cache (used by "Refresh" on cached results)
+  const handleForceRefresh = async () => {
+    if (!searchedDish) return;
+    setFromCache(false);
+    searchResultCache.current = null;
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setPhase("analyzing"); setExpanded(null); setApiComplete(false);
+    setLoadingQuery(searchedDish); setNarrowQuestions(null);
+    try {
+      const data = await apiFetch(
+        "/api/search",
+        { mode: "search", dish: searchedDish, city, area, locMode, radius, exclude: [], forceRefresh: true },
+        ctrl.signal
+      );
+      const m = { dish: data.dish, city: data.city };
+      const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
+      const ranked = res.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+      setMeta(m); setRestaurants(ranked);
+      searchResultCache.current = { key: `${searchedDish}|${city}|${locMode}|${area}|${radius}`, results: ranked, meta: m };
+      setPendingPhase("done"); setApiComplete(true); abortRef.current = null;
+    } catch (e) {
+      abortRef.current = null;
+      if (e instanceof Error && e.name === "AbortError") return;
+      setErrMsg(e instanceof Error ? e.message : "Refresh failed"); setPhase("error");
+    }
+  };
+
   const runSearch = async (
     d: string,
     searchCity = city,
@@ -574,7 +604,7 @@ function DishIntel() {
   ) => {
     const cacheKey = `${d}|${searchCity}|${searchLocMode}|${searchArea}|${searchRadius}`;
 
-    // Check session search cache — same query + params returns instantly
+    // Layer 1: session ref cache
     if (searchResultCache.current?.key === cacheKey) {
       console.log("[cache] REF HIT — key:", cacheKey);
       pushNav();
@@ -584,7 +614,33 @@ function DishIntel() {
       setPhase("done");
       return;
     }
-    console.log("[cache] REF MISS — key:", cacheKey, "(sending to server)");
+    console.log("[cache] REF MISS — key:", cacheKey);
+
+    // Layer 2: DB quick check BEFORE showing loading screen
+    // If it's a cache hit, results appear instantly with no loading animation.
+    try {
+      const quick = await apiFetch("/api/search", {
+        mode: "quick", dish: d, city: searchCity, area: searchArea,
+        locMode: searchLocMode, radius: searchRadius,
+      });
+      if (quick?.hit && quick.results) {
+        console.log("[search] exact-match HIT -> serving stored");
+        pushNav();
+        const res = (Array.isArray(quick.results.results) ? quick.results.results : []) as Restaurant[];
+        const ranked = res.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+        const m: SearchMeta = { dish: quick.results.dish || d, city: quick.results.city || searchCity };
+        setMeta(m);
+        setRestaurants(ranked);
+        setSearchedDish(d);
+        searchResultCache.current = { key: cacheKey, results: ranked, meta: m };
+        setFromCache(true);
+        setPhase("done");
+        return;
+      }
+    } catch {}
+
+    console.log("[search] no match -> running pipeline");
+    setFromCache(false);
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -641,6 +697,27 @@ function DishIntel() {
     setPhase("classifying");
     try {
       const cls = await apiFetch("/api/search", { mode: "classify", dish: enriched });
+
+      // Piece 4: specific restaurant detected — skip multi-result search, go straight to confirm
+      if (cls.restaurant_search && cls.name) {
+        const detectedName = String(cls.name);
+        setDdName(detectedName);
+        setDdCity(city);
+        setPhase("idle");
+        setConfirming(true);
+        setConfirmMatches(null);
+        try {
+          const confirmData = await apiFetch("/api/deepdive", { mode: "confirm", name: detectedName, city });
+          setConfirmIsMarket(!!confirmData.is_market);
+          setConfirmMatches(confirmData.matches?.length ? confirmData.matches : [{ name: detectedName, address: "", city, neighborhood: "", cuisine: "" }]);
+        } catch {
+          setConfirmMatches([{ name: detectedName, address: "", city, neighborhood: "", cuisine: "" }]);
+        } finally {
+          setConfirming(false);
+        }
+        return;
+      }
+
       if (cls.broad && cls.questions?.length) {
         setNarrowQuestions(cls.questions);
         setPhase("narrowing");
@@ -1092,6 +1169,49 @@ function DishIntel() {
             </>
           )}
 
+          {/* ── Piece 4: Restaurant confirm panel ──────────────────── */}
+          {(confirmMatches || confirming) && phase === "idle" && (
+            <div style={{ paddingTop: 20 }}>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6875rem", color: accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 14 }}>
+                {confirming ? "LOCATING RESTAURANT..." : "DID YOU MEAN?"}
+              </div>
+              {confirming && <div className="spin" style={{ borderColor: border, borderTopColor: accent, width: 20, height: 20 }} />}
+              {confirmMatches && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {confirmMatches.map((m, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setConfirmMatches(null);
+                        handleDeepDive(m.name, m.city || ddCity, undefined, undefined);
+                      }}
+                      style={{
+                        background: cardBg, border: `1px solid ${border}`,
+                        borderRadius: 10, padding: "14px 16px",
+                        textAlign: "left", cursor: "pointer",
+                        transition: "border-color 0.15s",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = accent; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = border; }}
+                    >
+                      <div>
+                        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: text }}>{m.name}</div>
+                        {m.address && <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", color: secondary, marginTop: 3 }}>{m.address}</div>}
+                        {m.neighborhood && <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", color: tertiary, marginTop: 2 }}>{m.neighborhood}</div>}
+                      </div>
+                      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", color: accent, flexShrink: 0, marginLeft: 12 }}>Deep Dive →</div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setConfirmMatches(null)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", marginTop: 4, padding: 0, textAlign: "left", textDecoration: "underline" }}
+                  >Not what I meant — search instead</button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Favorites ────────────────────────────────────────────── */}
           {showFavs && phase === "idle" && (
             <div style={{ paddingTop: 20 }}>
@@ -1123,6 +1243,23 @@ function DishIntel() {
           {/* ── Results ──────────────────────────────────────────────── */}
           {phase === "done" && meta && (
             <div style={{ paddingTop: 32 }}>
+              {/* Piece 1: Cached-result indicator */}
+              {fromCache && (
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  background: dark ? "#1A1A1A" : "#F7F4F0",
+                  border: `1px solid ${border}`, borderRadius: 8,
+                  padding: "8px 14px", marginBottom: 12,
+                  fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem",
+                  color: secondary,
+                }}>
+                  <span>Showing saved results</span>
+                  <button
+                    onClick={handleForceRefresh}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: accent, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", fontWeight: 600, padding: 0, textDecoration: "underline" }}
+                  >Refresh</button>
+                </div>
+              )}
               {/* Results header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
                 <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0 }}>

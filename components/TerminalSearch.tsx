@@ -160,6 +160,8 @@ export type TerminalSearchProps = {
 };
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
+type SuggestItem = { label: string; search_id?: string | null; run_count?: number; source: "mine" | "popular" };
+
 export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProps) {
   const [query,               setQuery]               = useState("");
   const [closing,             setClosing]             = useState(false);
@@ -167,17 +169,37 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
   const [mode,                setMode]                = useState("Any");
   const [price,               setPrice]               = useState("Any");
   const [confirmPulse, setConfirmPulse] = useState(false);
+  const [suggestions,  setSuggestions]  = useState<SuggestItem[]>([]);
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset on open
   useEffect(() => {
     if (isOpen) {
-      setQuery("");
+      setQuery(""); setSuggestions([]);
       setDistance("Any"); setMode("Any"); setPrice("Any");
       setClosing(false); setConfirmPulse(false);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
+
+  // Debounced typeahead — fetch prior searches matching the query
+  useEffect(() => {
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (query.length < 2) { setSuggestions([]); return; }
+    suggestTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/suggest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q: query }),
+        });
+        const json = await res.json();
+        setSuggestions(json.suggestions ?? []);
+      } catch { setSuggestions([]); }
+    }, 280);
+    return () => { if (suggestTimer.current) clearTimeout(suggestTimer.current); };
+  }, [query]);
 
   // Escape closes
   useEffect(() => {
@@ -237,7 +259,7 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
   // All refinements appear immediately at 2+ chars — no Enter required
   const showRefinements = query.length >= 2;
   const narrowEntry     = showRefinements ? getNarrowing(query) : GENERIC_NARROW;
-  const suggestions     = showRefinements ? getSuggestions(query) : [];
+  const addOnChips      = showRefinements ? getSuggestions(query) : [];
 
   return (
     <>
@@ -341,13 +363,13 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
               </div>
 
               {/* TRY ADDING — contextual add-on suggestions */}
-              {suggestions.length > 0 && (
+              {addOnChips.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                   <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#A89F99", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
                     TRY ADDING
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {suggestions.map((chip, i) => (
+                    {addOnChips.map((chip, i) => (
                       <button
                         key={chip}
                         className="ts-chip"
@@ -363,6 +385,49 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                           transition: "border-color 0.15s, color 0.15s, background 0.15s",
                         }}
                       >{chip}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* PRIOR SEARCHES — typeahead from DB (Piece 2) */}
+              {suggestions.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+                    PRIOR SEARCHES
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s.label + i}
+                        className="ts-chip"
+                        onClick={() => {
+                          onSearch(s.label, {
+                            dineMode: null, openNow: false, priceRange: [],
+                            radius: 5, timeOfDay: null,
+                          });
+                          handleClose();
+                        }}
+                        style={{
+                          background: s.source === "mine" ? "#FDF3E3" : "#FFFFFF",
+                          border: `1.5px solid ${s.source === "mine" ? "#F0D5A0" : "#E8E3DC"}`,
+                          borderRadius: 20, padding: "7px 14px",
+                          fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
+                          fontSize: "0.8125rem",
+                          color: s.source === "mine" ? "#B8780A" : "#4A4540",
+                          cursor: "pointer", whiteSpace: "nowrap",
+                          display: "flex", alignItems: "center", gap: 6,
+                          transition: "border-color 0.15s",
+                        }}
+                      >
+                        {s.source === "mine" && (
+                          <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>↩</span>
+                        )}
+                        {s.label}
+                        {s.run_count != null && s.run_count > 1 && (
+                          <span style={{ fontSize: "0.65rem", opacity: 0.6 }}>×{s.run_count}</span>
+                        )}
+                      </button>
                     ))}
                   </div>
                 </div>
