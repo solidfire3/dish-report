@@ -14,9 +14,10 @@ const STAMPEDE_GUARD_MS  = 2 * 60 * 1000;
 const CLASSIFY_PROMPT = `You are a food search intent classifier. Determine the type of query and respond accordingly.
 
 CASE 1 — Specific restaurant lookup (the query is clearly a proper-noun RESTAURANT NAME, not a dish, cuisine, or food category):
-Signs: A business name (may include &, "the", location modifier, restaurant-type word like café/grill/kitchen/tavern/bistro/bar/house/co/co./company).
-Examples: "Juniper & Ivy", "Nobu San Diego", "In-N-Out", "The French Laundry", "Katsuya", "Sushi Ota", "Pizzeria Mozza".
-NOT restaurant_search: "wagyu", "omakase", "ramen", "korean bbq" — these are dish/cuisine types even if they look like proper nouns.
+Signs: A business name containing words like cafe, café, restaurant, grill, kitchen, bar, taqueria, pizzeria, bistro, tavern, eatery, cantina, diner, gastropub, steakhouse, trattoria, izakaya, ramen-ya — OR an ampersand pattern (e.g. "Name & Name") where both sides are proper nouns not dish/food words.
+Examples: "Fig Tree Cafe", "Juniper & Ivy", "Nobu San Diego", "In-N-Out", "The French Laundry", "Katsuya", "Sushi Ota", "Pizzeria Mozza", "Nick's Kitchen & Market", "Kettner Exchange".
+NOT restaurant_search: "wagyu", "omakase", "ramen", "korean bbq", "best tacos", "dim sum near me" — these are dish/cuisine searches even if they sound specific.
+If uncertain (could be either), lean toward NOT restaurant_search and let the dish search handle it.
 Return: { "restaurant_search": true, "name": "<extracted restaurant name>", "broad": false }
 
 CASE 2 — Broad dish/cuisine (no location intent):
@@ -87,6 +88,7 @@ Below 6: Notable food-quality problems in reviews.
 Calibration: A well-loved spot famous for a specific dish SHOULD score 8.0-8.9. Reserve 9+ for places repeatedly cited as best-in-city.
 FIT ADJUSTMENT (per-search dish-fit nudge — apply CONSERVATIVELY):
 - fit_adjustment: float -1.5..1.5. How well does THIS restaurant fit THIS specific query vs its general standing?
+  IMPORTANT: If the query appears to be a specific restaurant name rather than a dish or category (e.g. "Fig Tree Cafe", "Juniper & Ivy"), set fit_adjustment = 0 for ALL results. A restaurant-name search has no dish-fit signal.
   Default is 0. The base food_score is the anchor; fit_adjustment is a minor nudge only.
   0 to ±0.3 = normal (most results — the dish fits their caliber as expected)
   ±0.4 to ±0.8 = notable fit difference (dish is a clear strength or clear weakness)

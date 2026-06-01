@@ -20,6 +20,38 @@ import { RestCard }                                 from "@/components/Restauran
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
 
+// ─── RESTAURANT NAME DETECTOR ─────────────────────────────────────────────────
+// Runs client-side before any API call — catches both terminal and bar searches.
+// Returns true when the query is almost certainly a specific venue name, not a dish.
+//
+// Logic: restaurant-type word present AND no search-prefix/location-intent disqualifiers,
+// OR ampersand pattern (e.g. "Juniper & Ivy") with no dish-category words.
+const _REST_WORDS = new Set([
+  'cafe', 'café', 'restaurant', 'grill', 'grille', 'kitchen', 'bar', 'tavern',
+  'taqueria', 'pizzeria', 'bistro', 'eatery', 'cantina', 'diner', 'brasserie',
+  'trattoria', 'osteria', 'chophouse', 'smokehouse', 'gastropub', 'pub',
+  'lounge', 'inn', 'steakhouse', 'creamery', 'bakery', 'patisserie', 'ramen-ya',
+  'izakaya', 'yakiniku', 'omakase-bar',
+]);
+const _DISH_WORDS = new Set([
+  'tacos', 'taco', 'pizza', 'ramen', 'burger', 'burgers', 'sushi', 'chicken',
+  'beef', 'pork', 'fish', 'seafood', 'pasta', 'noodles', 'curry', 'bbq',
+  'wings', 'sandwich', 'steak', 'breakfast', 'brunch', 'lunch', 'dinner',
+  'dessert', 'dim sum', 'dumplings', 'soup', 'salad', 'bowl', 'bowls',
+]);
+const _SEARCH_PREFIXES = new Set(['best', 'top', 'good', 'great', 'find', 'where', 'open', 'cheap', 'any', 'show']);
+function isLikelyRestaurantName(query: string): boolean {
+  const lower = query.trim().toLowerCase();
+  const words = lower.split(/\s+/);
+  if (/\b(near me|nearby|around me|open now|open late)\b/.test(lower)) return false;
+  if (_SEARCH_PREFIXES.has(words[0])) return false;
+  if (words.length === 1 && _DISH_WORDS.has(words[0])) return false;
+  if (words.some(w => _REST_WORDS.has(w))) return true;
+  // Ampersand pattern — e.g. "Juniper & Ivy" — but not "fish & chips"
+  if (query.includes(' & ') && !words.some(w => _DISH_WORDS.has(w))) return true;
+  return false;
+}
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 async function apiFetch(path: string, body: object, signal?: AbortSignal) {
   const res = await fetch(path, {
@@ -627,7 +659,11 @@ function DishIntel() {
         console.log("[search] exact-match HIT -> serving stored");
         pushNav();
         const res = (Array.isArray(quick.results.results) ? quick.results.results : []) as Restaurant[];
-        const ranked = res.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+        const noDishtFlagQ = isLikelyRestaurantName(d);
+        const ranked = res.map((r: Restaurant, i: number) => ({
+          ...r, rank: i + 1,
+          ...(noDishtFlagQ ? { fit_adjustment: 0, _effective_score: r.food_score } : {}),
+        }));
         const m: SearchMeta = { dish: quick.results.dish || d, city: quick.results.city || searchCity };
         setMeta(m);
         setRestaurants(ranked);
@@ -658,7 +694,14 @@ function DishIntel() {
       );
       const meta = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      const ranked = res.map((r, i) => ({ ...r, rank: i + 1 }));
+      // Fix 3: defensive guard — zero dish-fit modifiers when the query has no dish signal.
+      // A restaurant-name query that somehow slipped through must never show "for this dish" badges.
+      const noDishtFlag = isLikelyRestaurantName(d);
+      const ranked = res.map((r, i) => ({
+        ...r,
+        rank: i + 1,
+        ...(noDishtFlag ? { fit_adjustment: 0, _effective_score: r.food_score } : {}),
+      }));
       setMeta(meta);
       setRestaurants(ranked);
       searchResultCache.current = { key: cacheKey, results: ranked, meta }; // cache for session
@@ -674,12 +717,42 @@ function DishIntel() {
     }
   };
 
+  // Shared restaurant-confirm flow — used by both the heuristic and the Claude classify path
+  const triggerRestaurantConfirm = async (name: string, searchCity: string) => {
+    setDdName(name);
+    setDdCity(searchCity);
+    setPhase("idle");
+    setConfirming(true);
+    setConfirmMatches(null);
+    try {
+      const confirmData = await apiFetch("/api/deepdive", { mode: "confirm", name, city: searchCity });
+      setConfirmIsMarket(!!confirmData.is_market);
+      setConfirmMatches(
+        confirmData.matches?.length
+          ? confirmData.matches
+          : [{ name, address: "", city: searchCity, neighborhood: "", cuisine: "" }]
+      );
+    } catch {
+      setConfirmMatches([{ name, address: "", city: searchCity, neighborhood: "", cuisine: "" }]);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   // Unified search handler — called by SearchBar with (query, filters)
   const handleSearchFromBar = async (q: string, filters: FilterState, skipClassify = false) => {
     if (!q.trim()) return;
     const searchRadius = filters.radius || radius;
 
-    // Append filter context to query for API
+    // Step 0: client-side restaurant name detection — runs BEFORE skipClassify check
+    // so it intercepts terminal searches too (terminal uses skipClassify=true and would
+    // otherwise skip the classify API call entirely, missing restaurant intent).
+    if (isLikelyRestaurantName(q)) {
+      await triggerRestaurantConfirm(q, city);
+      return;
+    }
+
+    // Append filter context to query for API (dish searches only)
     let enriched = q;
     if (filters.dineMode)  enriched += ` ${filters.dineMode}`;
     if (filters.openNow)   enriched += ` open now`;
@@ -698,23 +771,9 @@ function DishIntel() {
     try {
       const cls = await apiFetch("/api/search", { mode: "classify", dish: enriched });
 
-      // Piece 4: specific restaurant detected — skip multi-result search, go straight to confirm
+      // Claude-based restaurant detection (fallback for names the heuristic missed)
       if (cls.restaurant_search && cls.name) {
-        const detectedName = String(cls.name);
-        setDdName(detectedName);
-        setDdCity(city);
-        setPhase("idle");
-        setConfirming(true);
-        setConfirmMatches(null);
-        try {
-          const confirmData = await apiFetch("/api/deepdive", { mode: "confirm", name: detectedName, city });
-          setConfirmIsMarket(!!confirmData.is_market);
-          setConfirmMatches(confirmData.matches?.length ? confirmData.matches : [{ name: detectedName, address: "", city, neighborhood: "", cuisine: "" }]);
-        } catch {
-          setConfirmMatches([{ name: detectedName, address: "", city, neighborhood: "", cuisine: "" }]);
-        } finally {
-          setConfirming(false);
-        }
+        await triggerRestaurantConfirm(String(cls.name), city);
         return;
       }
 
