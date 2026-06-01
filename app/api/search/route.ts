@@ -79,21 +79,25 @@ INCLUDE: flavor, texture, freshness, preparation, specific dishes, technique, co
 EXCLUDE: service, décor, parking, generic praise without specifics.
 EXPERIENCE NOTE: ONLY if a non-food pattern (AYCE slowness drying food, etc.) is heavily documented AND directly degrades food quality. null otherwise.
 VENUE TYPES: hole-in-the-wall | counter service | food truck | casual dine-in | upscale casual | fine dining
-SCORING (food quality only, based on review signal):
-9.0-10: Exceptional. A destination dish/spot. Consistently praised as among the best of its category in the city.
-8.0-8.9: Excellent. Strong, consistent praise for specific dishes. A place locals genuinely recommend for the food. COMMON for well-reviewed spots.
-7.0-7.9: Good and solid. Reliable food, some standout items, generally positive but not remarkable.
-6.0-6.9: Mixed. Inconsistent food quality or underwhelming relative to reputation.
-Below 6: Notable food-quality problems in reviews.
-Calibration: A well-loved spot famous for a specific dish SHOULD score 8.0-8.9. Reserve 9+ for places repeatedly cited as best-in-city.
-FIT ADJUSTMENT (per-search dish-fit nudge — apply CONSERVATIVELY):
+SCORING (food quality only — this scale is intentionally demanding; anchor every score against these named tiers):
+9.2-10.0: Michelin level. Internationally recognized or technically exceptional. Extremely rare — do not use unless warranted.
+8.7-9.1:  Local legend. A true destination for this city; repeatedly cited as among the very best. Rare.
+8.1-8.6:  Always great. Consistently excellent; strong local reputation; specific dishes that earn repeat visits.
+7.5-8.0:  Solid spot. A reliable neighborhood restaurant with positive reviews but no standout citywide reputation.
+6.9-7.4:  Hit and miss. Inconsistent quality or one dish that outshines an otherwise ordinary menu.
+6.0-6.8:  Convenience. Acceptable food; chosen for location or price, not quality.
+5.0-5.9:  Compromise. Below expectations; noticeable quality issues reported.
+2.5-4.9:  Disappointment. Significant problems documented across multiple reviews.
+0.1-2.4:  Disgust. Repeated serious food-quality failures.
+Calibration: Most genuinely good neighborhood restaurants land 7.5-8.6. A 9.0+ is RARE — do not award it just because a place is well-liked or locally popular. Score based on honest review signal, not reputation or star count.
+FIT ADJUSTMENT (per-search dish-fit nudge — this value will be halved before display, so keep it small):
 - fit_adjustment: float -1.5..1.5. How well does THIS restaurant fit THIS specific query vs its general standing?
   IMPORTANT: If the query appears to be a specific restaurant name rather than a dish or category (e.g. "Fig Tree Cafe", "Juniper & Ivy"), set fit_adjustment = 0 for ALL results. A restaurant-name search has no dish-fit signal.
-  Default is 0. The base food_score is the anchor; fit_adjustment is a minor nudge only.
-  0 to ±0.3 = normal (most results — the dish fits their caliber as expected)
-  ±0.4 to ±0.8 = notable fit difference (dish is a clear strength or clear weakness)
-  ±0.9 to ±1.5 = exceptional/poor — ONLY for restaurants literally famous for or notably bad at this exact dish
-  Do NOT inflate fit_adjustment to make the effective score look better. Most results: 0 or ±0.1–0.3.
+  Default is 0. The base food_score is the anchor; fit_adjustment is a very gentle nudge — it will be halved before display.
+  0 to ±0.5 = normal (most results — effective displayed nudge will be 0 to ±0.25)
+  ±0.5 to ±1.0 = notable fit difference (effective ±0.25 to ±0.50 displayed)
+  ±1.0 to ±1.5 = exceptional/poor fit ONLY — effective ±0.50 to ±0.75 displayed; reserve for restaurants literally destination-famous for this exact dish or notably bad at it
+  Most results should be 0 or ±0.1–0.3. Do not use fit_adjustment to boost a score that should be lower.
 - fit_reason: 4-8 words (e.g. "signature carnitas, their absolute best" or "tacos are a sideline here")
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"fit_adjustment":number,"fit_reason":"string","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
@@ -318,7 +322,10 @@ export async function POST(req: Request) {
     const db = makeSvc();
     const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {
       const { restaurant_id, durable_score } = await processRestaurant(db, r);
-      const fitAdj = Math.max(-1.5, Math.min(1.5, Number(r.fit_adjustment) || 0));
+      // Halve the model's fit_adjustment before applying — keeps the base score as the anchor
+      // and prevents fit from dominating the displayed number.
+      const rawFitAdj = Math.max(-1.5, Math.min(1.5, Number(r.fit_adjustment) || 0));
+      const fitAdj = Math.round((rawFitAdj * 0.5) * 100) / 100;
       const effectiveScore = Math.round(Math.max(0, Math.min(10, durable_score + fitAdj)) * 10) / 10;
       return { ...r, food_score: durable_score, fit_adjustment: fitAdj, _effective_score: effectiveScore, restaurant_id };
     }));
