@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ─── NAME-MATCH HELPERS ───────────────────────────────────────────────────────
 
-/** Normalise a name for comparison: lowercase, strip punctuation, collapse spaces */
+/** Normalise a name for comparison: lowercase, transliterate accents, strip punctuation, collapse spaces */
 function normaliseName(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  // NFD splits accented chars into base + combining mark (é → e + U+0301).
+  // U+0300-U+036F is the Combining Diacritical Marks block — stripping it leaves base letters.
+  // Result: Güero→guero, Café→cafe, El Niño→el nino — same token from either source.
+  // Using RegExp constructor (not /regex/ literal) to avoid requiring the 'u' flag in older targets.
+  const COMBINING = new RegExp("[\\u0300-\\u036f]", "g");
+  return s
+    .normalize("NFD")
+    .replace(COMBINING, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Tokenise a normalised name into a Set of word tokens (length ≥ 2) */
@@ -16,7 +27,7 @@ function tokens(s: string): Set<string> {
  * True if the Google place's displayName is a reasonable match for the queried
  * restaurant name.  Accepts if:
  *   - one normalised name contains the other as a substring, OR
- *   - Jaccard token overlap ≥ 0.5 (i.e. at least half the tokens in common)
+ *   - Jaccard token overlap ≥ 0.35 (~1 in 3 meaningful tokens in common)
  * Returns false when there's no meaningful match, so the caller can skip that
  * candidate rather than accepting a wrong establishment's photos.
  */
@@ -35,7 +46,7 @@ function isGoodMatch(queryName: string, placeName: string): boolean {
   let shared = 0;
   qt.forEach(t => { if (pt.has(t)) shared++; });
   const union = qt.size + pt.size - shared;
-  return shared / union >= 0.5;
+  return shared / union >= 0.35;
 }
 
 // ─── ROUTE ────────────────────────────────────────────────────────────────────
@@ -61,10 +72,10 @@ export async function GET(req: NextRequest) {
       },
       body: JSON.stringify({
         textQuery: `${name} ${city}`.trim(),
-        // Ask for a few candidates so we can find the best name match
-        maxResultCount: 4,
-        // Restrict to food/restaurant types to avoid matching unrelated places
-        includedType: "restaurant",
+        // More candidates → better chance the right place is in the list.
+        // isGoodMatch() is the quality gate; dropping includedType allows cafes,
+        // diners, food trucks etc. that Google doesn't categorize as "restaurant".
+        maxResultCount: 6,
       }),
     });
 
