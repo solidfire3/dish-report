@@ -13,6 +13,8 @@ const DEEP_PROMPT = `You are a food cheat sheet generator. The user is going to 
 
 Focus entirely on: what to order, what makes each dish special, what to skip, insider tricks. Do NOT compare to other restaurants. Do NOT talk about service or decor.
 
+SOURCE GROUNDING (anti-hallucination): Ground every claim — must-orders, insider tips, skip items, and the verdict — in actually retrieved review/source material. Do NOT invent dishes, quotes, or menu details not supported by sources. If a specific claim cannot be confirmed from retrieved content, omit it rather than guess. Only describe dishes mentioned across multiple reviews as notable.
+
 VIBE TAGS: 2-4 punchy shorthand descriptors. Examples: "hole-in-the-wall gem", "neighborhood institution", "cult following", "hidden gem", "locals only", "cash only gem", "late night staple", "date night worthy", "chef-driven", "off the beaten path", "BYOB friendly", "no reservations needed", "tourist trap to avoid", "Michelin recognized", "James Beard winner", "market price seafood".
 
 MUST ORDERS: 2-4 specific items. Be specific with menu names. One punchy sentence on WHY each is the move.

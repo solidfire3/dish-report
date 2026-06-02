@@ -482,6 +482,20 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
             </div>
           </div>
 
+          {/* FIX 4: low-confidence flag — visible signal for thin-signal results */}
+          {r.confidence === "low" && (
+            <div style={{ padding: "0 20px 6px" }}>
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: "0.65rem", color: "#A89F99",
+                background: "rgba(168,159,153,0.1)",
+                border: "1px solid rgba(168,159,153,0.25)",
+                borderRadius: 4, padding: "2px 7px",
+                letterSpacing: "0.04em",
+              }}>limited signal</span>
+            </div>
+          )}
+
           {/* Row 2 — Location · Type · Price */}
           <div style={{
             display: "flex", alignItems: "center",

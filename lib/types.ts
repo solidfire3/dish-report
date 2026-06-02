@@ -8,6 +8,7 @@ export type Restaurant = {
   top_descriptors?: string[]; must_orders?: MustOrder[]; also_try?: AlsoTry[];
   food_score?: number; verdict?: string; best_quote?: string;
   warnings?: (string | null)[]; address?: string; cuisine?: string;
+  confidence?: "high" | "medium" | "low";
   // Phase 2 normalization fields
   restaurant_id?: string;      // uuid from restaurants table
   dish_badge?: string | null;  // contextual label when place is celebrated for the searched dish

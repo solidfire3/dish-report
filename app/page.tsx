@@ -20,6 +20,12 @@ import { RestCard }                                 from "@/components/Restauran
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
 
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+// FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
+function sortByScore(results: Restaurant[]): Restaurant[] {
+  return [...results].sort((a, b) => (b.food_score ?? 0) - (a.food_score ?? 0));
+}
+
 // ─── RESTAURANT NAME DETECTOR ─────────────────────────────────────────────────
 // Runs client-side before any API call — catches both terminal and bar searches.
 // Returns true when the query is almost certainly a specific venue name, not a dish.
@@ -367,7 +373,7 @@ function DishIntel() {
       console.log('[RESTORE] restoring search:', q, 'results:', results?.length);
       if (q && Array.isArray(results) && m) {
         setSearchedDish(q);
-        setRestaurants(results.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 })));
+        setRestaurants(sortByScore(results as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 })));
         setMeta(m);
         setPhase("done");
       }
@@ -436,7 +442,7 @@ function DishIntel() {
       sessionStorage.removeItem("dr-open-search-results");
       const { dish, city: c, restaurants: res } = JSON.parse(raw);
       if (!Array.isArray(res) || res.length === 0) return;
-      const ranked = (res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
+      const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
       const m: SearchMeta = { dish: dish || "", city: c || "" };
       setRestaurants(ranked);
       setMeta(m);
@@ -625,7 +631,7 @@ function DishIntel() {
       );
       const m = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      const ranked = res.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+      const ranked = sortByScore(res as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
       setMeta(m); setRestaurants(ranked);
       searchResultCache.current = { key: `${searchedDish}|${city}|${locMode}|${area}|${radius}`, results: ranked, meta: m };
       setPendingPhase("done"); setApiComplete(true); abortRef.current = null;
@@ -669,7 +675,7 @@ function DishIntel() {
         console.log("[search] exact-match HIT -> serving stored");
         pushNav();
         const res = (Array.isArray(quick.results.results) ? quick.results.results : []) as Restaurant[];
-        const ranked = res.map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+        const ranked = sortByScore(res as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
         const m: SearchMeta = { dish: quick.results.dish || d, city: quick.results.city || searchCity };
         setMeta(m);
         setRestaurants(ranked);
@@ -701,7 +707,7 @@ function DishIntel() {
       );
       const meta = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      const ranked = res.map((r, i) => ({ ...r, rank: i + 1 }));
+      const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
       setMeta(meta);
       setRestaurants(ranked);
       searchResultCache.current = { key: cacheKey, results: ranked, meta }; // cache for session

@@ -100,15 +100,38 @@ Score tiers (anchor every score against these named bands):
 The typical good local neighborhood spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6.
 9.0+ is for true standouts only — do not award for popularity alone.
 
+QUERY RELEVANCE — controls inclusion, not scores (Fix 2):
+Only include restaurants that are GENUINELY known for the searched dish or category.
+EXCLUDE any restaurant where the searched item is incidental to a different concept:
+- A fine-dining tasting-menu restaurant in a "best pizza" search → excluded.
+- A café that happens to sell burgers in a "best burger" search → excluded.
+The restaurant must be a real destination for the specific query. This is a strict gate.
+Fewer genuinely relevant results beat 5 loosely related ones.
+
+SOURCE GROUNDING — every claim must be traceable to retrieved sources (Fix 3):
+Ground all factual claims in actually retrieved review/source material, NOT general knowledge.
+- Do NOT invent restaurants, addresses, specific dishes, or quotes not supported by sources.
+- If a restaurant's existence or relevance cannot be confirmed from retrieved sources, omit it.
+- must_orders items must appear in retrieved reviews as notable dishes at this specific location.
+- best_quote must be from an actual retrieved review. If none available, use "".
+- If unsure a place is real and relevant, omit it rather than guess.
+
+CONFIDENCE — use as a real inclusion gate (Fix 4):
+"high" = strong, consistent signal from multiple independent sources.
+"medium" = some signal but limited or inconsistent.
+"low" = thin signal, very few reviews, or conflicting information.
+PREFERENCE: drop low-confidence results rather than include shaky picks. Return fewer than 5 if needed.
+Never present a low-confidence result as a reliable top pick. "Not enough signal" is honest and acceptable.
+
 DISH BADGE (contextual label — no effect on score or ranking):
 - dish_badge: 2-5 word string, or null. Only populate if this restaurant is genuinely CELEBRATED by locals for the searched dish/category — e.g. "local birria legend", "destination for ramen", "known for carnitas".
 - Most results should be null. Only award when the evidence is specific and clear.
-- Never invent a badge just to have one. No badge is better than a vague badge.
+- Never invent a badge. No badge is better than a vague one.
 - If the query is a restaurant name (not a dish), all badges should be null.
 
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"dish_badge":"string|null","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
-Exactly 5 results, ranked by food_score descending.`;
+Up to 5 results, strictly sorted food_score descending. Fewer than 5 is acceptable when confidence or relevance do not support more.`;
 
 function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
   const text = content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map(b => b.text).join("");
@@ -333,6 +356,10 @@ export async function POST(req: Request) {
       // dish_badge (from Anthropic) is a text label only; it never touches the score.
       return { ...r, food_score: durable_score, dish_badge: (r.dish_badge as string | null) ?? null, restaurant_id };
     }));
+
+    // FIX 1: enforce food_score DESC regardless of model output order, then re-assign ranks
+    augmentedResults.sort((a, b) => (Number(b.food_score) || 0) - (Number(a.food_score) || 0));
+    augmentedResults.forEach((r, i) => { (r as Record<string, unknown>).rank = i + 1; });
 
     const augmentedResult = { ...(rawResult as Record<string, unknown>), results: augmentedResults };
     const searchCacheId = await upsertCache(sig, augmentedResult, tags, dish);
