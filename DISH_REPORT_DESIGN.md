@@ -38,44 +38,54 @@ Every decision — spacing, color, font size, interaction — asks one question:
 
 Results feel like they came from someone who has been everywhere and remembers everything. The UI reflects that — no hedging, no decoration for its own sake, no trying too hard. Like a great local food critic who texts you back in two sentences and is always right.
 
-### Light mode is default
-Most premium food and lifestyle products default to light. It signals cleanliness, appetite, freshness. Dark mode is available as a toggle and is equally considered — not an afterthought.
+### Lumon theme (Severance-clinical, from v1.4+)
+Bone structural space + dark teal content boxes. Cool, clinical, institutional — deliberately departing from warm amber. The page frame is light (#e8ece8 bone); anything holding data is dark teal (#10211e). Teal text glows off the dark boxes. No dark mode toggle — the Lumon theme IS the identity.
 
 ### Photography is the hero
 When photos exist, they dominate. No competing decorative elements. The UI frames the photo and steps back.
 
 ---
 
-## Color System
+## Color System — Lumon Theme (single source of truth: lib/lumon-theme.ts)
 
-### Light Mode
-
+### Structural / bone frame
 ```
-Background (page):     #F7F4F0   warm off-white, never cold gray
-Surface (cards):       #FFFFFF   pure white with shadow for elevation
-Surface elevated:      #FDFCFB   slightly warmer for nested cards
-Border:                #E8E3DC   warm, barely visible
-Border strong:         #D4CBC0   for active states and dividers
+Page background:       #e8ece8   bone canvas
+Page border/frame:     #c4cdc8
+Outline btn border:    #b9c4bf
+Outline btn text:      #3a554f
+Text on bone page:     #23413b   dark teal headings
+Meta on bone page:     #7a8e8a
+```
 
-Text primary:          #1C1917   near-black, warm not cold
-Text secondary:        #6B6560   warm mid-gray
-Text tertiary:         #A89F99   light labels, metadata
-Text disabled:         #C8C2BC
+### Dark teal content boxes (cards, inputs, panels)
+```
+Card / input bg:       #10211e   dark teal
+Lifted surface:        #1b332e   chips, sub-panels
+Box border:            #2c4a44
+Primary text on dark:  #f0f4f1   near-white
+Body text on dark:     #d4e4df
+Muted / meta on dark:  #8aa9a2
+Section labels (tiny): #5f857d
+Bright teal emphasis:  #7fe3c8   cursor, prompt, badge, active
+```
 
-Accent (amber):        #C8860A   brand color, primary actions
-Accent hover:          #A86E08   darker on hover
-Accent light:          #FDF3E3   amber tint for backgrounds
-Accent border:         #F0D5A0   amber border
+### Brand / action (replaces amber everywhere)
+```
+Primary button fill:   #3d6b62
+Primary button border: #4d8377
+Primary button text:   #eafaf4
+Brand title on bone:   #2f4f49 / #23413b
+```
 
-Score excellent:       #1A7A3C   8.0 and above
-Score good:            #2D6A4F   7.0 to 7.9
-Score average:         #B45309   6.0 to 6.9
-Score below:           #9B1C1C   below 6.0
-
-Success:               #166534
-Error:                 #991B1B
-Warning:               #92400E
-Info:                  #1E40AF
+### Score tiers (vivid — must pop on #10211e background)
+```
+9.0+  Local legend:   #3fd98a   vivid green
+8.0+  Always great:   #7bc24a   green
+7.0+  Solid spot:     #e8b133   gold
+6.0+  Convenience:    #e07b3a   orange
+<6.0  Compromise-:    #d64545   red
+Tier label text:       #9fe3c8   bright teal, weight 600
 ```
 
 ### Dark Mode

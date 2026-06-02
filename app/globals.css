@@ -2,26 +2,110 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens — Lumon theme ───────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand font stacks */
+  --font-sevastopol: 'Sevastopol', Georgia, serif;
+  --font-citylight:  'CityLight', sans-serif;
+
+  /* Structural / bone frame */
+  --lm-page-bg:      #e8ece8;
+  --lm-page-border:  #c4cdc8;
+  --lm-page-text:    #23413b;
+  --lm-page-meta:    #7a8e8a;
+
+  /* Dark teal content boxes */
+  --lm-card-bg:      #10211e;
+  --lm-lifted-surf:  #1b332e;
+  --lm-box-border:   #2c4a44;
+  --lm-card-text:    #f0f4f1;
+  --lm-card-body:    #d4e4df;
+  --lm-card-muted:   #8aa9a2;
+  --lm-bright-teal:  #7fe3c8;
+
+  /* Brand action (replaces amber) */
+  --lm-brand:        #3d6b62;
+  --lm-brand-border: #4d8377;
+  --lm-brand-text:   #eafaf4;
+  --lm-brand-title:  #2f4f49;
+
+  /* Score tier colors */
+  --lm-score-9:      #3fd98a;
+  --lm-score-8:      #7bc24a;
+  --lm-score-7:      #e8b133;
+  --lm-score-6:      #e07b3a;
+  --lm-score-low:    #d64545;
+  --lm-score-tier:   #9fe3c8;
+
+  /* Legacy compat aliases */
+  --accent:          var(--lm-bright-teal);
+  --accent-bright:   var(--lm-brand);
+  --bg-page:         var(--lm-page-bg);
+  --score-excellent: var(--lm-score-9);
+  --score-good:      var(--lm-score-7);
+  --score-average:   var(--lm-score-6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Local brand fonts ─────────────────────────────────────── */
+@font-face {
+  font-family: 'CityLight';
+  src: url('/fonts/citylight.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
+@font-face {
+  font-family: 'Sevastopol';
+  src: url('/fonts/sevastopol.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Brand animations ──────────────────────────────────────── */
+@keyframes dr-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+@keyframes dr-stand-by {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 0.2; }
+}
+@keyframes dr-ambient-grid {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(24px, 24px); }
+}
+
+/* ── Header height tokens ──────────────────────────────────── */
+:root { --hh: 64px; }
+@media (max-width: 640px) { :root { --hh: 56px; } }
+
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+@keyframes pulseStep {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow, rgba(200,134,10,0.3)); }
+  50% { box-shadow: 0 0 0 6px var(--accent-glow, rgba(200,134,10,0)); }
 }
+
+@keyframes up {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.scrollbar-hide { scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
