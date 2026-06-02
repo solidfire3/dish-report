@@ -135,23 +135,28 @@ export function Header({
           {/* Back button */}
           {hasBack && onBack && <BackBtn onBack={onBack} dark={dark} />}
 
-          {/* Brand mark */}
-          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, userSelect: "none" }}>
-            <div style={{
-              fontFamily: "'IBM Plex Mono','Courier New',monospace",
-              fontSize: "1.1rem", fontWeight: 700, lineHeight: 1,
-              color: "#2f4f49", letterSpacing: "0.28em",
-            }}>DISH REPORT</div>
-            <div style={{
-              height: 1, background: "#3d6b62",
-              opacity: 0.5, margin: "3px 0",
-            }} />
-            <div className="dr-brand-tagline" style={{
-              fontFamily: "'IBM Plex Mono','Courier New',monospace",
-              fontSize: 8,
-              color: "#7a8e8a",
-              textTransform: "uppercase", letterSpacing: "0.30em", lineHeight: 1,
-            }}>FOOD INTELLIGENCE</div>
+          {/* Logo + brand mark */}
+          <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, userSelect: "none" }}>
+            {/* Document-on-plate logo */}
+            <svg viewBox="0 0 56 56" width="28" height="28" style={{ flexShrink: 0 }}>
+              <path d="M8 40 q20 9 40 0" fill="none" stroke="#2f4f49" strokeWidth="2" strokeLinecap="round"/>
+              <ellipse cx="28" cy="40" rx="20" ry="5" fill="none" stroke="#2f4f49" strokeWidth="1.2" opacity=".45"/>
+              <rect x="19" y="14" width="18" height="24" rx="2" fill="#e8ece8" stroke="#2f4f49" strokeWidth="2"/>
+              <path d="M23 20 h10 M23 25 h10 M23 30 h6" stroke="#2f4f49" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{
+                fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                fontSize: "1.1rem", fontWeight: 900, lineHeight: 1,
+                color: "#2f4f49", letterSpacing: "0.04em",
+              }}>DISH REPORT</div>
+              <div style={{ height: 1, background: "#3d6b62", opacity: 0.45, margin: "3px 0" }} />
+              <div className="dr-brand-tagline" style={{
+                fontFamily: "'IBM Plex Mono','Courier New',monospace",
+                fontSize: 8, color: "#7a8e8a",
+                textTransform: "uppercase", letterSpacing: "0.22em", lineHeight: 1,
+              }}>FOOD INTELLIGENCE · V2</div>
+            </div>
           </div>
 
           <div style={{ flex: 1 }} />

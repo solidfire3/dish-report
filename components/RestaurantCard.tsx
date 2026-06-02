@@ -511,7 +511,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
             padding: "0 20px 12px",
           }}>
             {r.neighborhood && (
-              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
+              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: t.secondary }}>
                 {r.neighborhood}
               </span>
             )}
@@ -519,7 +519,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               <span style={{ color: t.tertiary, fontSize: "0.875rem" }}>·</span>
             )}
             {r.venue_type && (
-              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "#4A4540" }}>
+              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", fontWeight: 500, color: t.secondary }}>
                 {r.venue_type}
               </span>
             )}
@@ -606,7 +606,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               }}>Why it ranks here</div>
               <div style={{
                 fontFamily: "'DM Sans','Inter',sans-serif",
-                fontSize: "0.875rem", color: "#4A4540", lineHeight: 1.5,
+                fontSize: "0.875rem", color: t.secondary, lineHeight: 1.5,
                 overflow: "hidden", display: "-webkit-box",
                 WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
               }}>{r.win_reason}</div>
@@ -641,7 +641,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                   {firstMo.differentiator && (
                     <div style={{
                       fontFamily: "'DM Sans','Inter',sans-serif", fontSize: "0.875rem",
-                      color: "#4A4540", lineHeight: 1.4, marginTop: 2,
+                      color: t.secondary, lineHeight: 1.4, marginTop: 2,
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                     }}>{firstMo.differentiator}</div>
                   )}

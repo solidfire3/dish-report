@@ -89,21 +89,33 @@ function generateSuggestions(locationLabel: string): Suggestion[] {
     { text: `Best breakfast near ${locationLabel}`, initial: "B" },
     { text: "Chilaquiles or eggs benedict open now", initial: "C" },
     { text: "Pancakes worth leaving the house for", initial: "P" },
+    { text: `Great coffee and a bite near ${locationLabel}`, initial: "☕" },
+    { text: "Best breakfast burrito in the area", initial: "B" },
+    { text: "Early-open diner with strong coffee", initial: "E" },
   ];
   if (h < 15) return [
     { text: `Best lunch near ${locationLabel}`, initial: "L" },
     { text: "Birria tacos open right now", initial: "B" },
     { text: "Top ramen spots near you", initial: "R" },
+    { text: "Quick lunch under $15 near me", initial: "Q" },
+    { text: "Best poke bowl in the area", initial: "P" },
+    { text: "Sandwich worth leaving the office for", initial: "S" },
   ];
   if (h < 22) return [
     { text: `Top dinner spots near ${locationLabel}`, initial: "D" },
     { text: "Korean BBQ worth the wait tonight", initial: "K" },
     { text: "Best pasta open for dinner", initial: "P" },
+    { text: "Happy hour deals near me right now", initial: "H" },
+    { text: "Date-night worthy in the area", initial: "D" },
+    { text: "Best sushi open for dinner tonight", initial: "S" },
   ];
   return [
     { text: `Open late near ${locationLabel}`, initial: "L" },
     { text: "Late night tacos or ramen", initial: "T" },
     { text: "KBBQ spots still open now", initial: "K" },
+    { text: "Best late-night bites nearby", initial: "B" },
+    { text: "24-hour diner near me", initial: "24" },
+    { text: "After-midnight food that's actually good", initial: "N" },
   ];
 }
 
@@ -244,6 +256,64 @@ function ContextFilter({ icon, label, options, value, onChange, dark: _dark }: {
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
+// ─── SECTION 4 CONTENT (query types + common dishes) ────────────────────────
+const COMMON_DISHES_PRIMARY   = ['Tacos', 'Pizza', 'Burger', 'Sushi', 'Wings', 'Ramen'];
+const COMMON_DISHES_SECONDARY = ['Korean BBQ', 'Burritos', 'Fried Chicken', 'Dim Sum', 'Poke', 'Pasta', 'BBQ', 'Dumplings', 'Pho'];
+
+function SectionContent({ dark, isSearching, handleBrowse }: { dark: boolean; isSearching: boolean; handleBrowse: (q: string) => void }) {
+  const [showMoreDishes, setShowMoreDishes] = useState(false);
+  const sectionTitle: React.CSSProperties = {
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
+    textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
+  };
+  const dishChip = (label: string) => (
+    <button
+      key={label}
+      onClick={() => handleBrowse(label)}
+      style={{
+        background: "#10211e", border: "1px solid #2c4a44",
+        borderRadius: 20, padding: "7px 14px",
+        fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.75rem",
+        color: "#d4e4df", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+        transition: "border-color 0.15s, color 0.15s",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; e.currentTarget.style.color = "#7fe3c8"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "#2c4a44"; e.currentTarget.style.color = "#d4e4df"; }}
+    >{label}</button>
+  );
+  return (
+    <>
+      <section style={{ paddingBottom: 20 }}>
+        <div style={sectionTitle}>SELECT QUERY TYPE</div>
+        <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
+      </section>
+      <section style={{ paddingBottom: 28 }}>
+        <div style={sectionTitle}>COMMON DISHES</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          {COMMON_DISHES_PRIMARY.map(dishChip)}
+        </div>
+        {showMoreDishes && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            {COMMON_DISHES_SECONDARY.map(dishChip)}
+          </div>
+        )}
+        <button
+          onClick={() => setShowMoreDishes(v => !v)}
+          style={{
+            background: "none", border: `1px solid #b9c4bf`,
+            borderRadius: 20, padding: "5px 14px", marginTop: 6,
+            fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.7rem",
+            color: "#7a8e8a", cursor: "pointer", transition: "border-color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#b9c4bf"; }}
+        >{showMoreDishes ? "LESS ↑" : "MORE ↓"}</button>
+      </section>
+    </>
+  );
+}
+
 function DishIntel() {
   const router        = useRouter();
   const searchParams  = useSearchParams();
@@ -1270,57 +1340,55 @@ function DishIntel() {
                 </div>
               )}
 
-              {/* ── SECTION 3: NEAR YOU NOW ─────────────────────────────── */}
+              {/* ── SECTION 3: NEAR YOU NOW — 2×3 square-card grid ────── */}
               {suggestions.length > 0 && (
                 <section style={{ paddingTop: 28, paddingBottom: 24 }}>
                   <div style={{
-                    fontFamily: "'Sevastopol', Georgia, serif",
-                    fontSize: "0.6875rem", color: "#7fe3c8",
-                    textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
-                  }}>NEAR YOU NOW //</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {suggestions.map((s, i) => (
-                      <NearYouCard key={i} suggestion={s} dark={dark} onSearch={() => handleBrowse(s.text)} />
+                    fontFamily: "'IBM Plex Mono',monospace",
+                    fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
+                    textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
+                  }}>NEAR YOU NOW</div>
+                  <div style={{
+                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+                  }}>
+                    {suggestions.slice(0, 6).map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleBrowse(s.text)}
+                        style={{
+                          background: "#10211e", border: "1px solid #2c4a44",
+                          borderRadius: 10, padding: "14px 12px",
+                          textAlign: "left", cursor: "pointer",
+                          aspectRatio: "1",
+                          display: "flex", flexDirection: "column", justifyContent: "space-between",
+                          transition: "border-color 0.15s",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "#2c4a44"; }}
+                      >
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: "1.4rem", fontWeight: 700, color: "#7fe3c8", lineHeight: 1,
+                        }}>{s.initial}</div>
+                        <div style={{
+                          fontFamily: "'Playfair Display',serif",
+                          fontSize: "0.78rem", fontWeight: 700, color: "#f0f4f1",
+                          lineHeight: 1.3,
+                          overflow: "hidden", display: "-webkit-box",
+                          WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const,
+                        }}>{s.text}</div>
+                      </button>
                     ))}
                   </div>
                 </section>
               )}
 
-              {/* ── SECTION 4: CATEGORY CAROUSEL ────────────────────────── */}
-              <section style={{ paddingBottom: 24 }}>
-                <div style={{
-                  fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.6875rem", color: "#7fe3c8",
-                  textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
-                }}>SELECT QUERY TYPE //</div>
-                <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
-              </section>
-
-              {/* ── SECTION 5: CONTEXTUAL FILTERS ───────────────────────── */}
-              <section style={{ paddingBottom: 32 }}>
-                <div style={{
-                  fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.6875rem", color: "#7fe3c8",
-                  textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
-                }}>SEARCH PARAMETERS //</div>
-                <div style={{
-                  display: "flex", gap: 8, overflowX: "auto",
-                  scrollbarWidth: "none" as const, paddingBottom: 4,
-                }}>
-                  <ContextFilter icon="📍" label="Distance" dark={dark}
-                    options={["1 mi", "2 mi", "5 mi", "10 mi"]}
-                    value={ctxRadius} onChange={setCtxRadius} />
-                  <ContextFilter icon="🕐" label="Time" dark={dark}
-                    options={["Now Open", "After 10pm", "Lunch", "Dinner"]}
-                    value={ctxTime} onChange={setCtxTime} />
-                  <ContextFilter icon="💰" label="Budget" dark={dark}
-                    options={["$", "$$", "$$$", "$$$$"]}
-                    value={ctxBudget} onChange={setCtxBudget} />
-                  <ContextFilter icon="🍱" label="Mode" dark={dark}
-                    options={["Dine-in", "Takeout", "Delivery"]}
-                    value={ctxMode} onChange={setCtxMode} />
-                </div>
-              </section>
+              {/* ── SECTION 4: QUERY TYPES + DISHES ─────────────────────── */}
+              <SectionContent
+                dark={dark}
+                isSearching={isSearching}
+                handleBrowse={handleBrowse}
+              />
             </>
           )}
 

@@ -32,8 +32,14 @@ const VERIFY_ITEMS = [
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function getDwell(pct: number, fast: boolean): number {
-  if (fast) return 28;                    // apiDone early → ease to 100 quickly
-  return 80 + Math.random() * 190;        // 80–270 ms, organic feel
+  if (fast) return 28;                            // apiDone early → ease to 100 quickly
+  // Target: ~40s total for 0→99% (100 steps × avg 400ms)
+  const r = Math.random();
+  if (pct < 8)  return 150 + r * 200;  // BOOT      ~150–350ms
+  if (pct < 32) return 250 + r * 250;  // SCAN      ~250–500ms
+  if (pct < 70) return 300 + r * 300;  // ANALYSIS  ~300–600ms
+  if (pct < 86) return 250 + r * 300;  // DISTRIB   ~250–550ms
+  return 200 + r * 250;                // NARROWING ~200–450ms
 }
 
 function getPhaseFromPct(pct: number): string {
@@ -166,13 +172,12 @@ export function LoadingTracker({
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9500,
-      // Bone background + very subtle teal CRT scanlines
-      background: "#eef1ec",
-      backgroundImage: "repeating-linear-gradient(transparent 0px,transparent 3px,rgba(47,79,73,0.018) 3px,rgba(47,79,73,0.018) 4px)",
+      // Wider, darker bezel for substantial clinical look
+      background: "#111210",
+      padding: "clamp(10px, 2.8vmin, 28px)",
       display: "flex", flexDirection: "column", alignItems: "center",
       justifyContent: "center",
       fontFamily: "'IBM Plex Mono','Courier New',monospace",
-      padding: "16px 12px",
       boxSizing: "border-box",
     }}>
 
@@ -182,6 +187,7 @@ export function LoadingTracker({
         border: "1px solid #c4cdc8",
         display: "flex", flexDirection: "column",
         background: "#eef1ec",
+        backgroundImage: "repeating-linear-gradient(transparent 0px,transparent 3px,rgba(47,79,73,0.018) 3px,rgba(47,79,73,0.018) 4px)",
       }}>
 
         {/* 1. Header strip */}
@@ -237,66 +243,49 @@ export function LoadingTracker({
             marginBottom: 12, flexShrink: 0,
           }}>DATA EXHIBIT</div>
 
-          {/* Exhibit content — centered in remaining space */}
-          <div style={{
-            flex: 1,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            {exhibit.mono ? (
-              // Left-aligned monospace block, centered as a unit
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <pre style={{
-                  margin: 0,
-                  fontSize: "clamp(11px,3vw,12px)",
-                  lineHeight: 1.65,
-                  color: "#7fe3c8",
-                  whiteSpace: "pre",
-                  fontFamily: "'IBM Plex Mono','Courier New',monospace",
-                }}>{exhibit.text}</pre>
-              </div>
-            ) : (
-              // Centered multi-line text
-              <div style={{
-                fontSize: "clamp(11px,3.2vw,13px)",
-                lineHeight: 1.75,
-                color: "#7fe3c8",
-                whiteSpace: "pre",
-                textAlign: "center",
-                fontFamily: "'IBM Plex Mono','Courier New',monospace",
-                fontWeight: 500,
-              }}>{exhibit.text}</div>
-            )}
-          </div>
-        </div>
-
-        {/* 5. Feed / verify lines */}
-        <div style={{
-          padding: "10px 12px",
-          minHeight: 92,   // stable layout as verify lines accumulate
-        }}>
-          {verifying ? (
-            // Stream of green check lines during verify
-            <div>
+          {/* Exhibit content + feed — all inside the dark panel for contrast */}
+          {!verifying ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {exhibit.mono ? (
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <pre style={{
+                    margin: 0, fontSize: "clamp(11px,3vw,12px)", lineHeight: 1.65,
+                    color: "#7fe3c8", whiteSpace: "pre",
+                    fontFamily: "'IBM Plex Mono','Courier New',monospace",
+                  }}>{exhibit.text}</pre>
+                </div>
+              ) : (
+                <div style={{
+                  fontSize: "clamp(11px,3.2vw,13px)", lineHeight: 1.75,
+                  color: "#7fe3c8", whiteSpace: "pre", textAlign: "center",
+                  fontFamily: "'IBM Plex Mono','Courier New',monospace", fontWeight: 500,
+                }}>{exhibit.text}</div>
+              )}
+            </div>
+          ) : (
+            /* VERIFYING — checks stream inside the dark panel, always on dark bg */
+            <div style={{ flex: 1, paddingTop: 8 }}>
               {verifyFeed.map((line, i) => (
                 <div key={i} style={{
-                  fontSize: 8.5, lineHeight: 1.75,
-                  color: "#1d8a66", letterSpacing: "0.04em",
+                  fontSize: "clamp(10px,2.6vw,12px)", lineHeight: 1.75,
+                  color: "#3fd98a", letterSpacing: "0.04em", fontWeight: 600,
                 }}>{line}</div>
               ))}
-              {/* Blinking cursor on last line */}
-              {!done && (
+              {!done && verifyFeed.length < 8 && (
                 <span style={{
                   display: "inline-block", width: 6, height: 10,
-                  background: "#1d8a66", verticalAlign: "middle",
+                  background: "#3fd98a", verticalAlign: "middle",
                   animation: "lt-blink 1.1s step-end infinite",
                 }} />
               )}
             </div>
-          ) : (
-            // Single feed line during pipeline
+          )}
+
+          {/* Feed line (pipeline phase only) */}
+          {!verifying && (
             <div style={{
-              fontSize: 8.5, color: "#6a7e7a", letterSpacing: "0.04em",
-              textAlign: "center",
+              borderTop: "1px solid #2c4a44", marginTop: 10, paddingTop: 8,
+              fontSize: 8.5, color: "#5f857d", letterSpacing: "0.04em",
             }}>{feedText}</div>
           )}
         </div>
