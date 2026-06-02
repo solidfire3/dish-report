@@ -3,9 +3,11 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import type { Restaurant, SearchMeta, AddToListTarget, AlsoTry } from "@/lib/types";
 import { gURL, dirURL } from "@/lib/dish-shared";
 
-// ─── OG IMAGE SESSION CACHE ───────────────────────────────────────────────────
-// Keyed by website_domain; avoids refetching on re-render within the session.
-const _ogCache = new Map<string, string | null>();
+// ─── THUMBNAIL SESSION CACHE ──────────────────────────────────────────────────
+// Stores resolved URL + type so we pick the right object-fit (logo=contain, photo=cover).
+// Keyed by website_domain or restaurant name. Avoids refetching within the session.
+type ThumbEntry = { url: string; imgType: "logo" | "photo" } | null;
+const _ogCache = new Map<string, ThumbEntry>();
 
 // ─── LUMON THEME (dark teal cards always) ─────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -331,7 +333,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
   const isExpanded = expanded === i;
 
   const [photoRefs,    setPhotoRefs]    = useState<string[]>([]);
-  const [ogUrl,        setOgUrl]        = useState<string | null>(null);
+  const [ogEntry,      setOgEntry]      = useState<ThumbEntry>(null);
   const [ogFailed,     setOgFailed]     = useState(false);
   const [hovered,      setHovered]      = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -345,7 +347,8 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
   // Dark mode
   useEffect(() => { setDark(localStorage.getItem("dr-dark") === "1"); }, []);
 
-  // OG image — try website first, then Places photos as fallback
+  // Thumbnail: logo sources → og:image → Places photo → placeholder
+  // Priority: apple-touch-icon (logo) → PNG favicon (logo) → og:image (photo) → Places (photo)
   useEffect(() => {
     const domain = r.website_domain;
     const name   = r.name;
@@ -354,35 +357,41 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
     if (!key) return;
 
     if (_ogCache.has(key)) {
-      setOgUrl(_ogCache.get(key) ?? null);
+      setOgEntry(_ogCache.get(key) ?? null);
       return;
     }
 
     let cancelled = false;
     (async () => {
-      // 1. OG image from website
+      // 1 + 2 + 3: apple-touch-icon → PNG favicon → og:image (all from website)
       if (domain) {
         try {
           const res = await fetch(`/api/og-image?domain=${encodeURIComponent(domain)}`);
-          const { url } = await res.json();
-          if (!cancelled && url) { _ogCache.set(key, url); setOgUrl(url); return; }
+          const result = await res.json();
+          if (!cancelled && result?.url) {
+            const entry: ThumbEntry = { url: result.url, imgType: result.imgType ?? "photo" };
+            _ogCache.set(key, entry);
+            setOgEntry(entry);
+            return;
+          }
         } catch {}
       }
-      // 2. Google Places first photo
+      // 4. Google Places first photo
       if (name) {
         try {
           const res = await fetch(`/api/photos?name=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}`);
           const { photos } = await res.json();
           if (!cancelled && photos?.[0]) {
-            const url = `/api/photo?name=${encodeURIComponent(photos[0])}`;
-            _ogCache.set(key, url);
-            setOgUrl(url);
-            // Seed photoRefs if not already loaded
+            const url   = `/api/photo?name=${encodeURIComponent(photos[0])}`;
+            const entry: ThumbEntry = { url, imgType: "photo" };
+            _ogCache.set(key, entry);
+            setOgEntry(entry);
             if (photos.length > 1) setPhotoRefs(photos.slice(0, 6));
             return;
           }
         } catch {}
       }
+      // 5. Placeholder
       if (!cancelled) _ogCache.set(key, null);
     })();
     return () => { cancelled = true; };
@@ -464,17 +473,28 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* ── Thumbnail: OG image → Places photo → placeholder ───────── */}
+        {/* ── Thumbnail: logo/photo source → placeholder ──────────────── */}
         <div style={{ position: "relative", height: 180, overflow: "hidden", flexShrink: 0 }}>
-          {ogUrl && !ogFailed ? (
-            // OG image (restaurant's own website hero)
-            <img
-              src={ogUrl}
-              alt={r.name}
-              onError={() => setOgFailed(true)}
-              onClick={e => { e.stopPropagation(); if (photoUrls.length > 0) openLightbox(0); }}
-              style={{ width: "100%", height: "100%", objectFit: "cover", cursor: photoUrls.length > 0 ? "pointer" : "default" }}
-            />
+          {ogEntry && !ogFailed ? (
+            // Logo (contain on dark bg) or photo (cover)
+            <div style={{
+              width: "100%", height: "100%",
+              background: ogEntry.imgType === "logo" ? "#1b332e" : undefined,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <img
+                src={ogEntry.url}
+                alt={r.name}
+                onError={() => setOgFailed(true)}
+                onClick={e => { e.stopPropagation(); if (photoUrls.length > 0) openLightbox(0); }}
+                style={{
+                  width: "100%", height: "100%",
+                  objectFit: ogEntry.imgType === "logo" ? "contain" : "cover",
+                  padding: ogEntry.imgType === "logo" ? "20px" : 0,
+                  cursor: photoUrls.length > 0 ? "pointer" : "default",
+                }}
+              />
+            </div>
           ) : photoUrls.length > 0 ? (
             // Google Places photo(s)
             <div style={{ display: "flex", height: "100%", overflowX: "auto", scrollbarWidth: "none" }}>

@@ -32,30 +32,38 @@ const VERIFY_ITEMS = [
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function getDwell(pct: number, fast: boolean): number {
-  if (fast) return 28;                            // apiDone early → ease to 100 quickly
-  // Target: ~40s total for 0→99% (100 steps × avg 400ms)
+  if (fast) return 28;                              // apiDone early → ease to 100 quickly
+  // Target: ~60s total for 0→99% (100 steps × avg 600ms)
   const r = Math.random();
-  if (pct < 8)  return 150 + r * 200;  // BOOT      ~150–350ms
-  if (pct < 32) return 250 + r * 250;  // SCAN      ~250–500ms
-  if (pct < 70) return 300 + r * 300;  // ANALYSIS  ~300–600ms
-  if (pct < 86) return 250 + r * 300;  // DISTRIB   ~250–550ms
-  return 200 + r * 250;                // NARROWING ~200–450ms
+  if (pct < 10) return 300 + r * 400;   // BOOT        ~300–700ms
+  if (pct < 28) return 500 + r * 400;   // VALIDATING  ~500–900ms
+  if (pct < 46) return 550 + r * 450;   // PARSING     ~550–1000ms
+  if (pct < 66) return 600 + r * 500;   // ANALYZING   ~600–1100ms
+  if (pct < 78) return 550 + r * 400;   // MODELING    ~550–950ms
+  if (pct < 88) return 500 + r * 400;   // DISTRIBUTING ~500–900ms
+  return 400 + r * 350;                  // NARROWING   ~400–750ms
 }
 
 function getPhaseFromPct(pct: number): string {
-  if (pct < 24) return "SCANNING";
-  if (pct < 42) return "FILTERING";
-  if (pct < 72) return "ANALYZING";
-  if (pct < 88) return "MODELING";
+  if (pct < 10) return "SCANNING";
+  if (pct < 28) return "VALIDATING";
+  if (pct < 46) return "PARSING";
+  if (pct < 66) return "ANALYZING";
+  if (pct < 78) return "MODELING";
+  if (pct < 88) return "DISTRIBUTING";
   return "NARROWING";
 }
 
+// 9 exhibit stages spread across 0→99%
 function getExhibitStage(pct: number): number {
-  if (pct >= 88) return 5;
-  if (pct >= 72) return 4;
-  if (pct >= 58) return 3;
-  if (pct >= 42) return 2;
-  if (pct >= 24) return 1;
+  if (pct >= 92) return 8;
+  if (pct >= 82) return 7;
+  if (pct >= 72) return 6;
+  if (pct >= 62) return 5;
+  if (pct >= 50) return 4;
+  if (pct >= 38) return 3;
+  if (pct >= 25) return 2;
+  if (pct >= 12) return 1;
   return 0;
 }
 
@@ -65,26 +73,47 @@ function buildExhibit(stage: number, dish: string, loc: string, isRefresh: boole
   if (verifying) return { text: "INTEGRITY CHECK\n\n6 / 6 PASSED", mono: false };
   if (isRefresh && stage === 0) return { text: `RE-RUNNING\nLIVE ANALYSIS\n\n${dish}\n${loc}`, mono: false };
   switch (stage) {
+    // SCANNING
     case 0: return { text: `INTENT LOCKED\n\n${dish}\n${loc}`, mono: false };
-    case 1: return { text: "REVIEWS PARSED\n\n7,052 READ\n2,121 DISCARDED", mono: false };
-    case 2: return { text: "S = .55Q + .30C\n   + .15R − λH\nλ = 0.30", mono: true };
-    case 3: return { text: "x = (−b ± √(b²−4ac))\n        2a\n→ threshold 2.12", mono: true };
-    // Bell curve: ▁▃▅▇█▇▅▃▁  ▁▃███████████▃▁
-    case 4: return {
+    // VALIDATING — venue auth pass
+    case 1: return { text: "VENUE AUDIT\n\n12 CANDIDATES\n 9 VERIFIED\n 3 FLAGGED", mono: false };
+    // PARSING — reviews ingested
+    case 2: return { text: "REVIEWS PARSED\n\n7,052 READ\n2,121 DISCARDED\n4,931 RETAINED", mono: false };
+    // ANALYZING — scoring model
+    case 3: return { text: "S = .55Q + .30C\n   + .15R − λH\nλ = 0.30", mono: true };
+    // ANALYZING — outlier threshold
+    case 4: return { text: "x = (−b ± √(b²−4ac))\n        2a\n→ threshold 2.12", mono: true };
+    // MODELING — k-fold cross-validation
+    case 5: return {
+      text: "k-FOLD VALIDATION\n\nk=5  avg=0.840\nfold σ  ± 0.003\nconfidence: HIGH",
+      mono: true,
+    };
+    // MODELING — bell curve
+    case 6: return {
       text: "  ▁▃▅▇█▇▅▃▁\n▁▃█████████▃▁\n4  5  6 |7| 8  9 10\n   μ=7.31  σ=0.82",
       mono: true,
     };
-    case 5: return { text: "FINALISTS\n\n12  →  5\nconverged", mono: false };
+    // DISTRIBUTING — percentile map
+    case 7: return {
+      text: "PERCENTILE MAP\n\ntop 5%  → z > +1.64\ntop 10% → z > +1.28\n\nrank 1: z = +2.04\n→ 97.9th pct",
+      mono: true,
+    };
+    // NARROWING
+    case 8: return { text: "FINALISTS\n\n12  →  5\nconverged in 11 iters", mono: false };
     default: return { text: "", mono: false };
   }
 }
 
+// One feed line per exhibit stage (9 total)
 const FEED_LINES = [
   "> 12 venues in range",
-  "> signal 69.9% kept",
+  "> venue auth: 9/12 confirmed",
+  "> signal 69.9% retained",
   "> scoring model armed",
-  "> outliers cut",
-  "> top pick z = +2.04",
+  "> outliers cut below x₂=2.12",
+  "> k-fold avg: 0.840 ± 0.003",
+  "> distribution fitted: μ=7.31",
+  "> rank 1 at 97.9th percentile",
   "> feelings[] = null",
 ];
 

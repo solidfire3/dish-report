@@ -382,8 +382,9 @@ function DishIntel() {
   // ── Search state ──────────────────────────────────────────────────────────
   const [phase,         setPhase]        = useState("idle");
   const [showTerminal,  setShowTerminal] = useState(false);
-  const [fromCache,     setFromCache]    = useState(false);   // true when results served from DB cache
-  const [searchMode,   setSearchMode]   = useState<"original" | "refresh" | undefined>(undefined);
+  const [fromCache,        setFromCache]        = useState(false);
+  const [searchMode,       setSearchMode]       = useState<"original" | "refresh" | undefined>(undefined);
+  const [showSignInNudge,  setShowSignInNudge]  = useState(false);
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -442,6 +443,14 @@ function DishIntel() {
     const { data: { subscription } } = client.auth.onAuthStateChange((_: string, session: Session | null) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
   }, []);
+
+  // One-time sign-in nudge — shows 4s after landing, only for logged-out users, once per session
+  useEffect(() => {
+    if (user) { setShowSignInNudge(false); return; }
+    try { if (sessionStorage.getItem("dr-signin-dismissed")) return; } catch {}
+    const t = setTimeout(() => setShowSignInNudge(true), 4000);
+    return () => clearTimeout(t);
+  }, [user]);
 
   // Fetch home swipe-rail data when user signs in
   useEffect(() => {
@@ -1674,6 +1683,55 @@ function DishIntel() {
 
       {/* ── Add to list modal ──────────────────────────────────────────── */}
       {addToListModalJsx}
+
+      {/* ── Sign-in nudge — one-time, dismissible, Lumon style ─────────── */}
+      {showSignInNudge && !user && (
+        <div style={{
+          position: "fixed", bottom: 20, right: 16, left: 16,
+          maxWidth: 360, marginLeft: "auto",
+          background: "#10211e", border: "1px solid #2c4a44",
+          borderRadius: 10, padding: "14px 16px",
+          zIndex: 8000, boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
+          display: "flex", alignItems: "center", gap: 12,
+          animation: "results-in 0.35s cubic-bezier(0.4,0,0.2,1) both",
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.65rem", fontWeight: 700, color: "#7fe3c8", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>
+              SIGN IN
+            </div>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.82rem", color: "#d4e4df", lineHeight: 1.4 }}>
+              Save spots, searches & lists across sessions.
+            </div>
+          </div>
+          <button
+            onClick={() => { router.push("/auth/signin"); }}
+            style={{
+              background: "#3d6b62", border: "1px solid #4d8377",
+              borderRadius: 6, padding: "6px 14px",
+              fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+              letterSpacing: "0.10em", color: "#eafaf4", cursor: "pointer",
+              flexShrink: 0, whiteSpace: "nowrap",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#4d8377"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#3d6b62"; }}
+          >SIGN IN</button>
+          <button
+            onClick={() => {
+              setShowSignInNudge(false);
+              try { sessionStorage.setItem("dr-signin-dismissed", "1"); } catch {}
+            }}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "#5f857d", fontSize: 18, lineHeight: 1, padding: 4,
+              flexShrink: 0, transition: "color 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#7fe3c8"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "#5f857d"; }}
+            aria-label="Dismiss"
+          >×</button>
+        </div>
+      )}
     </>
   );
 }
