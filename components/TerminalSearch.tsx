@@ -142,13 +142,13 @@ const TERMINAL_CSS = `
     to   { opacity: 1; transform: translateY(0); }
   }
   .ts-chip:hover {
-    border-color: #B8780A !important;
-    color: #B8780A !important;
-    background: #FDF3E3 !important;
+    border-color: #7fe3c8 !important;
+    color: #7fe3c8 !important;
+    background: #1b332e !important;
   }
   .ts-filter-pill:hover {
-    border-color: #B8780A !important;
-    color: #B8780A !important;
+    border-color: #7fe3c8 !important;
+    color: #7fe3c8 !important;
   }
 `;
 
@@ -282,11 +282,11 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
             <div style={{ fontFamily: "var(--font-orbitron), 'Courier New', monospace", fontSize: "1rem", fontWeight: 900, color: "#1C1917", letterSpacing: "0.04em", lineHeight: 1 }}>
               DISH REPORT
             </div>
-            <div style={{ width: 8, height: 16, background: "#B8780A", animation: "ts-cursor 1.1s step-end infinite", borderRadius: 1 }} />
+            <div style={{ width: 8, height: 16, background: "#7fe3c8", animation: "ts-cursor 1.1s step-end infinite", borderRadius: 1 }} />
           </div>
           <button onClick={handleClose} aria-label="Close search"
             style={{ background: "none", border: "1px solid #D4CBC0", borderRadius: 8, width: 36, height: 36, color: "#6B6560", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.15s, color 0.15s", flexShrink: 0 }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#B8780A"; e.currentTarget.style.color = "#B8780A"; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; e.currentTarget.style.color = "#7fe3c8"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#D4CBC0"; e.currentTarget.style.color = "#6B6560"; }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -301,11 +301,11 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
           {/* Input display — unchanged visual */}
           <div style={{ position: "relative" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, cursor: "text", lineHeight: 1.2 }} onClick={() => inputRef.current?.focus()}>
-              <span style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", fontSize: "clamp(1.75rem, 5vw, 2.5rem)", fontWeight: 700, color: "#B8780A", flexShrink: 0, lineHeight: 1 }}>›</span>
+              <span style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", fontSize: "clamp(1.75rem, 5vw, 2.5rem)", fontWeight: 700, color: "#7fe3c8", flexShrink: 0, lineHeight: 1 }}>›</span>
               <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", fontSize: "clamp(1.75rem, 5vw, 2.5rem)", fontWeight: 400, color: "#1C1917", lineHeight: 1, wordBreak: "break-word", minHeight: "clamp(1.75rem, 5vw, 2.5rem)" }}>
                   {query || <span style={{ color: "#A89F99" }}>what are you hungry for?</span>}
-                  <span style={{ display: "inline-block", width: "0.55em", height: "1em", background: "#B8780A", verticalAlign: "text-bottom", marginLeft: 2, animation: "ts-cursor 1.1s step-end infinite", borderRadius: 1 }} />
+                  <span style={{ display: "inline-block", width: "0.55em", height: "1em", background: "#7fe3c8", verticalAlign: "text-bottom", marginLeft: 2, animation: "ts-cursor 1.1s step-end infinite", borderRadius: 1 }} />
                 </div>
                 {/* CHANGE 1: Enter triggers handleEnter (not handleSubmit) */}
                 <input
@@ -326,7 +326,7 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
             {/* Underline — pulses amber briefly on Enter */}
             <div style={{
               height: 2, marginTop: 16, borderRadius: 1,
-              background: confirmPulse ? "#B8780A" : "#1C1917",
+              background: confirmPulse ? "#7fe3c8" : "#1C1917",
               opacity: confirmPulse ? 0.5 : 0.12,
               transition: "background 0.15s, opacity 0.15s",
             }} />
@@ -338,7 +338,7 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
 
               {/* NARROW IT DOWN — specific category match or generic fallback */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+                <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#7fe3c8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
                   NARROW IT DOWN // {narrowEntry.label}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -348,10 +348,10 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                       className="ts-chip"
                       onClick={() => prependNarrowChip(opt)}
                       style={{
-                        background: "#FDF3E3", border: "1.5px solid #F0D5A0",
+                        background: "#1b332e", border: "1.5px solid #2c4a44",
                         borderRadius: 20, padding: "7px 14px",
                         fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
-                        fontSize: "0.8125rem", color: "#B8780A",
+                        fontSize: "0.8125rem", color: "#7fe3c8",
                         cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600,
                         animation: "ts-chip 0.25s ease both",
                         animationDelay: `${i * 35}ms`,
@@ -393,7 +393,7 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
               {/* PRIOR SEARCHES — typeahead from DB (Piece 2) */}
               {suggestions.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#7fe3c8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
                     PRIOR SEARCHES
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -409,12 +409,12 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                           handleClose();
                         }}
                         style={{
-                          background: s.source === "mine" ? "#FDF3E3" : "#FFFFFF",
-                          border: `1.5px solid ${s.source === "mine" ? "#F0D5A0" : "#E8E3DC"}`,
+                          background: s.source === "mine" ? "#1b332e" : "#FFFFFF",
+                          border: `1.5px solid ${s.source === "mine" ? "#2c4a44" : "#E8E3DC"}`,
                           borderRadius: 20, padding: "7px 14px",
                           fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
                           fontSize: "0.8125rem",
-                          color: s.source === "mine" ? "#B8780A" : "#4A4540",
+                          color: s.source === "mine" ? "#7fe3c8" : "#4A4540",
                           cursor: "pointer", whiteSpace: "nowrap",
                           display: "flex", alignItems: "center", gap: 6,
                           transition: "border-color 0.15s",
@@ -436,31 +436,31 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
               {/* HOW FAR / MODE / BUDGET */}
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>HOW FAR?</div>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#7fe3c8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>HOW FAR?</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {DIST_OPTIONS.map(d => (
                       <button key={d} className="ts-filter-pill" onClick={() => setDistance(d)}
-                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: `1.5px solid ${distance === d ? "#B8780A" : "#D4CBC0"}`, background: distance === d ? "#FDF3E3" : "#FFFFFF", color: distance === d ? "#B8780A" : "#6B6560", fontWeight: distance === d ? 700 : 400, transition: "all 0.15s" }}
+                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: `1.5px solid ${distance === d ? "#7fe3c8" : "#D4CBC0"}`, background: distance === d ? "#1b332e" : "#FFFFFF", color: distance === d ? "#7fe3c8" : "#6B6560", fontWeight: distance === d ? 700 : 400, transition: "all 0.15s" }}
                       >{d}</button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>MODE?</div>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#7fe3c8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>MODE?</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {MODE_OPTIONS.map(m => (
                       <button key={m} className="ts-filter-pill" onClick={() => setMode(m)}
-                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: `1.5px solid ${mode === m ? "#B8780A" : "#D4CBC0"}`, background: mode === m ? "#FDF3E3" : "#FFFFFF", color: mode === m ? "#B8780A" : "#6B6560", fontWeight: mode === m ? 700 : 400, transition: "all 0.15s" }}
+                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: `1.5px solid ${mode === m ? "#7fe3c8" : "#D4CBC0"}`, background: mode === m ? "#1b332e" : "#FFFFFF", color: mode === m ? "#7fe3c8" : "#6B6560", fontWeight: mode === m ? 700 : 400, transition: "all 0.15s" }}
                       >{m}</button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>BUDGET?</div>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#7fe3c8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>BUDGET?</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {PRICE_OPTIONS.map(p => (
                       <button key={p} className="ts-filter-pill" onClick={() => setPrice(p)}
-                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: `1.5px solid ${price === p ? "#B8780A" : "#D4CBC0"}`, background: price === p ? "#FDF3E3" : "#FFFFFF", color: price === p ? "#B8780A" : "#6B6560", fontWeight: price === p ? 700 : 400, transition: "all 0.15s" }}
+                        style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.75rem", padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: `1.5px solid ${price === p ? "#7fe3c8" : "#D4CBC0"}`, background: price === p ? "#1b332e" : "#FFFFFF", color: price === p ? "#7fe3c8" : "#6B6560", fontWeight: price === p ? 700 : 400, transition: "all 0.15s" }}
                       >{p}</button>
                     ))}
                   </div>
@@ -478,9 +478,9 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
             style={{
               fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
               fontSize: "1rem", fontWeight: 700,
-              background: query.trim() ? "#B8780A" : "#E8E3DC",
+              background: query.trim() ? "#7fe3c8" : "#E8E3DC",
               color: query.trim() ? "#FFFFFF" : "#A89F99",
-              border: query.trim() ? "2px solid #9A6209" : "2px solid transparent",
+              border: query.trim() ? "2px solid #5ccfb0" : "2px solid transparent",
               borderRadius: 10,
               padding: "16px 32px",
               cursor: query.trim() ? "pointer" : "not-allowed",
@@ -491,8 +491,8 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
               boxShadow: query.trim() ? "0 4px 16px rgba(184,120,10,0.25)" : "none",
               width: "100%", justifyContent: "center",
             }}
-            onMouseEnter={e => { if (query.trim()) { e.currentTarget.style.background = "#9A6209"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(184,120,10,0.35)"; } }}
-            onMouseLeave={e => { if (query.trim()) { e.currentTarget.style.background = "#B8780A"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(184,120,10,0.25)"; } }}
+            onMouseEnter={e => { if (query.trim()) { e.currentTarget.style.background = "#5ccfb0"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(184,120,10,0.35)"; } }}
+            onMouseLeave={e => { if (query.trim()) { e.currentTarget.style.background = "#7fe3c8"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(184,120,10,0.25)"; } }}
           >
             RUN SEARCH ›
           </button>

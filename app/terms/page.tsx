@@ -27,7 +27,7 @@ export default function TermsPage() {
         </span>
         <span style={{
           fontFamily: "'Sevastopol', Georgia, serif",
-          fontSize: "0.625rem", color: "#B8780A",
+          fontSize: "0.625rem", color: "#7fe3c8",
           textTransform: "uppercase", letterSpacing: "0.15em",
         }}>
           Terms of Use
@@ -124,7 +124,7 @@ export default function TermsPage() {
         <Section heading="7. Contact">
           <p style={body}>
             Questions about these terms? Email us at{" "}
-            <a href="mailto:hello@dishreport.com" style={{ color: "#B8780A" }}>
+            <a href="mailto:hello@dishreport.com" style={{ color: "#7fe3c8" }}>
               hello@dishreport.com
             </a>
             . We&apos;re a small team and we do read every message.
@@ -135,7 +135,7 @@ export default function TermsPage() {
         <div style={{ marginTop: 48 }}>
           <Link href="/" style={{
             fontFamily: "'Sevastopol', Georgia, serif",
-            fontSize: "0.625rem", color: "#B8780A",
+            fontSize: "0.625rem", color: "#7fe3c8",
             textTransform: "uppercase", letterSpacing: "0.15em",
             textDecoration: "none",
           }}>
@@ -166,7 +166,7 @@ function Section({ heading, children }: { heading: string; children: React.React
     <div style={{ marginBottom: 36 }}>
       <div style={{
         fontFamily: "'Sevastopol', Georgia, serif",
-        fontSize: "0.625rem", color: "#B8780A",
+        fontSize: "0.625rem", color: "#7fe3c8",
         textTransform: "uppercase", letterSpacing: "0.15em",
         marginBottom: 10,
       }}>{heading}</div>

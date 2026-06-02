@@ -107,11 +107,11 @@ export default function SavedSearchesPage() {
   };
 
   return (
-    <div style={{ background: "#F7F4F0", minHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ background: "#e8ece8", minHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
 
       {/* Header */}
       <div style={{
-        background: "#F7F4F0", borderBottom: "1px solid #E8E3DC",
+        background: "#e8ece8", borderBottom: "1px solid #2c4a44",
         padding: "0 16px", display: "flex", alignItems: "center", gap: 12, height: 56,
         boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
         position: "sticky", top: 0, zIndex: 100,
@@ -123,10 +123,10 @@ export default function SavedSearchesPage() {
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 36, height: 36, borderRadius: 8, flexShrink: 0,
             background: "transparent", border: "1px solid #D4CBC0",
-            color: "#6B6560", cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
+            color: "#7a8e8a", cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = "#C8860A"; e.currentTarget.style.borderColor = "#C8860A"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "#6B6560"; e.currentTarget.style.borderColor = "#D4CBC0"; }}
+          onMouseEnter={e => { e.currentTarget.style.color = "#7fe3c8"; e.currentTarget.style.borderColor = "#7fe3c8"; }}
+          onMouseLeave={e => { e.currentTarget.style.color = "#7a8e8a"; e.currentTarget.style.borderColor = "#b9c4bf"; }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -134,27 +134,27 @@ export default function SavedSearchesPage() {
         </button>
         <div style={{
           fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: "1.2rem", fontWeight: 700, color: "#1C1917",
+          fontSize: "1.2rem", fontWeight: 700, color: "#f0f4f1",
         }}>My Searches</div>
       </div>
 
       {loading ? (
-        <div style={{ padding: "60px 16px", textAlign: "center", color: "#A89F99", fontSize: "0.875rem" }}>
+        <div style={{ padding: "60px 16px", textAlign: "center", color: "#8aa9a2", fontSize: "0.875rem" }}>
           Loading...
         </div>
       ) : searches.length === 0 ? (
         <div style={{ padding: "60px 16px", textAlign: "center", maxWidth: 400, margin: "0 auto" }}>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", fontWeight: 700, color: "#1C1917", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", fontWeight: 700, color: "#f0f4f1", marginBottom: 8 }}>
             No searches yet
           </div>
-          <div style={{ fontSize: "0.875rem", color: "#6B6560", lineHeight: 1.65, marginBottom: 24 }}>
+          <div style={{ fontSize: "0.875rem", color: "#7a8e8a", lineHeight: 1.65, marginBottom: 24 }}>
             Your recent dish searches will appear here.
           </div>
           <button
             onClick={() => router.push("/")}
             style={{
-              background: "#C8860A", border: "none", borderRadius: 10,
-              color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+              background: "#3d6b62", border: "none", borderRadius: 10,
+              color: "#eafaf4", fontFamily: "'Inter', sans-serif",
               fontSize: "0.875rem", fontWeight: 600,
               padding: "12px 24px", cursor: "pointer",
             }}
@@ -166,26 +166,26 @@ export default function SavedSearchesPage() {
             <div
               key={s.id}
               style={{
-                background: "#FFFFFF", borderBottom: "1px solid #E8E3DC",
+                background: "#10211e", borderBottom: "1px solid #2c4a44",
                 padding: "14px 16px", display: "flex", alignItems: "center", gap: 12,
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontFamily: "'Playfair Display', serif",
-                  fontSize: "1rem", fontWeight: 700, color: "#1C1917", marginBottom: 4,
+                  fontSize: "1rem", fontWeight: 700, color: "#f0f4f1", marginBottom: 4,
                 }}>{s.dish}</div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.8rem", color: "#6B6560" }}>{locLabel(s)}</span>
+                  <span style={{ fontSize: "0.8rem", color: "#7a8e8a" }}>{locLabel(s)}</span>
                   <span style={{
                     fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: "0.72rem", color: "#A89F99",
+                    fontSize: "0.72rem", color: "#8aa9a2",
                   }}>{timeAgo(s.created_at)}</span>
                   {s.search_cache_id && (
                     <span style={{
                       fontFamily: "'IBM Plex Mono', monospace",
-                      fontSize: "0.68rem", color: "#C8860A",
-                      background: "#FDF3E3", border: "1px solid #F0D5A0",
+                      fontSize: "0.68rem", color: "#3d6b62",
+                      background: "#1b332e", border: "1px solid #2c4a44",
                       borderRadius: 4, padding: "1px 5px",
                     }}>cached</span>
                   )}
@@ -196,17 +196,17 @@ export default function SavedSearchesPage() {
                   onClick={() => handleOpenResults(s)}
                   disabled={opening === s.id}
                   style={{
-                    background: s.search_cache_id ? "#C8860A" : "#FDF3E3",
-                    border: s.search_cache_id ? "none" : "1px solid #F0D5A0",
-                    color: s.search_cache_id ? "#FFFFFF" : "#C8860A",
+                    background: s.search_cache_id ? "#3d6b62" : "#1b332e",
+                    border: s.search_cache_id ? "none" : "1px solid #2c4a44",
+                    color: s.search_cache_id ? "#10211e" : "#3d6b62",
                     fontFamily: "'Inter', sans-serif",
                     fontSize: "0.8rem", fontWeight: 600,
                     padding: "7px 14px", borderRadius: 8, cursor: "pointer",
                     opacity: opening === s.id ? 0.6 : 1,
                     transition: "background 0.15s, opacity 0.15s",
                   }}
-                  onMouseEnter={e => { if (!s.search_cache_id) e.currentTarget.style.background = "#F0D5A0"; }}
-                  onMouseLeave={e => { if (!s.search_cache_id) e.currentTarget.style.background = "#FDF3E3"; }}
+                  onMouseEnter={e => { if (!s.search_cache_id) e.currentTarget.style.background = "#2c4a44"; }}
+                  onMouseLeave={e => { if (!s.search_cache_id) e.currentTarget.style.background = "#1b332e"; }}
                 >
                   {opening === s.id ? "Opening…" : s.search_cache_id ? "Open results" : "Search again"}
                 </button>
@@ -214,11 +214,11 @@ export default function SavedSearchesPage() {
                   onClick={() => handleDelete(s.id)}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
-                    color: "#A89F99", fontSize: "1rem", padding: "4px 8px",
+                    color: "#8aa9a2", fontSize: "1rem", padding: "4px 8px",
                     transition: "color 0.15s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#991B1B"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#A89F99"; }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#d64545"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#8aa9a2"; }}
                   aria-label="Delete search"
                 >×</button>
               </div>

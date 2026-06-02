@@ -126,7 +126,8 @@ const HERO_FILTERS = [
 ];
 
 // ─── NEAR YOU CARD ────────────────────────────────────────────────────────────
-function NearYouCard({ suggestion, dark, onSearch }: {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function NearYouCard({ suggestion, dark: _dark, onSearch }: {
   suggestion: Suggestion; dark: boolean; onSearch: () => void;
 }) {
   const [hov, setHov] = useState(false);
@@ -139,39 +140,33 @@ function NearYouCard({ suggestion, dark, onSearch }: {
         width: "100%", textAlign: "left", cursor: "pointer",
         display: "flex", alignItems: "center", gap: 14,
         height: 56, padding: "0 16px",
-        background: dark ? "#161616" : "#FFFFFF",
-        borderLeft: "3px solid #B8780A",
-        borderTop: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
-        borderRight: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
-        borderBottom: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
+        background: "#10211e",
+        border: "1px solid #2c4a44",
+        borderLeft: "3px solid #7fe3c8",
         borderRadius: 10,
-        boxShadow: hov
-          ? "0 4px 12px rgba(0,0,0,0.10)"
-          : "0 2px 6px rgba(0,0,0,0.06)",
+        boxShadow: hov ? "0 4px 12px rgba(0,0,0,0.30)" : "0 2px 6px rgba(0,0,0,0.20)",
         transition: "box-shadow 0.15s",
       }}
     >
-      {/* Initial */}
       <div style={{
-        fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-        fontSize: "1.5rem", fontWeight: 700,
-        color: "#B8780A", lineHeight: 1,
+        fontFamily: "'IBM Plex Mono','Courier New',monospace",
+        fontSize: "1.25rem", fontWeight: 700,
+        color: "#7fe3c8", lineHeight: 1,
         minWidth: 28, flexShrink: 0,
       }}>{suggestion.initial}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontFamily: "'Inter', sans-serif",
-          fontSize: "0.9375rem", fontWeight: 600,
-          color: dark ? "#F0EDE8" : "#1C1917",
+          fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 600,
+          color: "#f0f4f1",
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
         }}>{suggestion.text}</div>
         <div style={{
-          fontFamily: "'Sevastopol', Georgia, serif",
-          fontSize: 9, color: dark ? "#6B6866" : "#A89F99",
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 9, color: "#8aa9a2",
           textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 2,
         }}>Tap to search</div>
       </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={dark ? "#6B6866" : "#A89F99"} strokeWidth="2" strokeLinecap="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8aa9a2" strokeWidth="2" strokeLinecap="round">
         <polyline points="9 18 15 12 9 6" />
       </svg>
     </button>
@@ -179,15 +174,13 @@ function NearYouCard({ suggestion, dark, onSearch }: {
 }
 
 // ─── CONTEXT FILTER ───────────────────────────────────────────────────────────
-function ContextFilter({ icon, label, options, value, onChange, dark }: {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function ContextFilter({ icon, label, options, value, onChange, dark: _dark }: {
   icon: string; label: string; options: string[];
   value: string; onChange: (v: string) => void; dark: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const active = !!value;
-  const bg     = dark ? "#1F1F1F" : "#FFFFFF";
-  const bord   = dark ? (active ? "#FFB800" : "#2C2C2C") : (active ? "#B8780A" : "#D4CBC0");
-  const clr    = dark ? (active ? "#FFB800" : "#9A9390") : (active ? "#B8780A" : "#6B6560");
 
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
@@ -196,10 +189,12 @@ function ContextFilter({ icon, label, options, value, onChange, dark }: {
         style={{
           display: "flex", alignItems: "center", gap: 6,
           height: 36, padding: "0 14px",
-          background: bg, border: `1px solid ${bord}`,
+          background: active ? "#1b332e" : "#10211e",
+          border: `1px solid ${active ? "#7fe3c8" : "#2c4a44"}`,
           borderRadius: 20, cursor: "pointer",
-          fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
-          fontWeight: active ? 600 : 400, color: clr,
+          fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem",
+          fontWeight: active ? 600 : 400,
+          color: active ? "#7fe3c8" : "#8aa9a2",
           whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
         }}
       >
@@ -212,10 +207,10 @@ function ContextFilter({ icon, label, options, value, onChange, dark }: {
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 200,
-          background: dark ? "#1A1A1A" : "#FFFFFF",
-          border: `1px solid ${dark ? "#2C2C2C" : "#E8E3DC"}`,
+          background: "#10211e",
+          border: "1px solid #2c4a44",
           borderRadius: 10, padding: 6, minWidth: 140,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.40)",
           display: "flex", flexDirection: "column", gap: 2,
         }}>
           {value && (
@@ -223,22 +218,22 @@ function ContextFilter({ icon, label, options, value, onChange, dark }: {
               style={{
                 background: "none", border: "none", padding: "7px 10px",
                 textAlign: "left", cursor: "pointer", borderRadius: 6,
-                fontFamily: "'Inter', sans-serif", fontSize: "0.8rem",
-                color: dark ? "#EF4444" : "#991B1B",
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem",
+                color: "#d64545",
               }}>Clear</button>
           )}
           {options.map(opt => (
             <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
               style={{
-                background: value === opt ? (dark ? "#2A2010" : "#FDF3E3") : "none",
+                background: value === opt ? "#1b332e" : "none",
                 border: "none", padding: "8px 10px",
                 textAlign: "left", cursor: "pointer", borderRadius: 6,
-                fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
-                color: value === opt ? (dark ? "#FFB800" : "#B8780A") : (dark ? "#F0EDE8" : "#1C1917"),
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.875rem",
+                color: value === opt ? "#7fe3c8" : "#d4e4df",
                 fontWeight: value === opt ? 600 : 400,
                 transition: "background 0.1s",
               }}
-              onMouseEnter={e => { if (value !== opt) (e.currentTarget as HTMLButtonElement).style.background = dark ? "#232323" : "#F7F4F0"; }}
+              onMouseEnter={e => { if (value !== opt) (e.currentTarget as HTMLButtonElement).style.background = "#1b332e"; }}
               onMouseLeave={e => { if (value !== opt) (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
             >{opt}</button>
           ))}
@@ -1280,7 +1275,7 @@ function DishIntel() {
                 <section style={{ paddingTop: 28, paddingBottom: 24 }}>
                   <div style={{
                     fontFamily: "'Sevastopol', Georgia, serif",
-                    fontSize: "0.6875rem", color: "#B8780A",
+                    fontSize: "0.6875rem", color: "#7fe3c8",
                     textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
                   }}>NEAR YOU NOW //</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1295,7 +1290,7 @@ function DishIntel() {
               <section style={{ paddingBottom: 24 }}>
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.6875rem", color: "#B8780A",
+                  fontSize: "0.6875rem", color: "#7fe3c8",
                   textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
                 }}>SELECT QUERY TYPE //</div>
                 <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
@@ -1305,7 +1300,7 @@ function DishIntel() {
               <section style={{ paddingBottom: 32 }}>
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.6875rem", color: "#B8780A",
+                  fontSize: "0.6875rem", color: "#7fe3c8",
                   textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12,
                 }}>SEARCH PARAMETERS //</div>
                 <div style={{
@@ -1504,7 +1499,7 @@ function DishIntel() {
             {/* Amber rule */}
             <div style={{
               height: 1,
-              background: dark ? "#FFB800" : "#C8860A",
+              background: dark ? "#7fe3c8" : "#7fe3c8",
               opacity: dark ? 0.4 : 0.2,
               marginBottom: 12,
             }} />
@@ -1557,14 +1552,14 @@ function DishIntel() {
             <div style={{ fontSize: "0.65rem", color: "#A89F99", letterSpacing: "0.2em", marginBottom: 16 }}>
               DISH REPORT // CACHE
             </div>
-            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#B8780A", letterSpacing: "0.07em", marginBottom: 8 }}>
+            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#7fe3c8", letterSpacing: "0.07em", marginBottom: 8 }}>
               CACHED RESULT FOUND
             </div>
             <div style={{ fontSize: "0.72rem", color: "#6B6560", letterSpacing: "0.06em", marginBottom: 28 }}>
               loading from archive
             </div>
             <div style={{ width: 200, height: 2, background: "rgba(184,120,10,0.15)", borderRadius: 1, margin: "0 auto", overflow: "hidden" }}>
-              <div style={{ height: "100%", background: "#B8780A", borderRadius: 1, animation: "cr-bar 0.7s cubic-bezier(0.4,0,0.2,1) both" }} />
+              <div style={{ height: "100%", background: "#7fe3c8", borderRadius: 1, animation: "cr-bar 0.7s cubic-bezier(0.4,0,0.2,1) both" }} />
             </div>
           </div>
         </div>

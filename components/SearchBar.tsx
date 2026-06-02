@@ -52,33 +52,34 @@ function spellCheck(q: string): string | null {
   return null;
 }
 
-// ─── THEME ────────────────────────────────────────────────────────────────────
-function th(dark: boolean) {
+// ─── THEME — Lumon palette (dark teal inputs always) ──────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function th(_dark: boolean) {
   return {
-    inputBg:       dark ? "#232323" : "#FFFFFF",
-    inputBorder:   dark ? "#3A3A3A" : "#D4CBC0",
-    focusBorder:   dark ? "#FFB800" : "#C8860A",
-    focusShadow:   dark ? "0 0 0 3px #2A2010" : "0 0 0 3px #FDF3E3",
-    text:          dark ? "#F0EDE8" : "#1C1917",
-    placeholder:   dark ? "#4A4846" : "#8B8380",
-    secondary:     dark ? "#9A9390" : "#6B6560",
-    tertiary:      dark ? "#6B6866" : "#A89F99",
-    accent:        dark ? "#FFB800" : "#C8860A",
-    accentHover:   dark ? "#FFC933" : "#A86E08",
-    accentLight:   dark ? "#2A2010" : "#FDF3E3",
-    accentBorder:  dark ? "#4A3810" : "#F0D5A0",
-    sheetBg:       dark ? "#1A1A1A" : "#FFFFFF",
-    sheetBorder:   dark ? "#2C2C2C" : "#E8E3DC",
-    sheetBorder2:  dark ? "#3A3A3A" : "#D4CBC0",
-    pillBg:        "#FDF3E3",
-    pillBorder:    "#F0D5A0",
-    pillText:      "#C8860A",
-    pillBgDark:    "#2A2010",
-    pillBorderDark:"#4A3810",
-    pillTextDark:  "#FFB800",
-    optionHover:   dark ? "#232323" : "#F7F4F0",
-    errorText:     dark ? "#EF4444" : "#991B1B",
-    errorHover:    dark ? "#2D1B1B" : "#FEF2F2",
+    inputBg:        "#10211e",
+    inputBorder:    "#2c4a44",
+    focusBorder:    "#7fe3c8",
+    focusShadow:    "0 0 0 3px rgba(127,227,200,0.15)",
+    text:           "#f0f4f1",
+    placeholder:    "#5f7a74",
+    secondary:      "#d4e4df",
+    tertiary:       "#8aa9a2",
+    accent:         "#7fe3c8",
+    accentHover:    "#5ccfb0",
+    accentLight:    "#1b332e",
+    accentBorder:   "#2c4a44",
+    sheetBg:        "#10211e",
+    sheetBorder:    "#2c4a44",
+    sheetBorder2:   "#3d5c55",
+    pillBg:         "#1b332e",
+    pillBorder:     "#2c4a44",
+    pillText:       "#8aa9a2",
+    pillBgDark:     "#1b332e",
+    pillBorderDark: "#2c4a44",
+    pillTextDark:   "#8aa9a2",
+    optionHover:    "#1b332e",
+    errorText:      "#d64545",
+    errorHover:     "rgba(214,69,69,0.08)",
   };
 }
 
@@ -274,7 +275,7 @@ function FilterSheet({
             onClick={() => { onChange(local); onClose(); }}
             style={{
               width: "100%", background: t.accent, border: "none",
-              borderRadius: 10, color: "#FFFFFF",
+              borderRadius: 10, color: "#10211e",
               fontFamily: "'Inter', sans-serif", fontSize: "1rem",
               fontWeight: 600, padding: "14px", cursor: "pointer",
               minHeight: 52, transition: "background 0.15s",
@@ -297,9 +298,9 @@ function FilterTags({
   dark: boolean;
 }) {
   const tags: { label: string; onRemove: () => void }[] = [];
-  const pillBg     = dark ? "#2A2010" : "#FDF3E3";
-  const pillBorder = dark ? "#4A3810" : "#F0D5A0";
-  const pillColor  = dark ? "#FFB800" : "#C8860A";
+  const pillBg     = dark ? "#1b332e" : "#1b332e";
+  const pillBorder = dark ? "#2c4a44" : "#2c4a44";
+  const pillColor  = dark ? "#7fe3c8" : "#7fe3c8";
 
   if (filters.dineMode)
     tags.push({ label: filters.dineMode.charAt(0).toUpperCase() + filters.dineMode.slice(1), onRemove: () => onChange({ ...filters, dineMode: null }) });
@@ -525,7 +526,7 @@ export function SearchBar({
               <div style={{
                 position: "absolute", top: 8, right: 8,
                 width: 16, height: 16, borderRadius: "50%",
-                background: t.accent, color: "#FFFFFF",
+                background: t.accent, color: "#10211e",
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: "0.58rem", fontWeight: 700,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -541,7 +542,7 @@ export function SearchBar({
         <div style={{
           fontFamily: "'Sevastopol', Georgia, serif",
           fontSize: "0.56rem", fontWeight: 400,
-          color: dark ? "#FFB800" : "#C8860A",
+          color: dark ? "#7fe3c8" : "#7fe3c8",
           textTransform: "uppercase", letterSpacing: "0.2em",
           whiteSpace: "nowrap", flexShrink: 0,
           animation: "dr-blink 1.5s ease-in-out infinite",
@@ -565,15 +566,15 @@ export function SearchBar({
             onClick={() => { setQuery(suggestion); fireSearch(suggestion); }}
             style={{
               display: "inline-flex", alignItems: "center",
-              background: dark ? "#2A2010" : "#FDF3E3",
-              border: `1px solid ${dark ? "#4A3810" : "#F0D5A0"}`,
+              background: dark ? "#1b332e" : "#1b332e",
+              border: `1px solid ${dark ? "#2c4a44" : "#2c4a44"}`,
               borderRadius: 20, padding: "4px 14px",
               fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
-              fontWeight: 600, color: dark ? "#FFB800" : "#C8860A",
+              fontWeight: 600, color: dark ? "#7fe3c8" : "#7fe3c8",
               cursor: "pointer", transition: "background 0.15s",
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#F0D5A0"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = dark ? "#2A2010" : "#FDF3E3"; }}
+            onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#2c4a44"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = dark ? "#1b332e" : "#1b332e"; }}
           >{suggestion}?</button>
 
           <button
@@ -624,15 +625,15 @@ export function NarrowingFlow({
   if (!current) return null;
 
   // Theme
-  const accent      = dark ? "#FFB800" : "#B8780A";
-  const accentLight = dark ? "rgba(255,184,0,0.12)" : "#FDF3E3";
-  const accentBdr   = dark ? "rgba(255,184,0,0.35)" : "#F0D5A0";
-  const panelBg     = dark ? "#161616" : "#FFFFFF";
-  const border      = dark ? "#2C2C2C" : "#E8E3DC";
-  const border2     = dark ? "#3A3A3A" : "#D4CBC0";
-  const textClr     = dark ? "#F0EDE8" : "#1C1917";
-  const secondaryClr= dark ? "#9A9390" : "#6B6560";
-  const tertiaryClr = dark ? "#6B6866" : "#A89F99";
+  const accent      = dark ? "#7fe3c8" : "#7fe3c8";
+  const accentLight = dark ? "rgba(255,184,0,0.12)" : "#1b332e";
+  const accentBdr   = dark ? "rgba(255,184,0,0.35)" : "#2c4a44";
+  const panelBg     = dark ? "#10211e" : "#10211e";
+  const border      = dark ? "#2c4a44" : "#2c4a44";
+  const border2     = dark ? "#3d5c55" : "#3d5c55";
+  const textClr     = dark ? "#F0EDE8" : "#d4e4df";
+  const secondaryClr= dark ? "#8aa9a2" : "#d4e4df";
+  const tertiaryClr = dark ? "#8aa9a2" : "#8aa9a2";
 
   const pick = (opt: string) => {
     const next = [...answers, opt];
@@ -782,19 +783,19 @@ export function DeepDiveInputs({
   onMarketGuide: (name: string, city: string) => void;
   dark?: boolean;
 }) {
-  const accent      = dark ? "#FFB800" : "#C8860A";
-  const accentHov   = dark ? "#FFC933" : "#A86E08";
-  const accentLight = dark ? "#2A2010" : "#FDF3E3";
-  const accentBdr   = dark ? "#4A3810" : "#F0D5A0";
-  const cardBg      = dark ? "#1A1A1A" : "#FFFFFF";
-  const elevBg      = dark ? "#232323" : "#FDFCFB";
-  const borderColor = dark ? "#2A2A2A" : "#E8E3DC";
-  const borderStrong= dark ? "#3A3A3A" : "#D4CBC0";
-  const textColor   = dark ? "#F0EDE8" : "#1C1917";
-  const mutedColor  = dark ? "#9A9390" : "#6B6560";
-  const dimColor    = dark ? "#6B6866" : "#A89F99";
-  const focusBdr    = dark ? "#FFB800" : "#C8860A";
-  const focusShadow = dark ? "0 0 0 3px #2A2010" : "0 0 0 3px #FDF3E3";
+  const accent      = dark ? "#7fe3c8" : "#7fe3c8";
+  const accentHov   = dark ? "#FFC933" : "#5ccfb0";
+  const accentLight = dark ? "#1b332e" : "#1b332e";
+  const accentBdr   = dark ? "#2c4a44" : "#2c4a44";
+  const cardBg      = dark ? "#10211e" : "#10211e";
+  const elevBg      = dark ? "#1b332e" : "#FDFCFB";
+  const borderColor = dark ? "#2A2A2A" : "#2c4a44";
+  const borderStrong= dark ? "#3d5c55" : "#3d5c55";
+  const textColor   = dark ? "#F0EDE8" : "#d4e4df";
+  const mutedColor  = dark ? "#8aa9a2" : "#d4e4df";
+  const dimColor    = dark ? "#8aa9a2" : "#8aa9a2";
+  const focusBdr    = dark ? "#7fe3c8" : "#7fe3c8";
+  const focusShadow = dark ? "0 0 0 3px #1b332e" : "0 0 0 3px #1b332e";
   const successColor= dark ? "#52D68A" : "#166534";
   const successBg   = dark ? "rgba(46,204,113,0.08)" : "rgba(22,101,52,0.06)";
   const successBdr  = dark ? "rgba(46,204,113,0.25)" : "rgba(22,101,52,0.2)";
@@ -848,7 +849,7 @@ export function DeepDiveInputs({
           alignSelf: "flex-start",
           display: "flex", alignItems: "center", gap: 8,
           background: accent, border: "none", borderRadius: 8,
-          color: dark ? "#000" : "#FFFFFF",
+          color: dark ? "#000" : "#10211e",
           fontFamily: "'Inter', sans-serif", fontSize: "0.875rem",
           fontWeight: 600, padding: "10px 20px", height: 42,
           cursor: !ddName.trim() || !isIdle || confirming ? "not-allowed" : "pointer",
@@ -862,8 +863,8 @@ export function DeepDiveInputs({
           <>
             <div style={{
               width: 12, height: 12, borderRadius: "50%",
-              border: `2px solid ${dark ? "#000" : "#FFFFFF"}44`,
-              borderTopColor: dark ? "#000" : "#FFFFFF",
+              border: `2px solid ${dark ? "#000" : "#10211e"}44`,
+              borderTopColor: dark ? "#000" : "#10211e",
               animation: "spin 0.7s linear infinite", flexShrink: 0,
             }} />
             Finding...
@@ -903,7 +904,7 @@ export function DeepDiveInputs({
                     fontWeight: 600, padding: "9px 12px", borderRadius: 8,
                     cursor: "pointer", textAlign: "center", transition: "background 0.15s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#F0D5A0"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#2c4a44"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = accentLight; }}
                 >Deep Dive</button>
                 <button

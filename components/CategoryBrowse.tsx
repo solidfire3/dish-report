@@ -79,9 +79,9 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
   const panelBord  = dark ? "#2C2C2C" : "#E8E3DC";
   const panelText  = dark ? "#F0EDE8" : "#1C1917";
   const panelSec   = dark ? "#9A9390" : "#6B6560";
-  const accentClr  = dark ? "#FFB800" : "#B8780A";
-  const accentBg   = dark ? "#2A2010" : "#FDF3E3";
-  const accentBord = dark ? "#4A3810" : "#F0D5A0";
+  const accentClr  = dark ? "#7fe3c8" : "#7fe3c8";
+  const accentBg   = dark ? "#1b332e" : "#1b332e";
+  const accentBord = dark ? "#2c4a44" : "#2c4a44";
 
   const panelCatData = CATEGORIES.find(c => c.id === panelCat);
 
@@ -242,7 +242,7 @@ export function Browse({ onSelect, disabled = false, dark: darkProp }: BrowsePro
                         color: accentClr, cursor: "pointer", minHeight: 44,
                         transition: "background 0.15s, border-color 0.15s",
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = dark ? "#3A2A15" : "#F0D5A0"; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = dark ? "#24433e" : "#2c4a44"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = accentBg; }}
                     >{dish}</button>
                   ))}

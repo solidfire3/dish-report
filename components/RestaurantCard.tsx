@@ -430,7 +430,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
           {r.rank != null && (
             <div style={{
               position: "absolute", top: 8, left: 8,
-              background: "#B8780A", color: "#FFFFFF",
+              background: "#7fe3c8", color: "#FFFFFF",
               fontFamily: "var(--font-orbitron), 'Courier New', monospace",
               fontSize: "0.875rem", fontWeight: 700,
               padding: "4px 12px", borderRadius: 12,
@@ -601,7 +601,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
             <div style={{ padding: "10px 20px 0" }}>
               <div style={{
                 fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem",
-                fontWeight: 400, color: "#B8780A",
+                fontWeight: 400, color: "#7fe3c8",
                 textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4,
               }}>Why it ranks here</div>
               <div style={{
@@ -618,18 +618,18 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
             <div style={{ padding: "10px 20px 16px" }}>
               <div style={{
                 fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem",
-                fontWeight: 400, color: "#B8780A",
+                fontWeight: 400, color: "#7fe3c8",
                 textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8,
               }}>Must Order</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
                   width: 48, height: 48, borderRadius: 8, flexShrink: 0,
-                  background: "#FDF3E3", border: "1px solid #F0D5A0",
+                  background: "#1b332e", border: "1px solid #2c4a44",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   <span style={{
                     fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                    fontSize: "1.25rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                    fontSize: "1.25rem", fontWeight: 900, color: "#7fe3c8", lineHeight: 1,
                   }}>{((firstMo.item || "?")[0] || "?").toUpperCase()}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -709,13 +709,13 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                       ) : (
                         <div style={{
                           width: 64, height: 64, borderRadius: 8, flexShrink: 0,
-                          background: `radial-gradient(circle, #F0D5A0 1px, transparent 1px) #FDF3E3`,
+                          background: `radial-gradient(circle, #2c4a44 1px, transparent 1px) #1b332e`,
                           backgroundSize: "10px 10px",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
                           <span style={{
                             fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                            fontSize: "1.1rem", fontWeight: 900, color: "#B8780A", lineHeight: 1,
+                            fontSize: "1.1rem", fontWeight: 900, color: "#7fe3c8", lineHeight: 1,
                           }}>{((mo?.item || "?")[0] || "?").toUpperCase()}</span>
                         </div>
                       )}
