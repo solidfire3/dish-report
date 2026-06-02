@@ -159,12 +159,12 @@ export function Photo({ name }: { name?: string; domain?: string; rank?: number;
   const initial = (name || "?").split(" ").find(w => w.length > 0)?.[0]?.toUpperCase() || "?";
   return (
     <div style={{
-      width: "100%", height: "100%", background: "#E8E3DC",
+      width: "100%", height: "100%", background: "#1b332e",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div style={{
-        fontFamily: "'Playfair Display',Georgia,serif",
-        fontSize: "3rem", fontWeight: 700, color: "#A89F99",
+        fontFamily: "var(--font-orbitron),'Courier New',monospace",
+        fontSize: "3rem", fontWeight: 900, color: "#7fe3c8", opacity: 0.4,
         lineHeight: 1, userSelect: "none",
       }}>{initial}</div>
     </div>
@@ -594,9 +594,9 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
             <div style={{ padding: "0 20px 6px" }}>
               <span style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: "0.65rem", color: "#A89F99",
-                background: "rgba(168,159,153,0.1)",
-                border: "1px solid rgba(168,159,153,0.25)",
+                fontSize: "0.65rem", color: "#8aa9a2",
+                background: "rgba(138,169,162,0.10)",
+                border: "1px solid rgba(138,169,162,0.22)",
                 borderRadius: 4, padding: "2px 7px",
                 letterSpacing: "0.04em",
               }}>limited signal</span>

@@ -259,8 +259,8 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                               background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4,
                             }}>
                               <span style={{
-                                fontFamily: "'Sevastopol', Georgia, serif",
-                                fontSize: 9, color: "#10211e",
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                fontSize: 9, color: "#d4e4df",
                                 textTransform: "uppercase", letterSpacing: "0.15em",
                               }}>ESTABLISHMENT</span>
                             </div>
@@ -344,11 +344,12 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 if (!label) return null;
                 return (
                   <span key={i} style={{
-                    fontFamily: "'Sevastopol', Georgia, serif",
-                    fontSize: "0.625rem", fontWeight: 400,
-                    background: dark ? "#1b332e" : "#d4e4df",
-                    color: "#7fe3c8",
-                    padding: "6px 12px", borderRadius: 4,
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: "0.625rem", fontWeight: 600,
+                    background: "#1b332e",
+                    border: "1px solid #2c4a44",
+                    color: "#9fe3c8",
+                    padding: "5px 11px", borderRadius: 4,
                     textTransform: "uppercase", letterSpacing: "0.12em",
                     whiteSpace: "nowrap", display: "inline-flex",
                   }}>{label}</span>
@@ -550,22 +551,29 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             </div>
           )}
 
-          {/* ALSO WORTH ORDERING */}
+          {/* ALSO WORTH ORDERING — dark card wrapper matching Must Order / Insider Tips */}
           {also.length > 0 && (
             <div style={{ paddingTop: 28 }}>
-              {SL("Also Worth Ordering")}
-              {also.filter((a): a is NonNullable<AlsoTry> => a != null).map((a, j) => {
-                const name = typeof a === "string" ? a : (a?.dish || "");
-                const note = typeof a === "object" ? a?.note : undefined;
-                if (!name) return null;
-                return (
-                  <div key={j}>
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: t.text, marginBottom: note ? 4 : 0 }}>{name}</div>
-                    {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.55 }}>{note}</div>}
-                    {j < also.length - 1 && <div style={{ height: 1, background: t.border, margin: "12px 0" }} />}
-                  </div>
-                );
-              })}
+              {SL("Also Worth Ordering", "#9fe3c8")}
+              <div style={{
+                background: t.card, border: `1px solid ${t.border}`,
+                borderRadius: 10, overflow: "hidden", boxShadow: t.s1,
+              }}>
+                {also.filter((a): a is NonNullable<AlsoTry> => a != null).map((a, j, arr) => {
+                  const name = typeof a === "string" ? a : (a?.dish || "");
+                  const note = typeof a === "object" ? a?.note : undefined;
+                  if (!name) return null;
+                  return (
+                    <div key={j} style={{
+                      padding: "12px 16px",
+                      borderBottom: j < arr.length - 1 ? `1px solid ${t.border}` : "none",
+                    }}>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: t.text, marginBottom: note ? 4 : 0 }}>{name}</div>
+                      {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.55 }}>{note}</div>}
+                    </div>
+                  );
+                })}
+              </div>
               <Divider />
             </div>
           )}

@@ -314,7 +314,7 @@ export function LoadingTracker({
           {!verifying && (
             <div style={{
               borderTop: "1px solid #2c4a44", marginTop: 10, paddingTop: 8,
-              fontSize: 8.5, color: "#5f857d", letterSpacing: "0.04em",
+              fontSize: 8.5, color: "#8aa9a2", letterSpacing: "0.04em",
             }}>{feedText}</div>
           )}
         </div>
