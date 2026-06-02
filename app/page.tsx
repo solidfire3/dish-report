@@ -267,19 +267,22 @@ function SectionContent({ dark, isSearching, handleBrowse }: { dark: boolean; is
     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
   };
+  // Match the hero filter pill style exactly
   const dishChip = (label: string) => (
     <button
       key={label}
       onClick={() => handleBrowse(label)}
       style={{
-        background: "#10211e", border: "1px solid #2c4a44",
-        borderRadius: 20, padding: "7px 14px",
-        fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.75rem",
-        color: "#d4e4df", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-        transition: "border-color 0.15s, color 0.15s",
+        background: "#1b332e", border: "1px solid #2c4a44",
+        borderRadius: 20, padding: "0 14px", height: 30,
+        fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+        color: "#7fe3c8", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+        textTransform: "uppercase", letterSpacing: "0.12em",
+        transition: "background 0.15s",
+        display: "flex", alignItems: "center",
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; e.currentTarget.style.color = "#7fe3c8"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "#2c4a44"; e.currentTarget.style.color = "#d4e4df"; }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "#1b332e"; }}
     >{label}</button>
   );
   return (
@@ -1349,7 +1352,7 @@ function DishIntel() {
                     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
                   }}>NEAR YOU NOW</div>
                   <div style={{
-                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7,
                   }}>
                     {suggestions.slice(0, 6).map((s, i) => (
                       <button
@@ -1357,9 +1360,9 @@ function DishIntel() {
                         onClick={() => handleBrowse(s.text)}
                         style={{
                           background: "#10211e", border: "1px solid #2c4a44",
-                          borderRadius: 10, padding: "14px 12px",
+                          borderRadius: 8, padding: "9px 10px",
                           textAlign: "left", cursor: "pointer",
-                          aspectRatio: "1",
+                          height: 76,
                           display: "flex", flexDirection: "column", justifyContent: "space-between",
                           transition: "border-color 0.15s",
                         }}
@@ -1368,14 +1371,14 @@ function DishIntel() {
                       >
                         <div style={{
                           fontFamily: "'IBM Plex Mono',monospace",
-                          fontSize: "1.4rem", fontWeight: 700, color: "#7fe3c8", lineHeight: 1,
+                          fontSize: "0.95rem", fontWeight: 700, color: "#7fe3c8", lineHeight: 1,
                         }}>{s.initial}</div>
                         <div style={{
                           fontFamily: "'Playfair Display',serif",
-                          fontSize: "0.78rem", fontWeight: 700, color: "#f0f4f1",
-                          lineHeight: 1.3,
+                          fontSize: "0.68rem", fontWeight: 700, color: "#f0f4f1",
+                          lineHeight: 1.25,
                           overflow: "hidden", display: "-webkit-box",
-                          WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const,
+                          WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
                         }}>{s.text}</div>
                       </button>
                     ))}

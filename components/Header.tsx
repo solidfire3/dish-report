@@ -113,9 +113,12 @@ export function Header({
 
   // ── Nav panel items ─────────────────────────────────────────────────────────
   const navItems: { label: string; sub: string; onClick: () => void }[] = [
-    { label: "My Searches", sub: "Recent dish searches", onClick: () => { setShowNav(false); router.push("/dashboard/searches"); } },
-    { label: "My Lists",    sub: "Saved collections",   onClick: () => { setShowNav(false); router.push("/dashboard/lists"); } },
-    { label: "Favorites",   sub: "Saved spots",         onClick: () => { setShowNav(false); onFavsClick?.(); } },
+    { label: "Home",        sub: "Back to search",       onClick: () => { setShowNav(false); router.push("/"); } },
+    { label: "Favorites",   sub: "Saved spots",          onClick: () => { setShowNav(false); onFavsClick?.(); } },
+    { label: "My Lists",    sub: "Saved collections",    onClick: () => { setShowNav(false); router.push("/dashboard/lists"); } },
+    { label: "My Searches", sub: "Recent searches",      onClick: () => { setShowNav(false); router.push("/dashboard/searches"); } },
+    { label: "About",       sub: "How Dish Report works",onClick: () => { setShowNav(false); router.push("/about"); } },
+    { label: "Help",        sub: "Report an issue",      onClick: () => { setShowNav(false); router.push("/help"); } },
   ];
 
   return (
@@ -129,6 +132,12 @@ export function Header({
           @media (max-width: 640px) { .dr-brand-tagline { font-size: 11px; } }
           .dr-row1 { display: flex; align-items: center; gap: 12px; padding: 0 20px; height: 64px; }
           @media (max-width: 640px) { .dr-row1 { height: 56px; padding: 0 16px; } }
+          /* Desktop nav links — hidden on mobile */
+          .dr-desktop-nav { display: flex; align-items: center; gap: 2px; }
+          @media (max-width: 768px) { .dr-desktop-nav { display: none; } }
+          /* Mobile: hide sign-in CTA text, show icon only */
+          .dr-signin-label { display: inline; }
+          @media (max-width: 640px) { .dr-signin-label { display: none; } }
         `}</style>
 
         <div className="dr-row1">
@@ -137,7 +146,6 @@ export function Header({
 
           {/* Logo + brand mark */}
           <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, userSelect: "none" }}>
-            {/* Document-on-plate logo */}
             <svg viewBox="0 0 56 56" width="28" height="28" style={{ flexShrink: 0 }}>
               <path d="M8 40 q20 9 40 0" fill="none" stroke="#2f4f49" strokeWidth="2" strokeLinecap="round"/>
               <ellipse cx="28" cy="40" rx="20" ry="5" fill="none" stroke="#2f4f49" strokeWidth="1.2" opacity=".45"/>
@@ -159,17 +167,74 @@ export function Header({
             </div>
           </div>
 
+          {/* Desktop nav links */}
+          <nav className="dr-desktop-nav" style={{ marginLeft: 16 }}>
+            {[
+              { label: "HOME",      action: () => router.push("/") },
+              { label: "FAVORITES", action: () => onFavsClick?.() },
+              { label: "LISTS",     action: () => router.push("/dashboard/lists") },
+              { label: "ABOUT",     action: () => router.push("/about") },
+              { label: "HELP",      action: () => router.push("/help") },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "'IBM Plex Mono',monospace",
+                  fontSize: 10, letterSpacing: "0.16em",
+                  color: secondary, padding: "6px 10px", borderRadius: 6,
+                  transition: "color 0.15s, background 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = accent; e.currentTarget.style.background = "rgba(127,227,200,0.07)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = secondary; e.currentTarget.style.background = "none"; }}
+              >{item.label}</button>
+            ))}
+          </nav>
+
           <div style={{ flex: 1 }} />
 
           {/* Right controls */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
 
-            {/* Version */}
-            <div style={{
-              fontFamily: "'Sevastopol', Georgia, serif",
-              fontSize: 9, color: tertiary, letterSpacing: "0.12em",
-              userSelect: "none", whiteSpace: "nowrap",
-            }}>· v1.4</div>
+            {/* Sign In CTA (when not signed in) / Account indicator (when signed in) */}
+            {user ? (
+              <button
+                onClick={() => { setShowNav(true); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: accentLight, border: `1px solid ${accentBorder}`,
+                  borderRadius: 20, padding: "5px 12px",
+                  fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                  letterSpacing: "0.10em", color: accent, cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = accentLight; }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span className="dr-signin-label">ACCOUNT</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/auth/signin")}
+                style={{
+                  background: "#3d6b62", border: "1px solid #4d8377",
+                  borderRadius: 20, padding: "5px 14px",
+                  fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                  letterSpacing: "0.10em", color: "#eafaf4", cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#4d8377"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#3d6b62"; }}
+              >
+                <span className="dr-signin-label">SIGN IN</span>
+                <span style={{ display: "none" }} className="dr-mobile-icon">→</span>
+              </button>
+            )}
 
             {/* ONLINE indicator (replaces dark mode toggle) */}
             <span style={{

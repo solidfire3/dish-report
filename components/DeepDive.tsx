@@ -385,7 +385,6 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 fontSize: "4rem", fontWeight: 900, color: clr, lineHeight: 1,
               }}>{(data.food_score ?? 5).toFixed(1)}</div>
               <div style={{ width: 60, height: 2, background: clr, borderRadius: 1 }} />
-              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#9fe3c8", letterSpacing: "0.06em" }}>{scoreTierLabel(data.food_score ?? 5)}</div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6875rem", color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em" }}>ANALYTICAL SCORE</div>
               {/* Confidence indicator */}
               {data.confidence && (

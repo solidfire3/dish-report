@@ -455,12 +455,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                     fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
                   }}>{score.toFixed(1)}</div>
                   <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
-                  <div style={{
-                    fontFamily: "'IBM Plex Mono',monospace",
-                    fontSize: "0.6rem", fontWeight: 600,
-                    color: "#9fe3c8", letterSpacing: "0.04em",
-                    textAlign: "center", whiteSpace: "nowrap",
-                  }}>{scoreTierLabel(score)}</div>
+
                 </div>
               );
             })()}
