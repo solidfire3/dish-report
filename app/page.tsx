@@ -1450,6 +1450,9 @@ function DishIntel() {
       {isSearching && (
         <LoadingTracker
           query={loadingQuery}
+          dish={searchedDish || loadingQuery}
+          location={city}
+          radius={radius}
           apiDone={apiComplete}
           onDone={handleAnalysisDone}
           onStop={stopSearch}
