@@ -49,10 +49,8 @@ const ChevronRightNav = () => (
 );
 
 // ─── BACK BUTTON ─────────────────────────────────────────────────────────────
-export function BackBtn({ onBack, dark = false }: { onBack: () => void; dark?: boolean }) {
-  const borderColor = dark ? "#3A3A3A" : "#D4CBC0";
-  const color       = dark ? "#9A9390" : "#6B6560";
-  const accentColor = dark ? "#FFB800" : "#B8780A";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function BackBtn({ onBack, dark: _dark = false }: { onBack: () => void; dark?: boolean }) {
   return (
     <button
       onClick={onBack}
@@ -60,11 +58,11 @@ export function BackBtn({ onBack, dark = false }: { onBack: () => void; dark?: b
       style={{
         display: "flex", alignItems: "center", justifyContent: "center",
         width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-        background: "transparent", border: `1px solid ${borderColor}`,
-        color, cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
+        background: "transparent", border: "1px solid #b9c4bf",
+        color: "#7a8e8a", cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
       }}
-      onMouseEnter={e => { e.currentTarget.style.color = accentColor; e.currentTarget.style.borderColor = accentColor; }}
-      onMouseLeave={e => { e.currentTarget.style.color = color; e.currentTarget.style.borderColor = borderColor; }}
+      onMouseEnter={e => { e.currentTarget.style.color = "#7fe3c8"; e.currentTarget.style.borderColor = "#7fe3c8"; }}
+      onMouseLeave={e => { e.currentTarget.style.color = "#7a8e8a"; e.currentTarget.style.borderColor = "#b9c4bf"; }}
     ><ChevronLeftIcon /></button>
   );
 }
@@ -100,19 +98,18 @@ export function Header({
 
   const [showNav, setShowNav] = useState(false);
 
-  // ── Theme ───────────────────────────────────────────────────────────────────
-  const bg          = dark ? "#161616" : "#EDE8E0";
-  const border      = dark ? "#2C2C2C" : "#D4CBC0";
-  const borderStrong = dark ? "#3A3A3A" : "#C8B8A8";
-  const text        = dark ? "#F0EDE8" : "#1C1917";
-  const secondary   = dark ? "#9A9390" : "#6B6560";
-  const tertiary    = dark ? "#6B6866" : "#A89F99";
-  const accent      = dark ? "#FFB800" : "#B8780A";
-  const accentLight = dark ? "#2A2010" : "#FDF3E3";
-  const accentBorder = dark ? "#4A3810" : "#F0D5A0";
-  const shadow      = dark
-    ? "0 2px 8px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.30)"
-    : "0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)";
+  // ── Lumon theme — bone header, dark teal nav panel ─────────────────────────
+  void dark; // dark mode toggle removed; Lumon theme is always applied
+  const bg           = "#e8ece8";
+  const border       = "#c4cdc8";
+  const borderStrong = "#b9c4bf";
+  const text         = "#23413b";
+  const secondary    = "#7a8e8a";
+  const tertiary     = "#8aa9a2";
+  const accent       = "#7fe3c8";
+  const accentLight  = "#1b332e";
+  const accentBorder = "#2c4a44";
+  const shadow       = "0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)";
 
   // ── Nav panel items ─────────────────────────────────────────────────────────
   const navItems: { label: string; sub: string; onClick: () => void }[] = [
@@ -141,21 +138,19 @@ export function Header({
           {/* Brand mark */}
           <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, userSelect: "none" }}>
             <div style={{
-              fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-              fontSize: "2rem", fontWeight: 900, lineHeight: 1,
-              color: dark ? "#FFB800" : "#1C1917", letterSpacing: "0.04em",
-              textShadow: dark ? "0 0 14px rgba(255,184,0,0.4)" : "none",
+              fontFamily: "'IBM Plex Mono','Courier New',monospace",
+              fontSize: "1.1rem", fontWeight: 700, lineHeight: 1,
+              color: "#2f4f49", letterSpacing: "0.28em",
             }}>DISH REPORT</div>
             <div style={{
-              height: 1, background: dark ? "#FFB800" : "#B8780A",
-              opacity: dark ? 0.6 : 0.45, margin: "3px 0",
-              boxShadow: dark ? "0 0 4px rgba(255,184,0,0.4)" : "none",
+              height: 1, background: "#3d6b62",
+              opacity: 0.5, margin: "3px 0",
             }} />
             <div className="dr-brand-tagline" style={{
-              fontFamily: "'Sevastopol', Georgia, serif",
-              fontSize: 10,
-              color: dark ? "rgba(255,184,0,0.7)" : "#B8780A",
-              textTransform: "uppercase", letterSpacing: "0.35em", lineHeight: 1,
+              fontFamily: "'IBM Plex Mono','Courier New',monospace",
+              fontSize: 8,
+              color: "#7a8e8a",
+              textTransform: "uppercase", letterSpacing: "0.30em", lineHeight: 1,
             }}>FOOD INTELLIGENCE</div>
           </div>
 
@@ -171,19 +166,14 @@ export function Header({
               userSelect: "none", whiteSpace: "nowrap",
             }}>· v1.4</div>
 
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleDark}
-              aria-label={dark ? "Light mode" : "Dark mode"}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                background: "transparent", border: `1px solid ${borderStrong}`,
-                color: secondary, cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = accent; e.currentTarget.style.borderColor = accent; }}
-              onMouseLeave={e => { e.currentTarget.style.color = secondary; e.currentTarget.style.borderColor = borderStrong; }}
-            >{dark ? <SunIcon /> : <MoonIcon />}</button>
+            {/* ONLINE indicator (replaces dark mode toggle) */}
+            <span style={{
+              fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#3fd98a",
+              letterSpacing: "0.12em", display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3fd98a", display: "inline-block" }} />
+              ONLINE
+            </span>
 
             {/* Hamburger */}
             <button
@@ -212,11 +202,11 @@ export function Header({
         }}
       />
 
-      {/* ── Nav panel ─────────────────────────────────────────────────────── */}
+      {/* ── Nav panel — dark teal ─────────────────────────────────────────── */}
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0, width: 300,
-        background: "#0A0A0A",
-        borderLeft: "1px solid #2C2C2C",
+        background: "#10211e",
+        borderLeft: "1px solid #2c4a44",
         zIndex: 9900,
         transform: showNav ? "translateX(0)" : "translateX(100%)",
         transition: "transform 0.3s ease-out",
@@ -226,43 +216,43 @@ export function Header({
         {/* Panel header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "20px 20px 16px", borderBottom: "1px solid #1C1C1C",
+          padding: "20px 20px 16px", borderBottom: "1px solid #2c4a44",
         }}>
           <div>
             <div style={{
-              fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-              fontSize: "1.1rem", fontWeight: 900, color: "#FFB800",
-              letterSpacing: "0.04em", lineHeight: 1,
+              fontFamily: "'IBM Plex Mono','Courier New',monospace",
+              fontSize: "1rem", fontWeight: 700, color: "#7fe3c8",
+              letterSpacing: "0.26em", lineHeight: 1,
             }}>DISH REPORT</div>
             <div style={{
-              fontFamily: "'Sevastopol', Georgia, serif",
-              fontSize: 8, color: "rgba(255,184,0,0.5)",
-              letterSpacing: "0.3em", textTransform: "uppercase", marginTop: 4,
+              fontFamily: "'IBM Plex Mono',monospace",
+              fontSize: 8, color: "#5f857d",
+              letterSpacing: "0.28em", textTransform: "uppercase", marginTop: 4,
             }}>NAVIGATION</div>
           </div>
           <button
             onClick={() => setShowNav(false)}
             style={{
-              background: "none", border: "1px solid #2C2C2C", borderRadius: 8,
-              color: "#6B6866", cursor: "pointer", width: 36, height: 36,
+              background: "none", border: "1px solid #2c4a44", borderRadius: 8,
+              color: "#8aa9a2", cursor: "pointer", width: 36, height: 36,
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "color 0.15s, border-color 0.15s",
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#FFB800"; e.currentTarget.style.borderColor = "#FFB800"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "#6B6866"; e.currentTarget.style.borderColor = "#2C2C2C"; }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#7fe3c8"; e.currentTarget.style.borderColor = "#7fe3c8"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "#8aa9a2"; e.currentTarget.style.borderColor = "#2c4a44"; }}
           ><XIcon /></button>
         </div>
 
         {/* User info */}
         {user && (
           <div style={{
-            padding: "14px 20px", borderBottom: "1px solid #1C1C1C",
-            fontFamily: "'Sevastopol', Georgia, serif",
+            padding: "14px 20px", borderBottom: "1px solid #2c4a44",
+            fontFamily: "'IBM Plex Mono',monospace",
           }}>
-            <div style={{ fontSize: 8, color: "rgba(255,184,0,0.5)", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 4 }}>
+            <div style={{ fontSize: 8, color: "#5f857d", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 4 }}>
               SIGNED IN AS
             </div>
-            <div style={{ fontSize: "0.8rem", color: "#9A9390", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: "0.8rem", color: "#d4e4df", overflow: "hidden", textOverflow: "ellipsis" }}>
               {user.email}
             </div>
           </div>
@@ -281,18 +271,18 @@ export function Header({
                 borderBottom: "1px solid #111",
                 transition: "background 0.15s",
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#161616"; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1b332e"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
             >
               <div style={{ textAlign: "left" }}>
                 <div style={{
-                  fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                  fontSize: "0.75rem", fontWeight: 400, color: "#F0EDE8",
-                  letterSpacing: "0.02em", marginBottom: 2,
+                  fontFamily: "'IBM Plex Mono','Courier New',monospace",
+                  fontSize: "0.8rem", fontWeight: 500, color: "#f0f4f1",
+                  letterSpacing: "0.06em", marginBottom: 2,
                 }}>{item.label}</div>
                 <div style={{
-                  fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: 9, color: "#6B6866", letterSpacing: "0.12em",
+                  fontFamily: "'IBM Plex Mono',monospace",
+                  fontSize: 9, color: "#5f857d", letterSpacing: "0.12em",
                   textTransform: "uppercase",
                 }}>{item.sub}</div>
               </div>
@@ -302,35 +292,35 @@ export function Header({
         </nav>
 
         {/* Sign in / out */}
-        <div style={{ padding: "16px 20px", borderTop: "1px solid #1C1C1C" }}>
+        <div style={{ padding: "16px 20px", borderTop: "1px solid #2c4a44" }}>
           {user ? (
             <button
               onClick={() => { setShowNav(false); onSignOut(); }}
               style={{
                 width: "100%", background: "none",
-                border: "1px solid rgba(239,68,68,0.3)",
+                border: "1px solid rgba(214,69,69,0.35)",
                 borderRadius: 8, padding: "12px",
-                color: "#EF4444", cursor: "pointer",
-                fontFamily: "'Sevastopol', Georgia, serif",
-                fontSize: 10, letterSpacing: "0.2em",
+                color: "#d64545", cursor: "pointer",
+                fontFamily: "'IBM Plex Mono',monospace",
+                fontSize: 10, letterSpacing: "0.22em",
                 textTransform: "uppercase", transition: "background 0.15s",
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(214,69,69,0.08)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
             >SIGN OUT</button>
           ) : (
             <button
               onClick={() => { setShowNav(false); router.push("/auth/signin"); }}
               style={{
-                width: "100%", background: "#FFB800",
-                border: "none", borderRadius: 8, padding: "12px",
-                color: "#0A0A0A", cursor: "pointer",
-                fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                fontSize: "0.75rem", fontWeight: 700,
-                letterSpacing: "0.04em", transition: "background 0.15s",
+                width: "100%", background: "#3d6b62",
+                border: "1px solid #4d8377", borderRadius: 8, padding: "12px",
+                color: "#eafaf4", cursor: "pointer",
+                fontFamily: "'IBM Plex Mono','Courier New',monospace",
+                fontSize: "0.8rem", fontWeight: 700,
+                letterSpacing: "0.14em", transition: "background 0.15s",
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#FFC933"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#FFB800"; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#4d8377"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#3d6b62"; }}
             >SIGN IN</button>
           )}
         </div>
@@ -338,8 +328,8 @@ export function Header({
         {/* Panel footer */}
         <div style={{
           padding: "10px 20px 20px",
-          fontFamily: "'Sevastopol', Georgia, serif",
-          fontSize: 8, color: "#333", letterSpacing: "0.2em",
+          fontFamily: "'IBM Plex Mono',monospace",
+          fontSize: 8, color: "#2c4a44", letterSpacing: "0.2em",
           textTransform: "uppercase", textAlign: "center",
         }}>
           SYS v1.4.0 // FOOD INTELLIGENCE

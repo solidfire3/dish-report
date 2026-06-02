@@ -3,45 +3,47 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import type { Restaurant, SearchMeta, AddToListTarget, AlsoTry } from "@/lib/types";
 import { gURL, dirURL } from "@/lib/dish-shared";
 
-// ─── THEME ────────────────────────────────────────────────────────────────────
-function th(dark: boolean) {
+// ─── LUMON THEME (dark teal cards always) ─────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function th(_dark: boolean) {
   return {
-    card:       dark ? "#161616" : "#FFFFFF",
-    card2:      dark ? "#1F1F1F" : "#FDFCFB",
-    border:     dark ? "#2C2C2C" : "#E8E3DC",
-    border2:    dark ? "#3A3A3A" : "#D4CBC0",
-    text:       dark ? "#F0EDE8" : "#1C1917",
-    secondary:  dark ? "#9A9390" : "#6B6560",
-    tertiary:   dark ? "#6B6866" : "#A89F99",
-    disabled:   dark ? "#4A4846" : "#C8C2BC",
-    accent:     dark ? "#FFB800" : "#B8780A",
-    accentHover:dark ? "#FFC933" : "#9A6209",
-    accentLight:dark ? "#2A2010" : "#FDF3E3",
-    errorText:  dark ? "#EF4444" : "#9B1C1C",
-    s1: dark
-      ? "0 2px 8px rgba(0,0,0,0.40),0 1px 3px rgba(0,0,0,0.30)"
-      : "0 2px 8px rgba(0,0,0,0.08),0 1px 3px rgba(0,0,0,0.05)",
-    s2: dark
-      ? "0 4px 16px rgba(0,0,0,0.50),0 2px 6px rgba(0,0,0,0.30)"
-      : "0 4px 12px rgba(0,0,0,0.12),0 2px 4px rgba(0,0,0,0.07)",
-    s3: dark
-      ? "0 8px 28px rgba(0,0,0,0.60),0 4px 10px rgba(0,0,0,0.35)"
-      : "0 8px 24px rgba(0,0,0,0.14),0 4px 8px rgba(0,0,0,0.08)",
+    card:        "#10211e",
+    card2:       "#1b332e",
+    border:      "#2c4a44",
+    border2:     "#3d5c55",
+    text:        "#f0f4f1",
+    secondary:   "#d4e4df",
+    tertiary:    "#8aa9a2",
+    disabled:    "#5f7a74",
+    accent:      "#7fe3c8",
+    accentHover: "#5ccfb0",
+    accentLight: "#1b332e",
+    errorText:   "#d64545",
+    s1: "0 2px 8px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.25)",
+    s2: "0 4px 16px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.28)",
+    s3: "0 8px 28px rgba(0,0,0,0.55),0 4px 10px rgba(0,0,0,0.32)",
   };
 }
 
-// ─── SCORE ────────────────────────────────────────────────────────────────────
-function scoreColor(score: number, dark: boolean): string {
-  if (dark) {
-    if (score >= 8) return "#2ECC71";
-    if (score >= 7) return "#FFB800";
-    if (score >= 6) return "#F59E0B";
-    return "#EF4444";
-  }
-  if (score >= 8) return "#166534";
-  if (score >= 7) return "#C8860A";
-  if (score >= 6) return "#9A3412";
-  return "#9B1C1C";
+// ─── SCORE — vivid tiers on dark card background ───────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function scoreColor(score: number, _dark: boolean): string {
+  if (score >= 9) return "#3fd98a";
+  if (score >= 8) return "#7bc24a";
+  if (score >= 7) return "#e8b133";
+  if (score >= 6) return "#e07b3a";
+  return "#d64545";
+}
+
+function scoreTierLabel(score: number): string {
+  if (score >= 9.2) return "Local legend";
+  if (score >= 8.7) return "Local legend";
+  if (score >= 8.1) return "Always great";
+  if (score >= 7.5) return "Solid spot";
+  if (score >= 6.9) return "Hit & miss";
+  if (score >= 6.0) return "Convenience";
+  if (score >= 5.0) return "Compromise";
+  return "Below avg";
 }
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
@@ -442,7 +444,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
           {/* Row 1 — Score LEFT + Name RIGHT */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px 10px" }}>
-            {/* Score — left anchor. Always shows base food_score — no adjustment applied. */}
+            {/* Score — left anchor. Base food_score, vivid tier color. */}
             {(() => {
               const score = r.food_score ?? 5;
               const clr = scoreColor(score, dark);
@@ -453,6 +455,12 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                     fontSize: "2.5rem", fontWeight: 900, color: clr, lineHeight: 1,
                   }}>{score.toFixed(1)}</div>
                   <div style={{ width: 40, height: 2, background: clr, borderRadius: 1 }} />
+                  <div style={{
+                    fontFamily: "'IBM Plex Mono',monospace",
+                    fontSize: "0.6rem", fontWeight: 600,
+                    color: "#9fe3c8", letterSpacing: "0.04em",
+                    textAlign: "center", whiteSpace: "nowrap",
+                  }}>{scoreTierLabel(score)}</div>
                 </div>
               );
             })()}
@@ -470,9 +478,9 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                   display: "inline-block", marginTop: 5,
                   fontFamily: "'IBM Plex Mono', monospace",
                   fontSize: "0.68rem", fontWeight: 600,
-                  color: "#B8780A",
-                  background: "rgba(184,120,10,0.08)",
-                  border: "1px solid rgba(184,120,10,0.25)",
+                  color: "#7fe3c8",
+                  background: "rgba(127,227,200,0.08)",
+                  border: "1px solid rgba(127,227,200,0.25)",
                   borderRadius: 4, padding: "2px 7px",
                   letterSpacing: "0.02em",
                 }}>

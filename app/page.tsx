@@ -339,6 +339,10 @@ function DishIntel() {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [user, setUser] = useState<User | null>(null);
 
+  // ── Home swipe-rail data ──────────────────────────────────────────────────
+  const [homeRecent, setHomeRecent] = useState<Array<{id: string; dish: string; city: string; search_cache_id: string | null}>>([]);
+  const [homeLists,  setHomeLists]  = useState<Array<{id: string; name: string}>>([]);
+
   // ── List management ───────────────────────────────────────────────────────
   const [addToListTarget, setAddToListTarget] = useState<AddToListTarget | null>(null);
   const [userLists,   setUserLists]   = useState<UserList[]>([]);
@@ -359,6 +363,15 @@ function DishIntel() {
     const { data: { subscription } } = client.auth.onAuthStateChange((_: string, session: Session | null) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch home swipe-rail data when user signs in
+  useEffect(() => {
+    if (!user) { setHomeRecent([]); setHomeLists([]); return; }
+    sb().from("user_searches").select("id,dish,city,search_cache_id").order("created_at",{ascending:false}).limit(6)
+      .then((r: {data: Array<{id:string;dish:string;city:string;search_cache_id:string|null}>|null})=>setHomeRecent(r.data??[]),()=>{});
+    sb().from("lists").select("id,name").order("created_at",{ascending:false}).limit(6)
+      .then((r: {data: Array<{id:string;name:string}>|null})=>setHomeLists(r.data??[]),()=>{});
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore stashed search after sign-in redirect
   useEffect(() => {
@@ -906,48 +919,54 @@ function DishIntel() {
   useEffect(() => { loadingQueryRef.current = loadingQuery;       }, [loadingQuery]);
   useEffect(() => { handleDoneRef.current   = handleAnalysisDone; });
 
-  // ─── THEME ────────────────────────────────────────────────────────────────
-  const bg       = dark ? "#0A0A0A" : "#EDE8E0";
-  const cardBg   = dark ? "#161616" : "#FFFFFF";
-  const border   = dark ? "#2C2C2C" : "#E8E3DC";
-  const text     = dark ? "#F0EDE8" : "#1C1917";
-  const secondary= dark ? "#9A9390" : "#6B6560";
-  const tertiary = dark ? "#6B6866" : "#A89F99";
-  const accent   = dark ? "#FFB800" : "#B8780A";
-  const accentBg = dark ? "#2A2010" : "#FDF3E3";
-  const accentBdr= dark ? "#4A3810" : "#F0D5A0";
-  const redColor = dark ? "#EF4444" : "#9B1C1C";
-  const redBg    = dark ? "#2D1B1B" : "#FEF2F2";
+  // ─── LUMON THEME ──────────────────────────────────────────────────────────
+  // Bone page frame + dark teal content boxes. Source: lib/lumon-theme.ts
+  const bg        = "#e8ece8";    // bone canvas (page bg)
+  const cardBg    = "#10211e";    // dark teal (cards, modals, panels)
+  const border    = "#c4cdc8";    // subtle separator on BONE PAGE
+  const boxBorder = "#2c4a44";    // border ON DARK SURFACES
+  const text      = "#23413b";    // primary text on BONE PAGE
+  const cardText  = "#f0f4f1";    // primary text on DARK CARDS
+  const secondary = "#7a8e8a";    // secondary / meta on bone page
+  const cardSec   = "#d4e4df";    // body text on dark cards
+  const tertiary  = "#8aa9a2";    // muted (dark surfaces)
+  const accent    = "#7fe3c8";    // bright teal — prompt, badge, active states
+  const accentBg  = "#1b332e";    // lifted surface (chips, sub-panels)
+  const accentBdr = "#2c4a44";    // border on lifted surfaces / dark chips
+  const brand     = "#3d6b62";    // primary action button fill (replaces amber)
+  const brandTxt  = "#eafaf4";    // primary button text
+  const redColor  = "#d64545";    // error / below-threshold red
+  const redBg     = "rgba(214,69,69,0.12)";
 
   // ─── ADD TO LIST MODAL (inline JSX — NOT a function component so React never remounts it,
   //     which would cause the input to lose focus on every keystroke) ────────────────────────
   const addToListModalJsx = addToListTarget ? (
-    <div onClick={() => setAddToListTarget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-        <div onClick={e => e.stopPropagation()} style={{ background: cardBg, borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 480, padding: "20px 16px 40px", border: `1px solid ${border}`, maxHeight: "80vh", overflowY: "auto" }}>
-          <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Add to List</div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: text, marginBottom: 16 }}>{addToListTarget.name}</div>
+    <div onClick={() => setAddToListTarget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: cardBg, borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 480, padding: "20px 16px 40px", border: `1px solid ${boxBorder}`, maxHeight: "80vh", overflowY: "auto" }}>
+          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6875rem", color: accent, textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 6 }}>ADD TO LIST</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: cardText, marginBottom: 16 }}>{addToListTarget.name}</div>
 
-          <div style={{ background: dark ? "#232323" : "#FDFCFB", border: `1px solid ${border}`, borderRadius: 10, padding: "12px", marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Create new list</div>
+          <div style={{ background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 10, padding: "12px", marginBottom: 12 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6875rem", color: accent, textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 8 }}>CREATE NEW LIST</div>
             <div style={{ display: "flex", gap: 8 }}>
               <input value={newListName} onChange={e => setNewListName(e.target.value)} placeholder="List name..."
                 onKeyDown={e => e.key === "Enter" && newListName.trim() && createAndAdd()}
-                style={{ flex: 1, background: cardBg, border: `1.5px solid ${border}`, borderRadius: 8, padding: "9px 12px", color: text, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", outline: "none" }} />
+                style={{ flex: 1, background: cardBg, border: `1.5px solid ${boxBorder}`, borderRadius: 8, padding: "9px 12px", color: cardText, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", outline: "none" }} />
               <button onClick={createAndAdd} disabled={!newListName.trim() || savingList}
-                style={{ background: accent, border: "none", borderRadius: 8, color: "#000", fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", fontWeight: 600, padding: "0 16px", cursor: "pointer", opacity: !newListName.trim() || savingList ? 0.5 : 1 }}>
+                style={{ background: brand, border: "none", borderRadius: 8, color: brandTxt, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", fontWeight: 600, padding: "0 16px", cursor: "pointer", opacity: !newListName.trim() || savingList ? 0.5 : 1 }}>
                 {savingList ? "..." : "Create"}
               </button>
             </div>
           </div>
 
-          {loadingLists && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: secondary, padding: "8px 0" }}>Loading lists...</div>}
+          {loadingLists && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: tertiary, padding: "8px 0" }}>Loading lists...</div>}
           {!loadingLists && userLists.length > 0 && (
             <>
-              <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.6875rem", fontWeight: 400, color: "#B8780A", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Add to existing list</div>
+              <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6875rem", color: accent, textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 8 }}>ADD TO EXISTING LIST</div>
               {userLists.map(l => (
                 <button key={l.id} onClick={() => addToList(l.id)} disabled={savingList}
-                  style={{ width: "100%", background: dark ? "#232323" : "#FDFCFB", border: `1px solid ${border}`, borderRadius: 8, padding: "11px 12px", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: text, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", textAlign: "left", opacity: savingList ? 0.6 : 1 }}>
-                  <span>{l.name}</span><span style={{ color: tertiary }}>+</span>
+                  style={{ width: "100%", background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 8, padding: "11px 12px", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: cardText, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", textAlign: "left", opacity: savingList ? 0.6 : 1 }}>
+                  <span>{l.name}</span><span style={{ color: accent }}>+</span>
                 </button>
               ))}
             </>
@@ -955,7 +974,7 @@ function DishIntel() {
           {!loadingLists && userLists.length === 0 && !newListName && (
             <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: tertiary, padding: "4px 0" }}>No lists yet — create one above.</div>
           )}
-          <button onClick={() => setAddToListTarget(null)} style={{ marginTop: 12, width: "100%", background: "none", border: `1px solid ${border}`, borderRadius: 8, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", padding: "11px", cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => setAddToListTarget(null)} style={{ marginTop: 12, width: "100%", background: "none", border: `1px solid ${accentBdr}`, borderRadius: 8, color: tertiary, fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", padding: "11px", cursor: "pointer" }}>Cancel</button>
         </div>
       </div>
   ) : null;
@@ -1008,83 +1027,144 @@ function DishIntel() {
           </div>
         )}
 
-        {/* ── SECTION 2: HERO SEARCH BAND — idle only ─────────────────── */}
+        {/* ── SECTION 2: LUMON HOME — bone canvas, bone search band ────── */}
         {showIdle && (
-          <div style={{
-            width: "100%", position: "relative", overflow: "hidden",
-            background: dark
-              ? "linear-gradient(135deg, #0A0A0A 0%, #1A1000 100%)"
-              : "linear-gradient(135deg, #1C1917 0%, #2D1F0E 100%)",
-          }}>
-            {/* Ambient dot grid */}
+          <div style={{ width: "100%", background: bg, borderBottom: `1px solid ${border}` }}>
+            {/* Faint teal dot grid */}
             <div style={{
-              position: "absolute", inset: 0, pointerEvents: "none",
-              backgroundImage: "radial-gradient(circle, rgba(255,184,0,0.06) 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-              animation: "dr-ambient-grid 20s linear infinite",
-            }} />
+              position: "relative", overflow: "hidden",
+            }}>
+              <div style={{
+                position: "absolute", inset: 0, pointerEvents: "none",
+                backgroundImage: "radial-gradient(circle, rgba(47,79,73,0.055) 1px, transparent 1px)",
+                backgroundSize: "22px 22px",
+              }} />
+              <div style={{ position: "relative", zIndex: 1, padding: "22px 20px 16px", maxWidth: 900, margin: "0 auto" }}>
+                {/* Identity block */}
+                <div style={{ textAlign: "center", marginBottom: 18 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 6 }}>
+                    {/* ONLINE dot */}
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3fd98a", display: "inline-block", flexShrink: 0 }} />
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.18em", textTransform: "uppercase" }}>
+                      {suggestions.length > 0 ? (suggestions[0]?.text?.split(" near ")[1] || "your area") : "online"}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "clamp(1.5rem,5vw,2rem)", fontWeight: 700, color: text, letterSpacing: "0.28em", textTransform: "uppercase", lineHeight: 1.1 }}>
+                    DISH REPORT
+                  </div>
+                  <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.30em", textTransform: "uppercase", marginTop: 5 }}>
+                    FOOD INTELLIGENCE TERMINAL
+                  </div>
+                </div>
 
-            <div style={{ position: "relative", zIndex: 1, padding: "20px 20px 16px", maxWidth: 900, margin: "0 auto" }}>
-              {/* TRY // + rotating example */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, minHeight: 18 }}>
-                <span style={{
-                  fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: 10, color: "rgba(255,184,0,0.7)",
-                  textTransform: "uppercase", letterSpacing: "0.2em", flexShrink: 0,
-                }}>TRY //</span>
-                <span key={heroExIdx} style={{
-                  fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: 13, color: "rgba(255,184,0,0.6)",
-                  animation: "fadeIn 0.4s ease",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>{HERO_EXAMPLES[heroExIdx]}</span>
-              </div>
+                {/* Search bar — click opens terminal overlay */}
+                <div onClick={() => setShowTerminal(true)} style={{ cursor: "text" }}>
+                  <div style={{ pointerEvents: "none" }}>
+                    <SearchBar
+                      onSearch={handleSearchFromBar}
+                      onStop={stopSearch}
+                      isSearching={isSearching}
+                      dark={false}
+                    />
+                  </div>
+                </div>
 
-              {/* Search bar — click opens terminal overlay */}
-              <div onClick={() => setShowTerminal(true)} style={{ cursor: "text" }}>
-                <div style={{ pointerEvents: "none" }}>
-                  <SearchBar
-                    onSearch={handleSearchFromBar}
-                    onStop={stopSearch}
-                    isSearching={isSearching}
-                    dark={false}
-                  />
+                {/* Quick filter pills — teal on bone */}
+                <div style={{
+                  display: "flex", gap: 8, marginTop: 14,
+                  overflowX: "auto", scrollbarWidth: "none" as const,
+                  paddingBottom: 4,
+                }}>
+                  {HERO_FILTERS.map(f => (
+                    <button
+                      key={f.label}
+                      onClick={() => runSearch(f.query)}
+                      style={{
+                        background: accentBg, border: `1px solid ${accentBdr}`,
+                        borderRadius: 20, padding: "0 14px", height: 30,
+                        fontFamily: "'IBM Plex Mono',monospace",
+                        fontSize: 10, color: accent,
+                        textTransform: "uppercase", letterSpacing: "0.14em",
+                        cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                        transition: "background 0.15s",
+                        display: "flex", alignItems: "center",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = accentBg; }}
+                    >{f.label}</button>
+                  ))}
                 </div>
               </div>
-
-              {/* Quick filter pills */}
-              <div style={{
-                display: "flex", gap: 8, marginTop: 12,
-                overflowX: "auto", scrollbarWidth: "none" as const,
-                paddingBottom: 4,
-              }}>
-                {HERO_FILTERS.map(f => (
-                  <button
-                    key={f.label}
-                    onClick={() => runSearch(f.query)}
-                    style={{
-                      background: "rgba(255,184,0,0.06)",
-                      border: "1px solid rgba(255,184,0,0.3)",
-                      borderRadius: 20, padding: "0 16px", height: 32,
-                      fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: 11, color: "rgba(255,184,0,0.7)",
-                      textTransform: "uppercase", letterSpacing: "0.12em",
-                      cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                      transition: "background 0.15s, border-color 0.15s",
-                      display: "flex", alignItems: "center",
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.background = "rgba(255,184,0,0.12)";
-                      e.currentTarget.style.borderColor = "rgba(255,184,0,0.6)";
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.background = "rgba(255,184,0,0.06)";
-                      e.currentTarget.style.borderColor = "rgba(255,184,0,0.3)";
-                    }}
-                  >{f.label}</button>
-                ))}
-              </div>
             </div>
+
+            {/* ── RECENT SEARCHES rail ─────────────────────────────────────── */}
+            {(homeRecent.length > 0 || favs.length > 0) && (
+              <div style={{ padding: "16px 0 0" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px 10px" }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: secondary, letterSpacing: "0.26em", textTransform: "uppercase" }}>
+                    RECENT &amp; SAVED
+                  </span>
+                  <button onClick={() => router.push("/dashboard/searches")} style={{ background:"none",border:"none",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:9,color:accent,letterSpacing:"0.12em" }}>VIEW ALL →</button>
+                </div>
+                <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 20px 16px", scrollbarWidth: "none" as const }}>
+                  {homeRecent.map(s => (
+                    <button key={s.id} onClick={async () => {
+                      if (s.search_cache_id) {
+                        const { data } = await sb().from("searches").select("results").eq("id", s.search_cache_id).single();
+                        if (data?.results) {
+                          const blob = data.results as { dish?: string; city?: string; results?: Restaurant[] };
+                          const rs = Array.isArray(blob.results) ? blob.results : [];
+                          if (rs.length > 0) {
+                            const ranked = sortByScore(rs).map((r,i)=>({...r,rank:i+1}));
+                            const m = {dish: blob.dish||s.dish, city: blob.city||s.city};
+                            setMeta(m); setRestaurants(ranked); setSearchedDish(s.dish); setPhase("done"); setFromCache(true); return;
+                          }
+                        }
+                      }
+                      runSearch(s.dish, s.city);
+                    }}
+                    style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=accent}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=boxBorder}
+                    >
+                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: cardText, lineHeight: 1.25, marginBottom: 4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{s.dish}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: tertiary, letterSpacing: "0.04em" }}>{s.city}</div>
+                    </button>
+                  ))}
+                  {favs.slice(0,4).map((f,i) => (
+                    <button key={`fav-${i}`} onClick={() => { setShowFavs(true); setPhase("idle"); }}
+                    style={{ background: cardBg, border: `1px solid ${accentBdr}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left" }}
+                    >
+                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: accent, letterSpacing: "0.14em", marginBottom: 4, textTransform: "uppercase" }}>♥ Saved</div>
+                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: cardText, lineHeight: 1.25, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{f.name}</div>
+                      {f.food_score && <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, fontWeight: 700, color: "#7bc24a", marginTop: 4 }}>{f.food_score.toFixed(1)}</div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── YOUR LISTS rail ──────────────────────────────────────────── */}
+            {homeLists.length > 0 && (
+              <div style={{ borderTop: `1px solid ${border}`, padding: "14px 0 0" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px 10px" }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: secondary, letterSpacing: "0.26em", textTransform: "uppercase" }}>YOUR LISTS</span>
+                  <button onClick={() => router.push("/dashboard/lists")} style={{ background:"none",border:"none",cursor:"pointer",fontFamily:"'IBM Plex Mono',monospace",fontSize:9,color:accent,letterSpacing:"0.12em" }}>VIEW ALL →</button>
+                </div>
+                <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 20px 16px", scrollbarWidth: "none" as const }}>
+                  {homeLists.map(l => (
+                    <button key={l.id} onClick={() => router.push("/dashboard/lists")}
+                    style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=accent}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=boxBorder}
+                    >
+                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: accent, letterSpacing: "0.14em", marginBottom: 5, textTransform: "uppercase" }}>LIST</div>
+                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: cardText, lineHeight: 1.25, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{l.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1152,23 +1232,23 @@ function DishIntel() {
               {staleSearch && (
                 <div style={{
                   margin: "16px 0 0",
-                  background: staleSearch.fresh ? "#FDF3E3" : dark ? "#1F1F1F" : "#F7F4F0",
-                  border: `1px solid ${staleSearch.fresh ? "#F0D5A0" : border}`,
+                  background: accentBg,
+                  border: `1px solid ${accentBdr}`,
                   borderRadius: 10, padding: "14px 16px",
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
                 }}>
                   <div>
                     <div style={{
-                      fontFamily: "'Sevastopol', Georgia, serif",
-                      fontSize: "0.6875rem", color: staleSearch.fresh ? "#B8780A" : tertiary,
+                      fontFamily: "'IBM Plex Mono',monospace",
+                      fontSize: "0.6875rem", color: accent,
                       textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4,
                     }}>{staleSearch.fresh ? "RESUMING SEARCH" : "PREVIOUS SEARCH TIMED OUT"}</div>
                     <div style={{
                       fontFamily: "'Playfair Display', serif",
-                      fontSize: "0.9375rem", fontWeight: 600, color: text,
+                      fontSize: "0.9375rem", fontWeight: 600, color: cardText,
                     }}>{staleSearch.query}</div>
                     {!staleSearch.fresh && (
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: secondary, marginTop: 2 }}>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: tertiary, marginTop: 2 }}>
                         Your previous search timed out. Try again?
                       </div>
                     )}
@@ -1177,8 +1257,8 @@ function DishIntel() {
                     <button
                       onClick={() => { setStaleSearch(null); runSearch(staleSearch.query); }}
                       style={{
-                        background: accent, border: "none", borderRadius: 8,
-                        color: "#FFFFFF", fontFamily: "'Inter', sans-serif",
+                        background: brand, border: "none", borderRadius: 8,
+                        color: brandTxt, fontFamily: "'Inter', sans-serif",
                         fontSize: "0.875rem", fontWeight: 600,
                         padding: "8px 16px", cursor: "pointer",
                       }}
@@ -1186,8 +1266,8 @@ function DishIntel() {
                     <button
                       onClick={() => setStaleSearch(null)}
                       style={{
-                        background: "none", border: `1px solid ${border}`, borderRadius: 8,
-                        color: secondary, fontFamily: "'Inter', sans-serif",
+                        background: "none", border: `1px solid ${accentBdr}`, borderRadius: 8,
+                        color: tertiary, fontFamily: "'Inter', sans-serif",
                         fontSize: "0.875rem", padding: "8px 12px", cursor: "pointer",
                       }}
                     >Dismiss</button>
