@@ -385,6 +385,9 @@ function DishIntel() {
   const [fromCache,        setFromCache]        = useState(false);
   const [searchMode,       setSearchMode]       = useState<"original" | "refresh" | undefined>(undefined);
   const [showSignInNudge,  setShowSignInNudge]  = useState(false);
+  // Pre-scored results beyond the displayed 5 — revealed on "load more" with no API call.
+  // Invariant: pendingResults are always ranked BELOW the currently displayed restaurants.
+  const [pendingResults,   setPendingResults]   = useState<Restaurant[]>([]);
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -474,7 +477,9 @@ function DishIntel() {
       console.log('[RESTORE] restoring search:', q, 'results:', results?.length);
       if (q && Array.isArray(results) && m) {
         setSearchedDish(q);
-        setRestaurants(sortByScore(results as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 })));
+        const _ranked = sortByScore(results as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+        setRestaurants(_ranked.slice(0, 5));
+        setPendingResults(_ranked.slice(5));
         setMeta(m);
         setPhase("done");
       }
@@ -639,6 +644,7 @@ function DishIntel() {
     setSearchedDish(""); setDeepData(null); setCompareData(null); setMarketData(null);
     setConfirmIsMarket(false); setErrMsg(""); setExpanded(null);
     setConfirmMatches(null); setNavStack([]); setResultsReady(false);
+    setPendingResults([]);
   };
 
   // ─── FAVORITES ────────────────────────────────────────────────────────────
@@ -709,11 +715,23 @@ function DishIntel() {
   };
 
   // ─── SEARCH ────────────────────────────────────────────────────────────────
+  // Tracks whether the current abort was triggered by the user (vs network/backgrounding).
+  const userAbortedRef = useRef(false);
+
   const stopSearch = () => {
+    userAbortedRef.current = true;
     abortRef.current?.abort();
     abortRef.current = null;
     setApiComplete(false); setPendingPhase("");
     setPhase("idle");
+  };
+
+  // Retry the last interrupted search (reuses cached result if server completed it)
+  const retrySearch = () => {
+    if (!searchedDish) { reset(); return; }
+    setErrMsg("");
+    // A small delay lets phase transition settle before runSearch fires
+    setTimeout(() => runSearch(searchedDish, city, locMode, area, radius), 50);
   };
 
   // Called by LoadingTracker when all stages complete and API is done
@@ -828,7 +846,17 @@ function DishIntel() {
       abortRef.current = null;
     } catch (e) {
       abortRef.current = null;
-      if (e instanceof Error && e.name === "AbortError") return;
+      if (e instanceof Error && e.name === "AbortError") {
+        if (!userAbortedRef.current) {
+          // Network/backgrounding interruption — show recovery on the screen
+          setApiComplete(false); setPendingPhase("");
+          setErrMsg("Connection interrupted. Tap Retry — if the search completed server-side, results load instantly.");
+          setPhase("error");
+        }
+        userAbortedRef.current = false;
+        return;
+      }
+      userAbortedRef.current = false;
       setApiComplete(false); setPendingPhase("");
       setErrMsg(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
@@ -924,6 +952,19 @@ function DishIntel() {
 
   const loadMore = async () => {
     if (loadingMore) return; setLoadingMore(true);
+
+    // RANKING INVARIANT: pendingResults were scored together with the initial 5.
+    // Using them first guarantees nothing higher-scored ever appears on "load more".
+    if (pendingResults.length > 0) {
+      const start = restaurants.length + 1;
+      const nextBatch = pendingResults.slice(0, 5);
+      setRestaurants(p => [...p, ...nextBatch.map((r, i) => ({ ...r, rank: start + i }))]);
+      setPendingResults(prev => prev.slice(5));
+      setLoadingMore(false);
+      return;
+    }
+
+    // Pre-scored set exhausted — fetch a fresh batch with exclusions
     try {
       const data = await apiFetch("/api/search", {
         mode: "search", dish: searchedDish, city, area, locMode, radius,
@@ -1310,17 +1351,31 @@ function DishIntel() {
           {/* ── Error ────────────────────────────────────────────────── */}
           {phase === "error" && (
             <div style={{
-              margin: "16px 0", padding: "12px 16px",
+              margin: "16px 0", padding: "14px 16px",
               background: redBg,
               borderLeft: `3px solid ${redColor}`,
               borderRadius: "0 8px 8px 0",
               fontFamily: "'Inter',sans-serif", fontSize: "0.875rem",
               color: redColor, lineHeight: 1.5,
             }}>
-              {errMsg || "Something went wrong. Try again."}
-              <button onClick={reset} style={{ display: "block", marginTop: 8, background: "none", border: "none", cursor: "pointer", color: redColor, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", textDecoration: "underline", padding: 0 }}>
-                Try again
-              </button>
+              {errMsg || "Something went wrong."}
+              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+                {searchedDish && (
+                  <button
+                    onClick={retrySearch}
+                    style={{
+                      background: brand, border: "none", borderRadius: 6,
+                      color: brandTxt, fontFamily: "'IBM Plex Mono',monospace",
+                      fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em",
+                      padding: "6px 14px", cursor: "pointer",
+                    }}
+                  >RETRY</button>
+                )}
+                <button
+                  onClick={reset}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: redColor, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", textDecoration: "underline", padding: 0 }}
+                >New search</button>
+              </div>
             </div>
           )}
 
@@ -1381,7 +1436,7 @@ function DishIntel() {
                     fontFamily: "'IBM Plex Mono',monospace",
                     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
                     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
-                  }}>NEAR YOU NOW</div>
+                  textAlign: "center" }}>NEAR YOU NOW</div>
                   {/* Match CategoryBrowse card style exactly: same radius, padding, minHeight, fonts */}
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" as const }}>
                     {suggestions.slice(0, 6).map((s, i) => (
@@ -1534,7 +1589,7 @@ function DishIntel() {
               )}
               {/* Results header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
-                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0, textAlign: "center" }}>
                   <span style={{ fontWeight: 600, color: accent }}>{restaurants.length} results</span>
                   {" "}for{" "}
                   <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{meta.dish}</span>

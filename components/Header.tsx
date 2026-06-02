@@ -144,8 +144,14 @@ export function Header({
           {/* Back button */}
           {hasBack && onBack && <BackBtn onBack={onBack} dark={dark} />}
 
-          {/* Logo + brand mark */}
-          <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, userSelect: "none" }}>
+          {/* Logo + brand mark — clicking navigates home */}
+          <div
+            role="link"
+            tabIndex={0}
+            onClick={() => router.push("/")}
+            onKeyDown={e => e.key === "Enter" && router.push("/")}
+            style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, userSelect: "none", cursor: "pointer" }}
+          >
             <svg viewBox="0 0 56 56" width="28" height="28" style={{ flexShrink: 0 }}>
               <path d="M8 40 q20 9 40 0" fill="none" stroke="#2f4f49" strokeWidth="2" strokeLinecap="round"/>
               <ellipse cx="28" cy="40" rx="20" ry="5" fill="none" stroke="#2f4f49" strokeWidth="1.2" opacity=".45"/>

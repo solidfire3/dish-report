@@ -398,18 +398,34 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               }}>{(data.food_score ?? 5).toFixed(1)}</div>
               <div style={{ width: 60, height: 2, background: clr, borderRadius: 1 }} />
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6875rem", color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em" }}>ANALYTICAL SCORE</div>
-              {/* Confidence indicator */}
-              {data.confidence && (
+
+              {/* KNOWN FOR badges — prominently show must-order strengths */}
+              {data.must_orders && data.must_orders.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+                  {(data.must_orders as Array<{item?: string}>).slice(0, 3).map((mo, idx) => mo?.item ? (
+                    <span key={idx} style={{
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: "0.6rem", fontWeight: 700,
+                      background: "#1b332e", border: "1px solid #2c4a44",
+                      color: "#9fe3c8",
+                      padding: "4px 10px", borderRadius: 20,
+                      textTransform: "uppercase", letterSpacing: "0.10em",
+                      whiteSpace: "nowrap",
+                    }}>KNOWN FOR {mo.item}</span>
+                  ) : null)}
+                </div>
+              )}
+
+              {/* Confidence — de-emphasized: only show non-high confidence as small muted note */}
+              {data.confidence && data.confidence !== "high" && (
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.5625rem", color: t.tertiary,
-                  letterSpacing: "0.1em",
+                  fontSize: "0.5rem", color: t.disabled, opacity: 0.7,
+                  letterSpacing: "0.08em",
                 }}>
-                  {data.confidence === "high"
-                    ? "Strong signal — many review sources"
-                    : data.confidence === "medium"
-                    ? "Moderate signal — limited reviews"
-                    : "Low signal — few sources found"}
+                  {data.confidence === "medium"
+                    ? "moderate signal"
+                    : "limited signal"}
                 </div>
               )}
             </div>

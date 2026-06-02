@@ -131,7 +131,10 @@ DISH BADGE (contextual label — no effect on score or ranking):
 
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"dish_badge":"string|null","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
-Up to 5 results, strictly sorted food_score descending. Fewer than 5 is acceptable when confidence or relevance do not support more.`;
+${excl.length
+  ? "Up to 5 additional results, strictly sorted food_score descending."
+  : "Return EXACTLY 10 results (the full candidate set), strictly sorted food_score descending. All 10 are scored together — the top 5 will be shown first and the lower 5 revealed on demand. Fewer than 10 only if the search area genuinely has fewer qualifying venues."
+}`;
 
 function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
   const text = content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map(b => b.text).join("");
