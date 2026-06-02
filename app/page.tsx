@@ -304,14 +304,25 @@ function SectionContent({ dark, isSearching, handleBrowse }: { dark: boolean; is
         <button
           onClick={() => setShowMoreDishes(v => !v)}
           style={{
-            background: "none", border: `1px solid #b9c4bf`,
-            borderRadius: 20, padding: "5px 14px", marginTop: 6,
-            fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.7rem",
-            color: "#7a8e8a", cursor: "pointer", transition: "border-color 0.15s",
+            display: "flex", alignItems: "center", gap: 6,
+            background: "#1b332e", border: "1px solid #2c4a44",
+            borderRadius: 20, padding: "6px 16px", marginTop: 8,
+            fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+            color: "#7fe3c8", cursor: "pointer", transition: "background 0.15s",
+            letterSpacing: "0.12em", textTransform: "uppercase",
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "#b9c4bf"; }}
-        >{showMoreDishes ? "LESS ↑" : "MORE ↓"}</button>
+          onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "#1b332e"; }}
+        >
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+            style={{ transition: "transform 0.2s", transform: showMoreDishes ? "rotate(180deg)" : "rotate(0deg)" }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+          {showMoreDishes ? "LESS" : "MORE DISHES"}
+        </button>
       </section>
     </>
   );
@@ -569,6 +580,17 @@ function DishIntel() {
     const d  = searchParams.get("dish"),  c  = searchParams.get("city"),
           lm = searchParams.get("locMode"), a  = searchParams.get("area"),
           r  = searchParams.get("radius"), auto = searchParams.get("autoSearch");
+
+    // Deep-dive share link: /?deepDive=Name&city=City
+    const deepDiveName = searchParams.get("deepDive");
+    const deepDiveCity = searchParams.get("city");
+    if (deepDiveName) {
+      autoSearchFired.current = true;
+      if (deepDiveCity) setCity(deepDiveCity);
+      setTimeout(() => handleDeepDive(deepDiveName, deepDiveCity || undefined), 150);
+      return;
+    }
+
     if (!d || !auto) return;
     autoSearchFired.current = true;
     if (c)  setCity(c);
@@ -1351,36 +1373,50 @@ function DishIntel() {
                     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
                     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
                   }}>NEAR YOU NOW</div>
-                  <div style={{
-                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7,
-                  }}>
+                  {/* Match CategoryBrowse card style exactly: same radius, padding, minHeight, fonts */}
+                  <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" as const }}>
                     {suggestions.slice(0, 6).map((s, i) => (
-                      <button
+                      <div
                         key={i}
                         onClick={() => handleBrowse(s.text)}
                         style={{
                           background: "#10211e", border: "1px solid #2c4a44",
-                          borderRadius: 8, padding: "9px 10px",
-                          textAlign: "left", cursor: "pointer",
-                          height: 76,
-                          display: "flex", flexDirection: "column", justifyContent: "space-between",
-                          transition: "border-color 0.15s",
+                          borderRadius: 12, padding: 14,
+                          minHeight: 140, width: 160, flexShrink: 0,
+                          cursor: "pointer",
+                          display: "flex", flexDirection: "column",
+                          transition: "border-color 0.15s, box-shadow 0.15s",
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#7fe3c8"; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = "#2c4a44"; }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#7fe3c8"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.22)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#2c4a44"; (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.12)"; }}
                       >
+                        {/* Initial — matches the "code" in query-type cards */}
                         <div style={{
-                          fontFamily: "'IBM Plex Mono',monospace",
-                          fontSize: "0.95rem", fontWeight: 700, color: "#7fe3c8", lineHeight: 1,
+                          fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                          fontSize: "1.75rem", fontWeight: 900, lineHeight: 1,
+                          color: "rgba(127,227,200,0.25)", letterSpacing: "0.02em", marginBottom: 8,
                         }}>{s.initial}</div>
+                        {/* Query text — matches the "name" line */}
                         <div style={{
-                          fontFamily: "'Playfair Display',serif",
-                          fontSize: "0.68rem", fontWeight: 700, color: "#f0f4f1",
-                          lineHeight: 1.25,
+                          fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                          fontSize: "0.75rem", fontWeight: 700, lineHeight: 1.2,
+                          color: "#7fe3c8", letterSpacing: "0.02em", marginBottom: 4,
                           overflow: "hidden", display: "-webkit-box",
                           WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-                        }}>{s.text}</div>
-                      </button>
+                        }}>{s.text.split(" near ")[0]}</div>
+                        {/* Descriptor */}
+                        <div style={{
+                          fontFamily: "'DM Sans','Inter',sans-serif",
+                          fontSize: "0.72rem", color: "#8aa9a2", lineHeight: 1.3, flex: 1,
+                        }}>{s.text.includes(" near ") ? `near ${s.text.split(" near ")[1]}` : "tap to search"}</div>
+                        {/* Hint — matches "Tap to explore" */}
+                        <div style={{
+                          fontFamily: "'Sevastopol',Georgia,serif",
+                          fontSize: 8, color: "#7fe3c8", opacity: 0.6,
+                          textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 10,
+                        }}>Tap to search</div>
+                      </div>
                     ))}
                   </div>
                 </section>

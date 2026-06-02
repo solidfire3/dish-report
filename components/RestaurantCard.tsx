@@ -3,6 +3,10 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import type { Restaurant, SearchMeta, AddToListTarget, AlsoTry } from "@/lib/types";
 import { gURL, dirURL } from "@/lib/dish-shared";
 
+// ─── OG IMAGE SESSION CACHE ───────────────────────────────────────────────────
+// Keyed by website_domain; avoids refetching on re-render within the session.
+const _ogCache = new Map<string, string | null>();
+
 // ─── LUMON THEME (dark teal cards always) ─────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function th(_dark: boolean) {
@@ -326,26 +330,72 @@ type RestCardProps = {
 export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, onToggleFav, onAddToList }: RestCardProps) {
   const isExpanded = expanded === i;
 
-  const [photoRefs, setPhotoRefs] = useState<string[]>([]);
-  const [hovered, setHovered]     = useState(false);
+  const [photoRefs,    setPhotoRefs]    = useState<string[]>([]);
+  const [ogUrl,        setOgUrl]        = useState<string | null>(null);
+  const [ogFailed,     setOgFailed]     = useState(false);
+  const [hovered,      setHovered]      = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIdx, setLightboxIdx]   = useState(0);
+  const [lightboxIdx,  setLightboxIdx]  = useState(0);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [dark,         setDark]         = useState(false);
+  const [copied,       setCopied]       = useState(false);
 
   const moreRef = useRef<HTMLDivElement>(null);
 
   // Dark mode
   useEffect(() => { setDark(localStorage.getItem("dr-dark") === "1"); }, []);
 
-  // Load photos
+  // OG image — try website first, then Places photos as fallback
   useEffect(() => {
-    if (!r.name) return;
+    const domain = r.website_domain;
+    const name   = r.name;
+    const city   = meta?.city || "";
+    const key    = domain || name || "";
+    if (!key) return;
+
+    if (_ogCache.has(key)) {
+      setOgUrl(_ogCache.get(key) ?? null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      // 1. OG image from website
+      if (domain) {
+        try {
+          const res = await fetch(`/api/og-image?domain=${encodeURIComponent(domain)}`);
+          const { url } = await res.json();
+          if (!cancelled && url) { _ogCache.set(key, url); setOgUrl(url); return; }
+        } catch {}
+      }
+      // 2. Google Places first photo
+      if (name) {
+        try {
+          const res = await fetch(`/api/photos?name=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}`);
+          const { photos } = await res.json();
+          if (!cancelled && photos?.[0]) {
+            const url = `/api/photo?name=${encodeURIComponent(photos[0])}`;
+            _ogCache.set(key, url);
+            setOgUrl(url);
+            // Seed photoRefs if not already loaded
+            if (photos.length > 1) setPhotoRefs(photos.slice(0, 6));
+            return;
+          }
+        } catch {}
+      }
+      if (!cancelled) _ogCache.set(key, null);
+    })();
+    return () => { cancelled = true; };
+  }, [r.website_domain, r.name, meta?.city]);
+
+  // Additional Places photos for lightbox (only if we didn't already get them via OG fallback)
+  useEffect(() => {
+    if (!r.name || photoRefs.length > 0) return;
     fetch(`/api/photos?name=${encodeURIComponent(r.name)}&city=${encodeURIComponent(meta?.city || "")}`)
       .then(res => res.json())
       .then(d => { if (d.photos?.length) setPhotoRefs(d.photos.slice(0, 6)); })
       .catch(() => {});
-  }, [r.name, meta?.city]);
+  }, [r.name, meta?.city, photoRefs.length]);
 
   // Close More menu on outside click
   useEffect(() => {
@@ -365,10 +415,25 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
   const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
 
+  // Share: generate a deep link that reruns the search and brings user back here
   const handleShare = () => {
-    const text = `${r.name}${meta?.city ? ` in ${meta.city}` : ""}`;
-    if (navigator.share) { navigator.share({ title: r.name, text, url: window.location.href }).catch(() => {}); }
-    else { navigator.clipboard.writeText(window.location.href).catch(() => {}); }
+    const base = window.location.origin;
+    let url = base;
+    if (meta?.dish) {
+      const p = new URLSearchParams({ dish: meta.dish });
+      if (meta.city) p.set("city", meta.city);
+      p.set("autoSearch", "1");
+      url = `${base}/?${p.toString()}`;
+    }
+    const text = `${r.name}${meta?.city ? ` in ${meta.city}` : ""} — via Dish Report`;
+    if (navigator.share) {
+      navigator.share({ title: r.name, text, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {});
+    }
   };
 
   const borderColor = isExpanded || hovered ? t.accent : t.border;
@@ -399,9 +464,19 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* ── Photo strip ───────────────────────────────────────────────── */}
+        {/* ── Thumbnail: OG image → Places photo → placeholder ───────── */}
         <div style={{ position: "relative", height: 180, overflow: "hidden", flexShrink: 0 }}>
-          {photoUrls.length > 0 ? (
+          {ogUrl && !ogFailed ? (
+            // OG image (restaurant's own website hero)
+            <img
+              src={ogUrl}
+              alt={r.name}
+              onError={() => setOgFailed(true)}
+              onClick={e => { e.stopPropagation(); if (photoUrls.length > 0) openLightbox(0); }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", cursor: photoUrls.length > 0 ? "pointer" : "default" }}
+            />
+          ) : photoUrls.length > 0 ? (
+            // Google Places photo(s)
             <div style={{ display: "flex", height: "100%", overflowX: "auto", scrollbarWidth: "none" }}>
               {photoUrls.map((url, idx) => (
                 <img
@@ -411,10 +486,7 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
                   onClick={e => { e.stopPropagation(); openLightbox(idx); }}
                   onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                   style={{
-                    height: "100%",
-                    flexShrink: 0,
-                    objectFit: "cover",
-                    cursor: "pointer",
+                    height: "100%", flexShrink: 0, objectFit: "cover", cursor: "pointer",
                     width: photoUrls.length === 1 ? "100%" : "72vw",
                     maxWidth: photoUrls.length === 1 ? "100%" : 290,
                     minWidth: photoUrls.length === 1 ? "auto" : 180,
@@ -423,7 +495,19 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
               ))}
             </div>
           ) : (
+            // Tasteful placeholder
             <Photo name={r.name} />
+          )}
+
+          {/* "Link copied" toast */}
+          {copied && (
+            <div style={{
+              position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+              background: "rgba(16,33,30,0.92)", border: "1px solid #2c4a44",
+              borderRadius: 6, padding: "4px 12px",
+              fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: "#7fe3c8",
+              pointerEvents: "none", zIndex: 5, whiteSpace: "nowrap",
+            }}>Link copied ✓</div>
           )}
 
           {/* Rank badge */}

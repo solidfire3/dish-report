@@ -170,10 +170,21 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
   const tips     = (Array.isArray(data.insider_tips) ? data.insider_tips : []).filter(t => t != null);
   const vibes    = (Array.isArray(data.vibe_tags)   ? data.vibe_tags   : []);
 
+  const [shareCopied, setShareCopied] = useState(false);
   const handleShare = () => {
-    const text = data.name;
-    if (navigator.share) { navigator.share({ title: data.name, text, url: window.location.href }).catch(() => {}); }
-    else { navigator.clipboard.writeText(window.location.href).catch(() => {}); }
+    // Generate a deep link that opens this restaurant's deep dive when followed
+    const p = new URLSearchParams({ deepDive: data.name });
+    if (city) p.set("city", city);
+    const url = `${window.location.origin}/?${p.toString()}`;
+    const text = `${data.name}${city ? ` in ${city}` : ""} — food intelligence from Dish Report`;
+    if (navigator.share) {
+      navigator.share({ title: data.name, text, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2200);
+      }).catch(() => {});
+    }
   };
 
   const showMarket = !!(data.venue_type?.toLowerCase().match(/market|hall|court|food hall/));
@@ -359,7 +370,7 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             <button style={outlineBtn()} onClick={handleShare}
               onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = t.border2; e.currentTarget.style.color = t.text; }}
-            ><ShareIcon />Share</button>
+            ><ShareIcon />{shareCopied ? "Copied!" : "Share"}</button>
             {onAddToList && (
               <button style={outlineBtn()}
                 onClick={() => onAddToList({ name: data.name, neighborhood: data.neighborhood, venue_type: data.venue_type, price_range: data.price_range, food_score: data.food_score, cuisine: data.cuisine })}
