@@ -214,82 +214,70 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
     <>
       <div style={{ background: t.bg, minHeight: "100vh", paddingBottom: 64 }}>
 
-        {/* ── Hero photo strip — snapping, 280px desktop / 220px mobile ── */}
+        {/* ── Hero photo strip — 16:9 aspect ratio, real photos only (up to 5) ── */}
         {(() => {
-          const MIN_SLOTS = 5;
-          const realPhotos = photoUrls;
-          // Pad with null slots so we always show at least MIN_SLOTS items
-          const slots: (string | null)[] = [
-            ...realPhotos,
-            ...Array(Math.max(0, MIN_SLOTS - realPhotos.length)).fill(null),
-          ];
+          const realPhotos = photoUrls.slice(0, 5);
           const initial = (data.name?.[0] || "?").toUpperCase();
-          return (
-            <>
-              <style>{`
-                .dr-photo-strip { height: 280px; }
-                @media (max-width: 640px) { .dr-photo-strip { height: 220px; } }
-              `}</style>
-              <div className="dr-photo-strip" style={{ position: "relative", overflow: "hidden", background: "#2c4a44" }}>
-                <div style={{
-                  display: "flex", height: "100%",
-                  overflowX: "auto", scrollbarWidth: "none",
-                  scrollSnapType: "x mandatory",
-                  WebkitOverflowScrolling: "touch",
-                }}>
-                  {slots.map((url, idx) => (
-                    <div key={idx} style={{
-                      position: "relative", height: "100%", flexShrink: 0,
-                      scrollSnapAlign: "start",
-                      // Show partial next slot to signal scrollability
-                      width: slots.length === 1 ? "100%" : "88%",
-                      minWidth: slots.length === 1 ? "100%" : 260,
-                    }}>
-                      {url ? (
-                        <>
-                          <img
-                            src={url} alt=""
-                            onClick={() => { setLightboxIdx(idx < realPhotos.length ? idx : 0); setLightboxOpen(true); }}
-                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
-                          />
-                          {idx === 0 && (
-                            <div style={{
-                              position: "absolute", bottom: 8, left: 10,
-                              background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4,
-                            }}>
-                              <span style={{
-                                fontFamily: "'Sevastopol', Georgia, serif",
-                                fontSize: 9, color: "#10211e",
-                                textTransform: "uppercase", letterSpacing: "0.15em",
-                              }}>ESTABLISHMENT</span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        /* Placeholder slot for missing photos */
-                        <div style={{
-                          width: "100%", height: "100%",
-                          background: "#1b332e", border: "none",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <span style={{
-                            fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                            fontSize: "4rem", fontWeight: 900, color: "#7fe3c8", opacity: 0.35,
-                          }}>{initial}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+
+          // No photos: single placeholder in 16:9 container
+          if (realPhotos.length === 0) {
+            return (
+              <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#1b332e", overflow: "hidden" }}>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontFamily: "var(--font-orbitron),'Courier New',monospace", fontSize: "4rem", fontWeight: 900, color: "#7fe3c8", opacity: 0.35 }}>
+                    {initial}
+                  </span>
                 </div>
-                {/* Gradient overlay */}
-                <div style={{
-                  position: "absolute", bottom: 0, left: 0, right: 0, height: "50%",
-                  background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))",
-                  pointerEvents: "none",
-                }} />
               </div>
-            </>
+            );
+          }
+
+          return (
+            // 16:9 aspect-ratio container via padding-top trick — ensures no fixed-height zoom distortion
+            <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", overflow: "hidden", background: "#2c4a44" }}>
+              <div style={{
+                position: "absolute", inset: 0,
+                display: "flex",
+                overflowX: "auto", scrollbarWidth: "none" as const,
+                scrollSnapType: "x mandatory",
+                WebkitOverflowScrolling: "touch",
+              }}>
+                {realPhotos.map((url, idx) => (
+                  <div key={idx} style={{
+                    position: "relative", height: "100%", flexShrink: 0,
+                    scrollSnapAlign: "start",
+                    width: realPhotos.length === 1 ? "100%" : "88%",
+                    minWidth: realPhotos.length === 1 ? "100%" : 260,
+                  }}>
+                    <img
+                      src={url} alt=""
+                      onClick={() => { setLightboxIdx(idx); setLightboxOpen(true); }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                    />
+                    {idx === 0 && (
+                      <div style={{ position: "absolute", bottom: 8, left: 10, background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4 }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#d4e4df", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+                          ESTABLISHMENT
+                        </span>
+                      </div>
+                    )}
+                    {realPhotos.length > 1 && (
+                      <div style={{ position: "absolute", bottom: 8, right: 10, background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4 }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#d4e4df", letterSpacing: "0.10em" }}>
+                          {idx + 1}/{realPhotos.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0, height: "45%",
+                background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.40))",
+                pointerEvents: "none",
+              }} />
+            </div>
           );
         })()}
 
@@ -344,11 +332,12 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                 if (!label) return null;
                 return (
                   <span key={i} style={{
-                    fontFamily: "'Sevastopol', Georgia, serif",
-                    fontSize: "0.625rem", fontWeight: 400,
-                    background: dark ? "#1b332e" : "#d4e4df",
-                    color: "#7fe3c8",
-                    padding: "6px 12px", borderRadius: 4,
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: "0.625rem", fontWeight: 600,
+                    background: "#1b332e",
+                    border: "1px solid #2c4a44",
+                    color: "#9fe3c8",
+                    padding: "5px 11px", borderRadius: 4,
                     textTransform: "uppercase", letterSpacing: "0.12em",
                     whiteSpace: "nowrap", display: "inline-flex",
                   }}>{label}</span>
@@ -397,18 +386,34 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
               }}>{(data.food_score ?? 5).toFixed(1)}</div>
               <div style={{ width: 60, height: 2, background: clr, borderRadius: 1 }} />
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6875rem", color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em" }}>ANALYTICAL SCORE</div>
-              {/* Confidence indicator */}
-              {data.confidence && (
+
+              {/* KNOWN FOR badges — prominently show must-order strengths */}
+              {data.must_orders && data.must_orders.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+                  {(data.must_orders as Array<{item?: string}>).slice(0, 3).map((mo, idx) => mo?.item ? (
+                    <span key={idx} style={{
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: "0.6rem", fontWeight: 700,
+                      background: "#1b332e", border: "1px solid #2c4a44",
+                      color: "#9fe3c8",
+                      padding: "4px 10px", borderRadius: 20,
+                      textTransform: "uppercase", letterSpacing: "0.10em",
+                      whiteSpace: "nowrap",
+                    }}>KNOWN FOR {mo.item}</span>
+                  ) : null)}
+                </div>
+              )}
+
+              {/* Confidence — de-emphasized: only show non-high confidence as small muted note */}
+              {data.confidence && data.confidence !== "high" && (
                 <div style={{
                   fontFamily: "'Sevastopol', Georgia, serif",
-                  fontSize: "0.5625rem", color: t.tertiary,
-                  letterSpacing: "0.1em",
+                  fontSize: "0.5rem", color: t.disabled, opacity: 0.7,
+                  letterSpacing: "0.08em",
                 }}>
-                  {data.confidence === "high"
-                    ? "Strong signal — many review sources"
-                    : data.confidence === "medium"
-                    ? "Moderate signal — limited reviews"
-                    : "Low signal — few sources found"}
+                  {data.confidence === "medium"
+                    ? "moderate signal"
+                    : "limited signal"}
                 </div>
               )}
             </div>
@@ -550,22 +555,29 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             </div>
           )}
 
-          {/* ALSO WORTH ORDERING */}
+          {/* ALSO WORTH ORDERING — dark card wrapper matching Must Order / Insider Tips */}
           {also.length > 0 && (
             <div style={{ paddingTop: 28 }}>
-              {SL("Also Worth Ordering")}
-              {also.filter((a): a is NonNullable<AlsoTry> => a != null).map((a, j) => {
-                const name = typeof a === "string" ? a : (a?.dish || "");
-                const note = typeof a === "object" ? a?.note : undefined;
-                if (!name) return null;
-                return (
-                  <div key={j}>
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: t.text, marginBottom: note ? 4 : 0 }}>{name}</div>
-                    {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.55 }}>{note}</div>}
-                    {j < also.length - 1 && <div style={{ height: 1, background: t.border, margin: "12px 0" }} />}
-                  </div>
-                );
-              })}
+              {SL("Also Worth Ordering", "#9fe3c8")}
+              <div style={{
+                background: t.card, border: `1px solid ${t.border}`,
+                borderRadius: 10, overflow: "hidden", boxShadow: t.s1,
+              }}>
+                {also.filter((a): a is NonNullable<AlsoTry> => a != null).map((a, j, arr) => {
+                  const name = typeof a === "string" ? a : (a?.dish || "");
+                  const note = typeof a === "object" ? a?.note : undefined;
+                  if (!name) return null;
+                  return (
+                    <div key={j} style={{
+                      padding: "12px 16px",
+                      borderBottom: j < arr.length - 1 ? `1px solid ${t.border}` : "none",
+                    }}>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 600, color: t.text, marginBottom: note ? 4 : 0 }}>{name}</div>
+                      {note && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.55 }}>{note}</div>}
+                    </div>
+                  );
+                })}
+              </div>
               <Divider />
             </div>
           )}

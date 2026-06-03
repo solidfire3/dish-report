@@ -4,6 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { buildTags, computeSignature, makeIdentityKey } from "@/lib/search-signature";
+import { getTilesForLocation } from "@/lib/metro-tiles";
+import { extractJson } from "@/lib/extract-json";
 
 const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
 const RESTAURANT_TTL_MS  = 120 * 24 * 60 * 60 * 1000;
@@ -100,15 +102,31 @@ Score tiers (anchor every score against these named bands):
 The typical good local neighborhood spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6.
 9.0+ is for true standouts only — do not award for popularity alone.
 
-QUERY RELEVANCE — controls inclusion, not scores (Fix 2):
-Only include restaurants that are GENUINELY known for the searched dish or category.
-EXCLUDE any restaurant where the searched item is incidental to a different concept:
-- A fine-dining tasting-menu restaurant in a "best pizza" search → excluded.
-- A café that happens to sell burgers in a "best burger" search → excluded.
-The restaurant must be a real destination for the specific query. This is a strict gate.
-Fewer genuinely relevant results beat 5 loosely related ones.
+QUERY RELEVANCE — strict destination gate, controls inclusion not scores:
+A venue MUST be a genuine destination for the searched dish — a PRIMARY reason people go there.
+The test: "Is this place specifically known FOR [dish]?"
+INCLUDE only when the dish is a core offering that people seek out at this specific venue.
+EXCLUDE strictly:
+- A sushi restaurant that has poke bowls on the menu → EXCLUDED from a "poke" search, unless
+  the restaurant is specifically and widely known for its poke (rare; not just "offers poke").
+- Any venue where the dish is a secondary item, side offering, or equal-among-many.
+- Multi-cuisine spots where the dish is one of ten equal-priority offerings.
+- A fine-dining tasting-menu restaurant in a "pizza" or "tacos" search.
+- Any café or general restaurant in a "burger" or "ramen" search unless it's a burger/ramen
+  destination specifically.
+Return fewer genuinely-relevant results rather than padding with venues that merely have
+the dish on the menu. Quality of relevance over quantity.
+This gate applies independently per tile; each tile must meet this standard.
 
-SOURCE GROUNDING — every claim must be traceable to retrieved sources (Fix 3):
+GEOGRAPHIC CONTAINMENT — non-negotiable:
+Only include venues physically located in or within reasonable proximity of the searched location.
+Do NOT include venues from a different city or region simply because they are well-reviewed for this dish.
+A venue just across a neighborhood boundary within the same metro area is acceptable.
+A venue in a clearly different city or region is NOT acceptable, even if the web search surfaced it.
+Verify that each returned venue's address actually places it in or near the searched area.
+Location accuracy matters as much as dish quality — a confident wrong-location result is worse than no result.
+
+SOURCE GROUNDING — every claim must be traceable to retrieved sources:
 Ground all factual claims in actually retrieved review/source material, NOT general knowledge.
 - Do NOT invent restaurants, addresses, specific dishes, or quotes not supported by sources.
 - If a restaurant's existence or relevance cannot be confirmed from retrieved sources, omit it.
@@ -116,12 +134,13 @@ Ground all factual claims in actually retrieved review/source material, NOT gene
 - best_quote must be from an actual retrieved review. If none available, use "".
 - If unsure a place is real and relevant, omit it rather than guess.
 
-CONFIDENCE — use as a real inclusion gate (Fix 4):
+CONFIDENCE — honest signal assessment, do NOT use to reduce candidate count:
 "high" = strong, consistent signal from multiple independent sources.
 "medium" = some signal but limited or inconsistent.
 "low" = thin signal, very few reviews, or conflicting information.
-PREFERENCE: drop low-confidence results rather than include shaky picks. Return fewer than 5 if needed.
-Never present a low-confidence result as a reliable top pick. "Not enough signal" is honest and acceptable.
+Include ALL "high" and "medium" confidence results in the ranked output — they deserve a rank.
+Exclude "low" confidence venues only if you already have 10 qualifying results without them.
+Do NOT artificially cap the result count. Return every venue with meaningful evidence up to the maximum.
 
 DISH BADGE (contextual label — no effect on score or ranking):
 - dish_badge: 2-5 word string, or null. Only populate if this restaurant is genuinely CELEBRATED by locals for the searched dish/category — e.g. "local birria legend", "destination for ramen", "known for carnitas".
@@ -131,14 +150,10 @@ DISH BADGE (contextual label — no effect on score or ranking):
 
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"dish_badge":"string|null","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
-Up to 5 results, strictly sorted food_score descending. Fewer than 5 is acceptable when confidence or relevance do not support more.`;
-
-function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
-  const text = content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map(b => b.text).join("");
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Could not parse response");
-  return JSON.parse(match[0]);
-}
+${excl.length
+  ? "Return up to 5 results not in the excluded list, strictly sorted food_score descending."
+  : "Return up to 16 results — include every venue you have meaningful review evidence for, strictly sorted food_score descending. Do not pad with invented or uncertain venues; quality over quantity. If only 9 venues genuinely qualify, return 9."
+}`;
 
 // ─── SERVICE CLIENT ────────────────────────────────────────────────────────────
 
@@ -150,13 +165,14 @@ function makeSvc() {
 
 async function runPipeline(
   client: Anthropic, dish: string, city: string, area: string,
-  locMode: string, radius: number, exclude: string[]
+  locMode: string, radius: number, exclude: string[],
+  locStrOverride?: string   // used by tile queries to specify the tile sub-area
 ): Promise<unknown> {
   const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
-  const locStr = locMode === "area" && area
+  const locStr = locStrOverride ?? (locMode === "area" && area
     ? `within ${radius} miles of ${area}`
-    : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`;
-  const userMsg = `Best places for "${dish}" ${locStr}.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
+    : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`);
+  const userMsg = `Best places for "${dish}" ${locStr}. GEOGRAPHIC REQUIREMENT: Only include venues physically located ${locStr} — exclude any venue whose address is not in or near this area, even if the web search surfaced it.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
   const msg = await client.messages.create({
     model: "claude-sonnet-4-6", max_tokens: 8000,
     system: makeSearchPrompt(exclude),
@@ -165,6 +181,57 @@ async function runPipeline(
     messages: [{ role: "user", content: userMsg }],
   });
   return extractJson(msg.content);
+}
+
+// ─── GEOGRAPHIC TILING ────────────────────────────────────────────────────────
+// Gathers raw candidate restaurants: either via parallel tile queries (metro
+// searches) or a single query (everything else). Returns the deduped raw
+// results array plus the base fields (dish, city) for the response envelope.
+
+type CandidateSet = {
+  rawResults: Record<string, unknown>[];
+  baseFields:  Record<string, unknown>;
+};
+
+async function gatherCandidates(
+  client: Anthropic, dish: string, city: string, area: string,
+  locMode: string, radius: number,
+  tileQueriesOverride?: string[]  // explicit tiles from Refine step; overrides auto-detection
+): Promise<CandidateSet> {
+  // tileQueriesOverride → user's explicit region selection from the Refine step
+  // Otherwise: auto-detect from metro config for broad city searches
+  const isBroadCitySearch = !area && locMode !== "area";
+  const tiles = tileQueriesOverride
+    ?? (isBroadCitySearch ? getTilesForLocation(city) : null);
+
+  if (tiles) {
+    console.log(`[tiling] "${city}" → ${tiles.length} tiles in parallel: ${tiles.join(", ")}`);
+    // Run all tile queries in parallel — wall time ≈ slowest single tile (~30-60s)
+    const tileResponses = await Promise.all(
+      tiles.map(tile => runPipeline(client, dish, city, area, locMode, radius, [], `in ${tile}`))
+    );
+    // Merge all tile candidates
+    const allRaw = tileResponses.flatMap(
+      r => ((r as Record<string, unknown>).results || []) as Record<string, unknown>[]
+    );
+    // Dedupe by identity_key: same venue from overlapping tiles → keep first occurrence.
+    // First tile wins — tiles are ordered center-first, so central results get priority.
+    const seen = new Map<string, Record<string, unknown>>();
+    for (const r of allRaw) {
+      const key = makeIdentityKey(r.name as string, r.address as string);
+      if (key && key !== "|" && !seen.has(key)) seen.set(key, r);
+    }
+    const rawResults = Array.from(seen.values());
+    console.log(`[tiling] ${allRaw.length} total candidates → ${rawResults.length} after dedupe`);
+    return { rawResults, baseFields: { dish, city } };
+  }
+
+  // Single query — existing behavior
+  const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
+  return {
+    rawResults: ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[],
+    baseFields: rawResult as Record<string, unknown>,
+  };
 }
 
 // ─── RESTAURANT NORMALIZATION ──────────────────────────────────────────────────
@@ -279,12 +346,15 @@ async function triggerBackgroundRefresh(cachedId: string, pipelineFn: () => Prom
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
-    const { mode, dish, city, area, locMode, radius, exclude = [], forceRefresh = false } = await req.json();
+    const {
+      mode, dish, city, area, locMode, radius, exclude = [], forceRefresh = false,
+      tileQueries,   // explicit tile queries from the Refine step (overrides auto-tiling)
+      regionKey,     // sorted region IDs for unique cache key, e.g. "central,coastal"
+    } = await req.json();
 
     // ── Piece 1: Quick cache check — DB lookup only, no pipeline ─────────────
-    // Used by the client before showing the loading screen.
     if (mode === "quick") {
-      const tags = buildTags({ dish, city, area, locMode, radius });
+      const tags = buildTags({ dish, city, area, locMode, radius, regionKey: regionKey ?? null });
       const sig  = computeSignature(tags);
       const cached = await lookupCache(sig);
       if (cached?.results && new Date(cached.expires_at).getTime() > Date.now()) {
@@ -317,7 +387,7 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     }
 
-    const tags = buildTags({ dish, city, area, locMode, radius });
+    const tags = buildTags({ dish, city, area, locMode, radius, regionKey: regionKey ?? null });
     const sig  = computeSignature(tags);
 
     // Check DB cache (unless forceRefresh explicitly bypasses it)
@@ -332,7 +402,11 @@ export async function POST(req: Request) {
             (Date.now() - new Date(cached.refreshing_at).getTime() < STAMPEDE_GUARD_MS);
           if (!isRefreshing) {
             console.log("[cache] DB HIT stale — sig:", sig, "| backgrounding refresh");
-            triggerBackgroundRefresh(cached.id, () => runPipeline(client, dish, city, area, locMode, radius, [])).catch(() => {});
+            // Background refresh also tiles so the refreshed cache is equally comprehensive
+            triggerBackgroundRefresh(cached.id, async () => {
+              const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius, tileQueries as string[] | undefined);
+              return { ...baseFields, results: rawResults };
+            }).catch(() => {});
           }
         } else {
           console.log("[cache] DB HIT fresh — sig:", sig, "| ZERO Anthropic/Places calls");
@@ -345,9 +419,9 @@ export async function POST(req: Request) {
       console.log("[cache] forceRefresh — sig:", sig, "| skipping cache, running pipeline");
     }
 
-    // Pipeline + normalization + cache write (cache miss OR forceRefresh)
-    const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
-    const rawResults = ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[];
+    // Pipeline + normalization + cache write (cache miss OR forceRefresh).
+    // gatherCandidates handles tiling for broad metro searches transparently.
+    const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius, tileQueries as string[] | undefined);
 
     const db = makeSvc();
     const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {
@@ -357,11 +431,12 @@ export async function POST(req: Request) {
       return { ...r, food_score: durable_score, dish_badge: (r.dish_badge as string | null) ?? null, restaurant_id };
     }));
 
-    // FIX 1: enforce food_score DESC regardless of model output order, then re-assign ranks
+    // Enforce food_score DESC over the FULL merged set, then re-assign ranks.
+    // This preserves the top-N invariant: top N shown = true top N of all candidates.
     augmentedResults.sort((a, b) => (Number(b.food_score) || 0) - (Number(a.food_score) || 0));
     augmentedResults.forEach((r, i) => { (r as Record<string, unknown>).rank = i + 1; });
 
-    const augmentedResult = { ...(rawResult as Record<string, unknown>), results: augmentedResults };
+    const augmentedResult = { ...baseFields, results: augmentedResults };
     const searchCacheId = await upsertCache(sig, augmentedResult, tags, dish);
 
     if (searchCacheId) {

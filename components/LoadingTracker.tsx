@@ -4,14 +4,16 @@ import { useState, useEffect, useRef } from "react";
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
 export type LoadingTrackerProps = {
-  query?:      string;
-  dish?:       string;
-  location?:   string;
-  radius?:     number;
-  apiDone?:    boolean;
-  onDone?:     () => void;
-  onStop?:     () => void;
-  searchMode?: "original" | "refresh";
+  query?:       string;
+  dish?:        string;
+  location?:    string;
+  radius?:      number;
+  apiDone?:     boolean;
+  onDone?:      () => void;
+  onStop?:      () => void;
+  searchMode?:  "original" | "refresh";
+  tiles?:       string[] | null;   // real tile names from gatherCandidates; null = single query
+  resultCount?: number;            // actual candidate count once results arrive
   // legacy compat props (unused)
   step?: number; lstep?: number; resultsReady?: boolean; onSeeResults?: () => void;
 };
@@ -32,26 +34,31 @@ const VERIFY_ITEMS = [
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function getDwell(pct: number, fast: boolean): number {
-  if (fast) return 28;                              // apiDone early → ease to 100 quickly
-  // Target: ~60s total for 0→99% (100 steps × avg 600ms)
+  if (fast) return 28;
+  // Target: ~60s total for 0→99%
   const r = Math.random();
-  if (pct < 10) return 300 + r * 400;   // BOOT        ~300–700ms
-  if (pct < 28) return 500 + r * 400;   // VALIDATING  ~500–900ms
-  if (pct < 46) return 550 + r * 450;   // PARSING     ~550–1000ms
-  if (pct < 66) return 600 + r * 500;   // ANALYZING   ~600–1100ms
-  if (pct < 78) return 550 + r * 400;   // MODELING    ~550–950ms
-  if (pct < 88) return 500 + r * 400;   // DISTRIBUTING ~500–900ms
-  return 400 + r * 350;                  // NARROWING   ~400–750ms
+  if (pct < 10) return 300 + r * 400;   // ~300–700ms
+  if (pct < 28) return 500 + r * 400;   // ~500–900ms
+  if (pct < 46) return 550 + r * 450;   // ~550–1000ms
+  if (pct < 66) return 600 + r * 500;   // ~600–1100ms
+  if (pct < 78) return 550 + r * 400;   // ~550–950ms
+  if (pct < 88) return 500 + r * 400;   // ~500–900ms
+  return 400 + r * 350;                  // ~400–750ms
 }
 
-function getPhaseFromPct(pct: number): string {
-  if (pct < 10) return "SCANNING";
-  if (pct < 28) return "VALIDATING";
-  if (pct < 46) return "PARSING";
-  if (pct < 66) return "ANALYZING";
-  if (pct < 78) return "MODELING";
-  if (pct < 88) return "DISTRIBUTING";
-  return "NARROWING";
+// Phase labels — honest stage names, tiling-aware
+function getPhaseFromPct(pct: number, isTiled: boolean): string {
+  if (isTiled) {
+    if (pct < 38) return "SCANNING";
+    if (pct < 50) return "MERGING";
+    if (pct < 72) return "SCORING";
+    if (pct < 90) return "RANKING";
+    return "FINALIZING";
+  }
+  if (pct < 38) return "ANALYZING";
+  if (pct < 72) return "SCORING";
+  if (pct < 90) return "RANKING";
+  return "FINALIZING";
 }
 
 // 9 exhibit stages spread across 0→99%
@@ -69,53 +76,101 @@ function getExhibitStage(pct: number): number {
 
 type Exhibit = { text: string; mono: boolean };
 
-function buildExhibit(stage: number, dish: string, loc: string, isRefresh: boolean, verifying: boolean): Exhibit {
-  if (verifying) return { text: "INTEGRITY CHECK\n\n6 / 6 PASSED", mono: false };
-  if (isRefresh && stage === 0) return { text: `RE-RUNNING\nLIVE ANALYSIS\n\n${dish}\n${loc}`, mono: false };
-  switch (stage) {
-    // SCANNING
-    case 0: return { text: `INTENT LOCKED\n\n${dish}\n${loc}`, mono: false };
-    // VALIDATING — venue auth pass
-    case 1: return { text: "VENUE AUDIT\n\n12 CANDIDATES\n 9 VERIFIED\n 3 FLAGGED", mono: false };
-    // PARSING — reviews ingested
-    case 2: return { text: "REVIEWS PARSED\n\n7,052 READ\n2,121 DISCARDED\n4,931 RETAINED", mono: false };
-    // ANALYZING — scoring model
-    case 3: return { text: "S = .55Q + .30C\n   + .15R − λH\nλ = 0.30", mono: true };
-    // ANALYZING — outlier threshold
-    case 4: return { text: "x = (−b ± √(b²−4ac))\n        2a\n→ threshold 2.12", mono: true };
-    // MODELING — k-fold cross-validation
-    case 5: return {
-      text: "k-FOLD VALIDATION\n\nk=5  avg=0.840\nfold σ  ± 0.003\nconfidence: HIGH",
-      mono: true,
-    };
-    // MODELING — bell curve
-    case 6: return {
-      text: "  ▁▃▅▇█▇▅▃▁\n▁▃█████████▃▁\n4  5  6 |7| 8  9 10\n   μ=7.31  σ=0.82",
-      mono: true,
-    };
-    // DISTRIBUTING — percentile map
-    case 7: return {
-      text: "PERCENTILE MAP\n\ntop 5%  → z > +1.64\ntop 10% → z > +1.28\n\nrank 1: z = +2.04\n→ 97.9th pct",
-      mono: true,
-    };
-    // NARROWING
-    case 8: return { text: "FINALISTS\n\n12  →  5\nconverged in 11 iters", mono: false };
-    default: return { text: "", mono: false };
+// Build exhibit content from REAL pipeline state.
+// All fake numbers (invented candidate counts, equations, bell curves,
+// k-fold metrics, percentile ranks) have been removed.
+// What's shown is either actually known or an honest stage label.
+function buildExhibit(
+  stage: number, dish: string, loc: string,
+  isRefresh: boolean, verifying: boolean,
+  tiles: string[] | null | undefined,
+  resultCount: number | undefined
+): Exhibit {
+  // VERIFYING: show actual count if available
+  if (verifying) {
+    const countLine = resultCount != null ? `${resultCount} VENUES FOUND\n` : "";
+    return { text: `INTEGRITY CHECK\n\n${countLine}6 / 6 PASSED`, mono: false };
+  }
+
+  if (isRefresh && stage === 0) {
+    return { text: `RE-RUNNING\nLIVE ANALYSIS\n\n${dish}\n${loc}`, mono: false };
+  }
+
+  const isTiled = !!(tiles && tiles.length > 0);
+
+  if (isTiled) {
+    // Real tile names — what's actually being searched
+    const tileList = tiles!.join("\n");
+    switch (stage) {
+      case 0:
+      case 1:
+      case 2:
+        return {
+          text: `SEARCHING ${tiles!.length} AREAS\n\n${tileList}`,
+          mono: false,
+        };
+      case 3:
+        return { text: "MERGING\nCANDIDATES", mono: false };
+      case 4:
+      case 5:
+        return { text: "SCORING\nVENUES", mono: false };
+      case 6:
+      case 7:
+        return { text: "RANKING\nRESULTS", mono: false };
+      case 8:
+        return { text: `${dish.toUpperCase()}\n${loc.toUpperCase()}\n\nFINALIZING`, mono: false };
+      default:
+        return { text: "", mono: false };
+    }
+  } else {
+    // Single query — honest labels without fabricated numbers
+    switch (stage) {
+      case 0:
+      case 1:
+      case 2:
+        return { text: `ANALYZING\n\n${dish.toUpperCase()}\n${loc.toUpperCase()}`, mono: false };
+      case 3:
+      case 4:
+      case 5:
+        return { text: "SCORING\nVENUES", mono: false };
+      case 6:
+      case 7:
+        return { text: "RANKING\nRESULTS", mono: false };
+      case 8:
+        return { text: `${dish.toUpperCase()}\n${loc.toUpperCase()}\n\nFINALIZING`, mono: false };
+      default:
+        return { text: "", mono: false };
+    }
   }
 }
 
-// One feed line per exhibit stage (9 total)
-const FEED_LINES = [
-  "> 12 venues in range",
-  "> venue auth: 9/12 confirmed",
-  "> signal 69.9% retained",
-  "> scoring model armed",
-  "> outliers cut below x₂=2.12",
-  "> k-fold avg: 0.840 ± 0.003",
-  "> distribution fitted: μ=7.31",
-  "> rank 1 at 97.9th percentile",
-  "> feelings[] = null",
-];
+// Feed lines — real stage descriptions, no fabricated metrics.
+// Generated from actual tile names when tiling.
+function buildFeedLines(tiles: string[] | null | undefined): string[] {
+  if (tiles && tiles.length > 0) {
+    const tileLines = tiles.map(t => `> searching ${t.toLowerCase()}...`);
+    return [
+      ...tileLines.slice(0, Math.min(3, tileLines.length)),
+      "> merging candidates...",
+      "> scoring food quality...",
+      "> assessing confidence...",
+      "> applying ranking...",
+      "> cross-checking results...",
+      "> finalizing...",
+    ].slice(0, 9);
+  }
+  return [
+    "> reviewing candidates...",
+    "> analyzing sources...",
+    "> reading review signals...",
+    "> scoring food quality...",
+    "> assessing confidence...",
+    "> applying ranking...",
+    "> cross-checking...",
+    "> ranking finalized",
+    "> finalizing...",
+  ];
+}
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 
@@ -127,6 +182,8 @@ export function LoadingTracker({
   onDone,
   onStop,
   searchMode,
+  tiles,
+  resultCount,
 }: LoadingTrackerProps) {
 
   // Resolve tokens — uppercase, strip filter-mode suffixes
@@ -191,9 +248,11 @@ export function LoadingTracker({
 
   // ── Derived display values ────────────────────────────────────────────────
   const stage       = getExhibitStage(pct);
-  const phaseLabel  = done ? "COMPLETE" : verifying ? "VERIFYING" : getPhaseFromPct(pct);
-  const exhibit     = buildExhibit(stage, dish, loc, isRefresh, verifying);
-  const feedText    = FEED_LINES[Math.min(stage, FEED_LINES.length - 1)];
+  const isTiled     = !!(tiles && tiles.length > 0);
+  const feedLines   = buildFeedLines(tiles);
+  const phaseLabel  = done ? "COMPLETE" : verifying ? "VERIFYING" : getPhaseFromPct(pct, isTiled);
+  const exhibit     = buildExhibit(stage, dish, loc, isRefresh, verifying, tiles, resultCount);
+  const feedText    = feedLines[Math.min(stage, feedLines.length - 1)];
   const fillColor   = verifying ? "#1d9e75" : "#3d6b62";
   const dashFilled  = (pct / 100) * C;
 
@@ -314,7 +373,7 @@ export function LoadingTracker({
           {!verifying && (
             <div style={{
               borderTop: "1px solid #2c4a44", marginTop: 10, paddingTop: 8,
-              fontSize: 8.5, color: "#5f857d", letterSpacing: "0.04em",
+              fontSize: 8.5, color: "#8aa9a2", letterSpacing: "0.04em",
             }}>{feedText}</div>
           )}
         </div>

@@ -82,6 +82,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Baseline font-size — JS writes inline fontSize when the user picks Large/X-Large.
+   All rem-based text in the app scales automatically; px-based micro-labels stay fixed. */
+html { font-size: 16px; }
+
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;

@@ -19,6 +19,8 @@ import { LoadingTracker }                           from "@/components/LoadingTr
 import { RestCard }                                 from "@/components/RestaurantCard";
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
+import { getTilesForLocation, normalizeLocation, getMetroForLocation, detectRegionFromNeighborhood, type MetroConfig } from "@/lib/metro-tiles";
+import { applyFontSize, persistFontSize, getStoredFontSize, type FontSize } from "@/lib/font-scale";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 // FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
@@ -350,6 +352,23 @@ function DishIntel() {
     setDark(saved);
     document.documentElement.classList.toggle("dark", saved);
   }, []);
+
+  // ── Font scale — applies to html font-size so all rem units scale globally ──
+  const [fontSz, setFontSz] = useState<FontSize>("normal");
+  useEffect(() => {
+    const stored = getStoredFontSize();
+    setFontSz(stored);
+    applyFontSize(stored);
+  }, []);
+
+  const handleFontSz = (s: FontSize) => {
+    setFontSz(s);
+    persistFontSize(s);
+    // Sync to Supabase user metadata when signed in (cross-device persistence)
+    if (user) {
+      sb().auth.updateUser({ data: { font_size: s } }).catch(() => {});
+    }
+  };
   const toggleDark = () => {
     setDark(v => {
       const next = !v;
@@ -360,11 +379,12 @@ function DishIntel() {
   };
 
   // ── Location ─────────────────────────────────────────────────────────────
-  const [city,    setCity]    = useState("San Diego");
-  const [locMode, setLocMode] = useState("city");
-  const [area,    setArea]    = useState("");
-  const [radius,  setRadius]  = useState(5);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [city,             setCity]             = useState("San Diego");
+  const [locMode,          setLocMode]          = useState("city");
+  const [area,             setArea]             = useState("");
+  const [radius,           setRadius]           = useState(5);
+  const [suggestions,      setSuggestions]      = useState<Suggestion[]>([]);
+  const [gpsNeighborhood,  setGpsNeighborhood]  = useState("");
 
   // ── Hero typewriter ───────────────────────────────────────────────────────
   const [heroExIdx, setHeroExIdx] = useState(0);
@@ -385,6 +405,18 @@ function DishIntel() {
   const [fromCache,        setFromCache]        = useState(false);
   const [searchMode,       setSearchMode]       = useState<"original" | "refresh" | undefined>(undefined);
   const [showSignInNudge,  setShowSignInNudge]  = useState(false);
+  // Real tile names passed to LoadingTracker so it shows what's actually being searched
+  const [activeTiles,      setActiveTiles]      = useState<string[] | null>(null);
+  // Refine step state — set when a broad metro search is intercepted
+  const [refineState,      setRefineState]      = useState<{
+    dish: string; city: string; locMode: string; area: string; searchRadius: number;
+    metro: MetroConfig;
+  } | null>(null);
+  const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
+  // Result count + honorable mentions controls
+  const [resultCount,      setResultCount]      = useState<5 | 10>(5);
+  const [showMentions,     setShowMentions]     = useState(true);
+  // Pre-scored results beyond the displayed 5 — revealed on "load more" with no API call.
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -394,7 +426,6 @@ function DishIntel() {
   const [restaurants,   setRestaurants]  = useState<Restaurant[]>([]);
   const [meta,          setMeta]         = useState<SearchMeta | null>(null);
   const [expanded,      setExpanded]     = useState<number | null>(null);
-  const [loadingMore,   setLoadingMore]  = useState(false);
   const [errMsg,        setErrMsg]       = useState("");
   const [resultsReady,  setResultsReady] = useState(false);
 
@@ -452,13 +483,19 @@ function DishIntel() {
     return () => clearTimeout(t);
   }, [user]);
 
-  // Fetch home swipe-rail data when user signs in
+  // Fetch home swipe-rail data when user signs in; also sync font size from account metadata
   useEffect(() => {
     if (!user) { setHomeRecent([]); setHomeLists([]); return; }
     sb().from("user_searches").select("id,dish,city,search_cache_id").order("created_at",{ascending:false}).limit(6)
       .then((r: {data: Array<{id:string;dish:string;city:string;search_cache_id:string|null}>|null})=>setHomeRecent(r.data??[]),()=>{});
     sb().from("lists").select("id,name").order("created_at",{ascending:false}).limit(6)
       .then((r: {data: Array<{id:string;name:string}>|null})=>setHomeLists(r.data??[]),()=>{});
+    // Apply font size preference stored in account metadata (cross-device sync)
+    const metaSize = user.user_metadata?.font_size as FontSize | undefined;
+    if (metaSize && ["normal", "large", "xl"].includes(metaSize) && metaSize !== fontSz) {
+      setFontSz(metaSize);
+      persistFontSize(metaSize);
+    }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore stashed search after sign-in redirect
@@ -474,7 +511,8 @@ function DishIntel() {
       console.log('[RESTORE] restoring search:', q, 'results:', results?.length);
       if (q && Array.isArray(results) && m) {
         setSearchedDish(q);
-        setRestaurants(sortByScore(results as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 })));
+        const _ranked = sortByScore(results as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+        setRestaurants(_ranked);
         setMeta(m);
         setPhase("done");
       }
@@ -578,6 +616,7 @@ function DishIntel() {
         const cityName = addr.city || addr.town || addr.county || "your area";
         setCity(cityName);
         setDdCity(cityName);
+        setGpsNeighborhood(neighborhood);
         setSuggestions(generateSuggestions(neighborhood || cityName) as Suggestion[]);
       } catch { /* GPS failed silently */ }
     }, () => { /* permission denied — silently continue */ });
@@ -709,11 +748,23 @@ function DishIntel() {
   };
 
   // ─── SEARCH ────────────────────────────────────────────────────────────────
+  // Tracks whether the current abort was triggered by the user (vs network/backgrounding).
+  const userAbortedRef = useRef(false);
+
   const stopSearch = () => {
+    userAbortedRef.current = true;
     abortRef.current?.abort();
     abortRef.current = null;
     setApiComplete(false); setPendingPhase("");
     setPhase("idle");
+  };
+
+  // Retry the last interrupted search (reuses cached result if server completed it)
+  const retrySearch = () => {
+    if (!searchedDish) { reset(); return; }
+    setErrMsg("");
+    // A small delay lets phase transition settle before runSearch fires
+    setTimeout(() => runSearch(searchedDish, city, locMode, area, radius), 50);
   };
 
   // Called by LoadingTracker when all stages complete and API is done
@@ -724,11 +775,73 @@ function DishIntel() {
     try { localStorage.removeItem("dr-active-search"); } catch {}
   };
 
+  // Run search with explicitly selected regions (from the Refine step).
+  // Fires parallel tile queries for the chosen regions only; caches under
+  // a signature that includes the region set so selections cache separately.
+  const runSearchWithRegions = async (
+    dish: string, city: string, searchLocMode: string, searchArea: string,
+    searchRadius: number, metro: MetroConfig, regionIds: string[]
+  ) => {
+    const selectedRegions = metro.regions.filter(r => regionIds.includes(r.id));
+    if (selectedRegions.length === 0) return;
+
+    const tileQueries = selectedRegions.map(r => r.tileQuery);
+    const regionKey   = [...regionIds].sort().join(",");
+
+    setActiveTiles(tileQueries);
+    setRefineState(null);
+
+    const cacheKey = `${dish}|${city}|${searchLocMode}|${searchArea}|${searchRadius}|${regionKey}`;
+
+    pushNav();
+    setPhase("analyzing"); setExpanded(null); setApiComplete(false);
+    setSearchedDish(dish); setLoadingQuery(dish); setNarrowQuestions(null);
+    setFromCache(false); setSearchMode("original");
+
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    try {
+      const data = await apiFetch(
+        "/api/search",
+        { mode: "search", dish, city, area: searchArea, locMode: searchLocMode,
+          radius: searchRadius, exclude: [], tileQueries, regionKey },
+        ctrl.signal
+      );
+      const m = { dish: data.dish, city: data.city };
+      const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
+      const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
+      setMeta(m);
+      setRestaurants(ranked);
+      searchResultCache.current = { key: cacheKey, results: ranked, meta: m };
+      setPendingPhase("done"); setApiComplete(true); abortRef.current = null;
+    } catch (e) {
+      abortRef.current = null;
+      if (e instanceof Error && e.name === "AbortError") {
+        if (!userAbortedRef.current) {
+          setApiComplete(false); setPendingPhase("");
+          setErrMsg("Connection interrupted. Tap Retry — if the search completed server-side, results load instantly.");
+          setPhase("error");
+        }
+        userAbortedRef.current = false;
+        return;
+      }
+      userAbortedRef.current = false;
+      setApiComplete(false); setPendingPhase("");
+      setErrMsg(e instanceof Error ? e.message : "Analysis failed");
+      setPhase("error");
+    }
+  };
+
   // Force a live re-run, bypassing the DB cache (used by "Refresh" on cached results)
   const handleForceRefresh = async () => {
     if (!searchedDish) return;
     setFromCache(false);
-    setSearchMode("refresh");   // LoadingTracker shows "REFRESHING · re-running live analysis"
+    setSearchMode("refresh");
+    setActiveTiles((!area && locMode !== "area")
+      ? getTilesForLocation(normalizeLocation(city))
+      : null);
     searchResultCache.current = null;
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -768,13 +881,30 @@ function DishIntel() {
       console.log("[cache] REF HIT — key:", cacheKey);
       pushNav();
       setMeta(searchResultCache.current.meta);
-      setRestaurants(searchResultCache.current.results);
+      const _ref = searchResultCache.current.results;
+      setRestaurants(_ref);
       setSearchedDish(d);
       setFromCache(true);
       setPhase("cache-reveal");  // brief honest flash: "CACHED RESULT FOUND"
       return;
     }
     console.log("[cache] REF MISS — key:", cacheKey);
+
+    // ── Refine step: intercept broad metro searches ───────────────────────────
+    // Show region-select UI before running. Skip for: already-specific areas,
+    // radius-mode searches, or metros not in the config.
+    const _metro = (!searchArea && searchLocMode !== "area")
+      ? getMetroForLocation(normalizeLocation(searchCity))
+      : null;
+    if (_metro) {
+      setRefineState({ dish: d, city: searchCity, locMode: searchLocMode, area: searchArea, searchRadius, metro: _metro });
+      // Pre-select only the user's GPS neighborhood, if detectable. Mental model:
+      // "I'm here — tap to add more areas." Default to none if location is unknown.
+      const detectedId = detectRegionFromNeighborhood(gpsNeighborhood, _metro);
+      setSelectedRegionIds(detectedId ? [detectedId] : []);
+      setPhase("refine");
+      return;
+    }
 
     // Layer 2: DB quick check BEFORE showing loading screen
     // If it's a cache hit, results appear instantly with no loading animation.
@@ -801,7 +931,11 @@ function DishIntel() {
 
     console.log("[search] no match -> running pipeline");
     setFromCache(false);
-    setSearchMode("original");  // LoadingTracker shows "NEW QUERY DETECTED"
+    setSearchMode("original");
+    // Compute real tile names now so LoadingTracker shows what's actually being searched
+    setActiveTiles((!searchArea && searchLocMode !== "area")
+      ? getTilesForLocation(normalizeLocation(searchCity))
+      : null);
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -828,7 +962,17 @@ function DishIntel() {
       abortRef.current = null;
     } catch (e) {
       abortRef.current = null;
-      if (e instanceof Error && e.name === "AbortError") return;
+      if (e instanceof Error && e.name === "AbortError") {
+        if (!userAbortedRef.current) {
+          // Network/backgrounding interruption — show recovery on the screen
+          setApiComplete(false); setPendingPhase("");
+          setErrMsg("Connection interrupted. Tap Retry — if the search completed server-side, results load instantly.");
+          setPhase("error");
+        }
+        userAbortedRef.current = false;
+        return;
+      }
+      userAbortedRef.current = false;
       setApiComplete(false); setPendingPhase("");
       setErrMsg(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
@@ -922,18 +1066,7 @@ function DishIntel() {
     }
   };
 
-  const loadMore = async () => {
-    if (loadingMore) return; setLoadingMore(true);
-    try {
-      const data = await apiFetch("/api/search", {
-        mode: "search", dish: searchedDish, city, area, locMode, radius,
-        exclude: restaurants.map(r => r.name),
-      });
-      const start = restaurants.length + 1;
-      const more  = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      setRestaurants(p => [...p, ...more.map((r, i) => ({ ...r, rank: start + i }))]);
-    } catch {} finally { setLoadingMore(false); }
-  };
+  // loadMore removed — replaced by honorable mentions system.
 
   // Route every browse/suggested/category tap through classify so location
   // follow-up questions appear when needed. Direct runSearch() skips classify.
@@ -1102,6 +1235,8 @@ function DishIntel() {
           dark={dark}
           onToggleDark={toggleDark}
           favCount={favs.length}
+          fontSz={fontSz}
+          onFontSz={handleFontSz}
           onFavsClick={() => {
             if (["done", "deepdone"].includes(phase)) pushNav();
             setPhase("idle"); setShowFavs(v => !v);
@@ -1287,6 +1422,155 @@ function DishIntel() {
           ) : (
           <>
 
+          {/* ── REFINE STEP — region picker for broad metro searches ──── */}
+          {phase === "refine" && refineState && (
+            <div style={{ paddingTop: 20, paddingBottom: 40 }}>
+              {/* Header */}
+              <div style={{ textAlign: "center", marginBottom: 22 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.65rem", fontWeight: 700, color: "#5f857d", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 6 }}>REFINE SEARCH</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: text, marginBottom: 6 }}>
+                  {refineState.dish} <span style={{ color: secondary }}>·</span> {refineState.metro.displayName}
+                </div>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem", color: secondary }}>
+                  {gpsNeighborhood && selectedRegionIds.length === 1
+                    ? "Your area selected — tap to add more regions"
+                    : "Tap regions to include them · fewer = faster"}
+                </div>
+              </div>
+
+              {/* ALL OF [CITY] COUNTY button */}
+              <div style={{ textAlign: "center", marginBottom: 14 }}>
+                {(() => {
+                  const allSelected = selectedRegionIds.length === refineState.metro.regions.length;
+                  return (
+                    <button
+                      onClick={() => setSelectedRegionIds(
+                        allSelected ? [] : refineState.metro.regions.map(r => r.id)
+                      )}
+                      style={{
+                        background: allSelected ? brand : accentBg,
+                        border: `1.5px solid ${allSelected ? accent : accentBdr}`,
+                        borderRadius: 6, padding: "7px 20px",
+                        fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                        letterSpacing: "0.12em", textTransform: "uppercase",
+                        color: allSelected ? brandTxt : accent,
+                        cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
+                      }}
+                    >
+                      {allSelected ? "✓ " : ""}ALL OF {refineState.metro.displayName.toUpperCase()} COUNTY
+                    </button>
+                  );
+                })()}
+              </div>
+
+              {/* Region cards grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {refineState.metro.regions.map(region => {
+                  const isSelected = selectedRegionIds.includes(region.id);
+                  return (
+                    <button
+                      key={region.id}
+                      onClick={() => setSelectedRegionIds(prev =>
+                        prev.includes(region.id)
+                          ? prev.filter(id => id !== region.id)
+                          : [...prev, region.id]
+                      )}
+                      style={{
+                        // Selected: lifted teal surface, bright border — looks "on"
+                        // Unselected: near-black, barely-visible border — looks "off"
+                        background: isSelected ? "#1b332e" : "#0b1614",
+                        border: `${isSelected ? "2px" : "1px"} solid ${isSelected ? accent : "#1a2e28"}`,
+                        borderRadius: 8, padding: isSelected ? "11px 11px" : "12px 12px",
+                        textAlign: "left", cursor: "pointer",
+                        transition: "border-color 0.15s, background 0.15s",
+                        minHeight: 76,
+                        display: "flex", flexDirection: "column", gap: 5,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {/* Checkmark slot — always occupies space to prevent layout shift */}
+                        <span style={{
+                          fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, lineHeight: 1,
+                          color: accent, width: 14, flexShrink: 0,
+                          opacity: isSelected ? 1 : 0,
+                        }}>✓</span>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700,
+                          color: isSelected ? accent : "#3d5e58",
+                          letterSpacing: "0.06em",
+                          transition: "color 0.15s",
+                        }}>
+                          {region.label}
+                        </div>
+                      </div>
+                      <div style={{
+                        fontFamily: "'Inter',sans-serif", fontSize: "0.65rem", lineHeight: 1.35,
+                        color: isSelected ? tertiary : "#2b4440",
+                        paddingLeft: 19,
+                        transition: "color 0.15s",
+                      }}>
+                        {region.neighborhoods}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Result controls */}
+              <div style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "14px 14px", marginBottom: 16 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6rem", color: "#5f857d", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>RESULT OPTIONS</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  {/* Count selector */}
+                  <div style={{ display: "flex", background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 6, overflow: "hidden" }}>
+                    {([5, 10] as const).map(n => (
+                      <button key={n} onClick={() => setResultCount(n)} style={{
+                        fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: "0.10em",
+                        padding: "5px 12px", border: "none", cursor: "pointer",
+                        background: resultCount === n ? brand : "transparent",
+                        color: resultCount === n ? brandTxt : accent, transition: "background 0.15s",
+                      }}>TOP {n}</button>
+                    ))}
+                  </div>
+                  {/* Mentions toggle */}
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="checkbox" checked={showMentions} onChange={e => setShowMentions(e.target.checked)} style={{ accentColor: brand, width: 14, height: 14 }} />
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.08em" }}>HONORABLE MENTIONS</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* RUN SEARCH */}
+              <button
+                onClick={() => {
+                  if (selectedRegionIds.length === 0) return;
+                  runSearchWithRegions(refineState.dish, refineState.city, refineState.locMode, refineState.area, refineState.searchRadius, refineState.metro, selectedRegionIds);
+                }}
+                disabled={selectedRegionIds.length === 0}
+                style={{
+                  width: "100%", padding: "14px",
+                  background: selectedRegionIds.length === 0 ? accentBg : brand,
+                  border: `1px solid ${selectedRegionIds.length === 0 ? accentBdr : brand}`,
+                  borderRadius: 8, cursor: selectedRegionIds.length === 0 ? "not-allowed" : "pointer",
+                  fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.875rem",
+                  fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                  color: selectedRegionIds.length === 0 ? tertiary : brandTxt,
+                  transition: "background 0.15s",
+                }}
+              >
+                {selectedRegionIds.length === 0
+                  ? "SELECT AT LEAST ONE REGION"
+                  : `RUN SEARCH · ${selectedRegionIds.length} ${selectedRegionIds.length === 1 ? "REGION" : "REGIONS"}`}
+              </button>
+
+              {/* Back to idle */}
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <button onClick={() => { setPhase("idle"); setRefineState(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: secondary, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: "0.10em", textDecoration: "underline" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Classifying ──────────────────────────────────────────── */}
           {phase === "classifying" && (
             <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 10, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", color: tertiary }}>
@@ -1310,17 +1594,31 @@ function DishIntel() {
           {/* ── Error ────────────────────────────────────────────────── */}
           {phase === "error" && (
             <div style={{
-              margin: "16px 0", padding: "12px 16px",
+              margin: "16px 0", padding: "14px 16px",
               background: redBg,
               borderLeft: `3px solid ${redColor}`,
               borderRadius: "0 8px 8px 0",
               fontFamily: "'Inter',sans-serif", fontSize: "0.875rem",
               color: redColor, lineHeight: 1.5,
             }}>
-              {errMsg || "Something went wrong. Try again."}
-              <button onClick={reset} style={{ display: "block", marginTop: 8, background: "none", border: "none", cursor: "pointer", color: redColor, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", textDecoration: "underline", padding: 0 }}>
-                Try again
-              </button>
+              {errMsg || "Something went wrong."}
+              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+                {searchedDish && (
+                  <button
+                    onClick={retrySearch}
+                    style={{
+                      background: brand, border: "none", borderRadius: 6,
+                      color: brandTxt, fontFamily: "'IBM Plex Mono',monospace",
+                      fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em",
+                      padding: "6px 14px", cursor: "pointer",
+                    }}
+                  >RETRY</button>
+                )}
+                <button
+                  onClick={reset}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: redColor, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", textDecoration: "underline", padding: 0 }}
+                >New search</button>
+              </div>
             </div>
           )}
 
@@ -1381,7 +1679,7 @@ function DishIntel() {
                     fontFamily: "'IBM Plex Mono',monospace",
                     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
                     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
-                  }}>NEAR YOU NOW</div>
+                  textAlign: "center" }}>NEAR YOU NOW</div>
                   {/* Match CategoryBrowse card style exactly: same radius, padding, minHeight, fonts */}
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" as const }}>
                     {suggestions.slice(0, 6).map((s, i) => (
@@ -1532,52 +1830,143 @@ function DishIntel() {
                   >Refresh</button>
                 </div>
               )}
-              {/* Results header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
-                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0 }}>
-                  <span style={{ fontWeight: 600, color: accent }}>{restaurants.length} results</span>
-                  {" "}for{" "}
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{meta.dish}</span>
-                  {meta.city && <span style={{ color: secondary }}>{" "}near {meta.city}</span>}
-                </div>
-                {hasBack && <BackBtn onBack={goBack} dark={dark} />}
-                <button
-                  onClick={reset}
-                  style={{ background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}
-                >New search</button>
-              </div>
+              {/* Results header + controls */}
+              {(() => {
+                // Pure honest ranking — no score floors, no padding.
+                // Definitives = true top N by score. Mentions = next-ranked results that genuinely exist.
+                const definitives = restaurants.slice(0, resultCount);
+                // No score gate: mentions are simply the next ranked results below the definitive cut.
+                const mentionCandidates = restaurants.slice(resultCount, resultCount + 5);
+                const mentions = showMentions ? mentionCandidates : [];
+                return (
+                  <>
+                    {/* Header row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
+                      <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0, textAlign: "center" }}>
+                        <span style={{ fontWeight: 600, color: accent }}>{definitives.length} results</span>
+                        {" "}for{" "}
+                        <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{meta.dish}</span>
+                        {meta.city && <span style={{ color: secondary }}>{" "}near {meta.city}</span>}
+                      </div>
+                      {hasBack && <BackBtn onBack={goBack} dark={dark} />}
+                      <button onClick={reset} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}>New search</button>
+                    </div>
 
-              {/* Cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                {restaurants.filter(r => r != null).map((r, i) => (
-                  <RestCard
-                    key={i} r={r} i={i} expanded={expanded}
-                    onToggle={j => setExpanded(expanded === j ? null : j)}
-                    onDeepDive={(name, score, restaurantId) => handleDeepDive(name, meta.city, score, restaurantId)}
-                    meta={meta} searchedDish={searchedDish}
-                    isFav={isFav(r.name)} onToggleFav={toggleFav}
-                    onAddToList={openAddToList}
-                  />
-                ))}
-              </div>
+                    {/* Controls: result count + mentions toggle */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                      {/* Count selector */}
+                      <div style={{ display: "flex", background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+                        {([5, 10] as const).map(n => (
+                          <button key={n} onClick={() => setResultCount(n)} style={{
+                            fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: "0.10em",
+                            padding: "5px 12px", border: "none", cursor: "pointer",
+                            background: resultCount === n ? brand : "transparent",
+                            color: resultCount === n ? brandTxt : accent,
+                            transition: "background 0.15s",
+                          }}>TOP {n}</button>
+                        ))}
+                      </div>
+                      {/* Mentions toggle */}
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={showMentions}
+                          onChange={e => setShowMentions(e.target.checked)}
+                          style={{ accentColor: brand, width: 14, height: 14 }}
+                        />
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.08em" }}>HONORABLE MENTIONS</span>
+                      </label>
+                    </div>
 
-              {/* Load more */}
-              <div style={{ padding: "20px 0 8px", display: "flex", justifyContent: "center" }}>
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  style={{
-                    background: cardBg, border: `1px solid ${border}`,
-                    borderRadius: 8, color: secondary,
-                    fontFamily: "'Inter',sans-serif", fontSize: "0.8rem",
-                    padding: "10px 24px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 8,
-                    opacity: loadingMore ? 0.6 : 1,
-                  }}
-                >
-                  {loadingMore ? <><div className="spin" style={{ borderColor: border, borderTopColor: accent }} />Loading...</> : "Load 5 more results"}
-                </button>
-              </div>
+                    {/* Definitive result cards */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      {definitives.filter(r => r != null).map((r, i) => (
+                        <RestCard
+                          key={i} r={r} i={i} expanded={expanded}
+                          onToggle={j => setExpanded(expanded === j ? null : j)}
+                          onDeepDive={(name, score, restaurantId) => handleDeepDive(name, meta.city, score, restaurantId)}
+                          meta={meta} searchedDish={searchedDish}
+                          isFav={isFav(r.name)} onToggleFav={toggleFav}
+                          onAddToList={openAddToList}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Honorable mentions section — shown when toggle is ON */}
+                    {showMentions && (
+                      <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${border}` }}>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: "0.65rem", fontWeight: 700,
+                          color: "#5f857d", letterSpacing: "0.22em",
+                          textTransform: "uppercase", textAlign: "center",
+                          marginBottom: 4,
+                        }}>HONORABLE MENTIONS</div>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: "0.6rem", color: secondary,
+                          textAlign: "center", marginBottom: 14,
+                          letterSpacing: "0.04em",
+                        }}>Next-ranked results — real scores, less detail</div>
+                        {mentions.length === 0 && (
+                          <div style={{
+                            fontFamily: "'IBM Plex Mono',monospace",
+                            fontSize: "0.7rem", color: tertiary,
+                            textAlign: "center", padding: "14px 0",
+                            letterSpacing: "0.06em",
+                          }}>No honorable mentions for this search</div>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {mentions.map((r, i) => {
+                            const sc = r.food_score ?? 5;
+                            const scClr = sc >= 9 ? "#3fd98a" : sc >= 8 ? "#7bc24a" : sc >= 7 ? "#e8b133" : sc >= 6 ? "#e07b3a" : "#d64545";
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => handleDeepDive(r.name, meta.city, r.food_score, r.restaurant_id)}
+                                style={{
+                                  background: cardBg, border: `1px solid ${boxBorder}`,
+                                  borderRadius: 8, padding: "12px 16px",
+                                  display: "flex", alignItems: "center", gap: 14,
+                                  textAlign: "left", cursor: "pointer", width: "100%",
+                                  transition: "border-color 0.15s",
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = accent}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = boxBorder}
+                              >
+                                <div style={{
+                                  fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                                  fontSize: "1.4rem", fontWeight: 900,
+                                  color: scClr, lineHeight: 1, flexShrink: 0, width: 46,
+                                }}>{sc.toFixed(1)}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontFamily: "'Playfair Display',serif",
+                                    fontSize: "0.95rem", fontWeight: 700, color: cardText,
+                                    overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                                  }}>{r.name}</div>
+                                  <div style={{
+                                    fontFamily: "'IBM Plex Mono',monospace",
+                                    fontSize: "0.68rem", color: tertiary, marginTop: 2,
+                                  }}>
+                                    {[r.neighborhood, r.venue_type, r.price_range].filter(Boolean).join(" · ")}
+                                  </div>
+                                  {r.win_reason && (
+                                    <div style={{ fontFamily: "'DM Sans','Inter',sans-serif", fontSize: "0.8rem", color: cardSec, marginTop: 3, lineHeight: 1.4, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                                      {r.win_reason}
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ color: tertiary, fontSize: "0.85rem", flexShrink: 0 }}>→</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -1648,6 +2037,8 @@ function DishIntel() {
           onDone={handleAnalysisDone}
           onStop={stopSearch}
           searchMode={searchMode}
+          tiles={activeTiles}
+          resultCount={apiComplete ? restaurants.length : undefined}
         />
       )}
 

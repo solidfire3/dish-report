@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
+import { persistFontSize, type FontSize } from "@/lib/font-scale";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,12 @@ const DINING_STYLES = [
 const GROUP_SIZES = ["Solo", "Couple", "Small group (3–4)", "Large group (5+)"];
 
 const PRICE_OPTIONS = ["Under $15", "$15–30", "$30–60", "$60+"];
+
+const FONT_SIZE_OPTIONS: Array<{ value: FontSize; label: string; description: string }> = [
+  { value: "normal",  label: "Normal",   description: "Default" },
+  { value: "large",   label: "Large",    description: "Comfortable" },
+  { value: "xl",      label: "X-Large",  description: "Easiest to read" },
+];
 
 // ─── SHARED STYLES ────────────────────────────────────────────────────────────
 
@@ -129,6 +136,7 @@ export default function CompleteProfilePage() {
   const [diningStyle,      setDiningStyle]      = useState<string[]>([]);
   const [typicalGroupSize, setTypicalGroupSize] = useState("");
   const [pricePreference,  setPricePreference]  = useState("");
+  const [fontSizePref,     setFontSizePref]     = useState<FontSize>("normal");
   const [loading,          setLoading]          = useState(false);
   const [error,            setError]            = useState("");
   const router = useRouter();
@@ -163,6 +171,11 @@ export default function CompleteProfilePage() {
       typical_group_size:   typicalGroupSize || null,
       price_preference:     pricePreference || null,
     }, { onConflict: 'id' });
+    // Save font-size to user metadata (no schema change needed) + localStorage
+    if (fontSizePref !== "normal") {
+      persistFontSize(fontSizePref);
+      await supabase.auth.updateUser({ data: { font_size: fontSizePref } }).catch(() => {});
+    }
     setLoading(false);
     if (error) { setError(error.message); return; }
     router.push("/");
@@ -336,6 +349,36 @@ export default function CompleteProfilePage() {
                       }
                     }}
                   >{p}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={divider} />
+
+            {/* ── Text size ──────────────────────────────────────────── */}
+            <div>
+              <label style={labelStyle}>Preferred text size</label>
+              <p style={subtextStyle}>You can change this anytime from the app header</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 4 }}>
+                {FONT_SIZE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFontSizePref(opt.value)}
+                    style={{
+                      padding: "12px 8px", minHeight: 64,
+                      borderRadius: 8, cursor: "pointer",
+                      border: `1.5px solid ${fontSizePref === opt.value ? "#3d6b62" : "#2c4a44"}`,
+                      background: fontSizePref === opt.value ? "#3d6b62" : "#10211e",
+                      color: fontSizePref === opt.value ? "#eafaf4" : "#7a8e8a",
+                      transition: "all 0.15s",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    }}
+                  >
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontWeight: 700, fontSize: opt.value === "xl" ? 20 : opt.value === "large" ? 16 : 13, lineHeight: 1 }}>A</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, letterSpacing: "0.08em" }}>{opt.label}</span>
+                    <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 10, opacity: 0.7 }}>{opt.description}</span>
+                  </button>
                 ))}
               </div>
             </div>

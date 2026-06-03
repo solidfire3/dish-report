@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { extractJson } from "@/lib/extract-json";
 
 
 const MARKET_PROMPT = `You are a food market guide generator. The user is visiting a food court, public market, or multi-vendor food destination. Your job: find every vendor at this location and identify THE one thing worth ordering at each — using only food-quality signal from reviews, blogs, and social media.
@@ -34,16 +35,6 @@ Return ONLY valid JSON:
   ]
 }
 Order vendors by food_score descending. Include ALL vendors you can find — don't limit the count.`;
-
-function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
-  const text = content
-    .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Could not parse response");
-  return JSON.parse(match[0]);
-}
 
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
