@@ -148,3 +148,20 @@ export function getTilesForLocation(location: string): string[] | null {
   const metro = getMetroForLocation(location);
   return metro ? metro.regions.map(r => r.tileQuery) : null;
 }
+
+/**
+ * Given a GPS neighborhood name (e.g. "North Park", "Pacific Beach"),
+ * returns the region ID whose neighborhood list contains that name.
+ * Returns null if no match — caller should default to no pre-selection.
+ */
+export function detectRegionFromNeighborhood(neighborhood: string, metro: MetroConfig): string | null {
+  if (!neighborhood) return null;
+  const needle = neighborhood.toLowerCase().trim();
+  for (const region of metro.regions) {
+    const names = region.neighborhoods.toLowerCase().split(",").map(s => s.trim());
+    if (names.some(name => name.includes(needle) || needle.includes(name))) {
+      return region.id;
+    }
+  }
+  return null;
+}

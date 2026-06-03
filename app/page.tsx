@@ -19,7 +19,7 @@ import { LoadingTracker }                           from "@/components/LoadingTr
 import { RestCard }                                 from "@/components/RestaurantCard";
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
-import { getTilesForLocation, normalizeLocation, getMetroForLocation, type MetroConfig } from "@/lib/metro-tiles";
+import { getTilesForLocation, normalizeLocation, getMetroForLocation, detectRegionFromNeighborhood, type MetroConfig } from "@/lib/metro-tiles";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 // FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
@@ -361,11 +361,12 @@ function DishIntel() {
   };
 
   // ── Location ─────────────────────────────────────────────────────────────
-  const [city,    setCity]    = useState("San Diego");
-  const [locMode, setLocMode] = useState("city");
-  const [area,    setArea]    = useState("");
-  const [radius,  setRadius]  = useState(5);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [city,             setCity]             = useState("San Diego");
+  const [locMode,          setLocMode]          = useState("city");
+  const [area,             setArea]             = useState("");
+  const [radius,           setRadius]           = useState(5);
+  const [suggestions,      setSuggestions]      = useState<Suggestion[]>([]);
+  const [gpsNeighborhood,  setGpsNeighborhood]  = useState("");
 
   // ── Hero typewriter ───────────────────────────────────────────────────────
   const [heroExIdx, setHeroExIdx] = useState(0);
@@ -591,6 +592,7 @@ function DishIntel() {
         const cityName = addr.city || addr.town || addr.county || "your area";
         setCity(cityName);
         setDdCity(cityName);
+        setGpsNeighborhood(neighborhood);
         setSuggestions(generateSuggestions(neighborhood || cityName) as Suggestion[]);
       } catch { /* GPS failed silently */ }
     }, () => { /* permission denied — silently continue */ });
@@ -872,7 +874,10 @@ function DishIntel() {
       : null;
     if (_metro) {
       setRefineState({ dish: d, city: searchCity, locMode: searchLocMode, area: searchArea, searchRadius, metro: _metro });
-      setSelectedRegionIds(_metro.regions.map(r => r.id)); // default: all regions selected
+      // Pre-select only the user's GPS neighborhood, if detectable. Mental model:
+      // "I'm here — tap to add more areas." Default to none if location is unknown.
+      const detectedId = detectRegionFromNeighborhood(gpsNeighborhood, _metro);
+      setSelectedRegionIds(detectedId ? [detectedId] : []);
       setPhase("refine");
       return;
     }
@@ -1401,31 +1406,35 @@ function DishIntel() {
                   {refineState.dish} <span style={{ color: secondary }}>·</span> {refineState.metro.displayName}
                 </div>
                 <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem", color: secondary }}>
-                  Pick regions — fewer = faster, more targeted results
+                  {gpsNeighborhood && selectedRegionIds.length === 1
+                    ? "Your area selected — tap to add more regions"
+                    : "Tap regions to include them · fewer = faster"}
                 </div>
               </div>
 
-              {/* ALL button */}
+              {/* ALL OF [CITY] COUNTY button */}
               <div style={{ textAlign: "center", marginBottom: 14 }}>
-                <button
-                  onClick={() => setSelectedRegionIds(
-                    selectedRegionIds.length === refineState.metro.regions.length
-                      ? [] : refineState.metro.regions.map(r => r.id)
-                  )}
-                  style={{
-                    background: selectedRegionIds.length === refineState.metro.regions.length ? brand : accentBg,
-                    border: `1px solid ${selectedRegionIds.length === refineState.metro.regions.length ? brand : accentBdr}`,
-                    borderRadius: 6, padding: "7px 18px",
-                    fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
-                    letterSpacing: "0.12em", textTransform: "uppercase",
-                    color: selectedRegionIds.length === refineState.metro.regions.length ? brandTxt : accent,
-                    cursor: "pointer", transition: "background 0.15s",
-                  }}
-                >
-                  {selectedRegionIds.length === refineState.metro.regions.length
-                    ? `✓ ALL OF ${refineState.metro.displayName.toUpperCase()} COUNTY`
-                    : `SELECT ALL REGIONS`}
-                </button>
+                {(() => {
+                  const allSelected = selectedRegionIds.length === refineState.metro.regions.length;
+                  return (
+                    <button
+                      onClick={() => setSelectedRegionIds(
+                        allSelected ? [] : refineState.metro.regions.map(r => r.id)
+                      )}
+                      style={{
+                        background: allSelected ? brand : accentBg,
+                        border: `1.5px solid ${allSelected ? accent : accentBdr}`,
+                        borderRadius: 6, padding: "7px 20px",
+                        fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                        letterSpacing: "0.12em", textTransform: "uppercase",
+                        color: allSelected ? brandTxt : accent,
+                        cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
+                      }}
+                    >
+                      {allSelected ? "✓ " : ""}ALL OF {refineState.metro.displayName.toUpperCase()} COUNTY
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Region cards grid */}
@@ -1441,24 +1450,39 @@ function DishIntel() {
                           : [...prev, region.id]
                       )}
                       style={{
-                        background: isSelected ? accentBg : cardBg,
-                        border: `1.5px solid ${isSelected ? accent : boxBorder}`,
-                        borderRadius: 8, padding: "12px 12px",
+                        // Selected: lifted teal surface, bright border — looks "on"
+                        // Unselected: near-black, barely-visible border — looks "off"
+                        background: isSelected ? "#1b332e" : "#0b1614",
+                        border: `${isSelected ? "2px" : "1px"} solid ${isSelected ? accent : "#1a2e28"}`,
+                        borderRadius: 8, padding: isSelected ? "11px 11px" : "12px 12px",
                         textAlign: "left", cursor: "pointer",
                         transition: "border-color 0.15s, background 0.15s",
-                        minHeight: 72,
-                        display: "flex", flexDirection: "column", gap: 4,
+                        minHeight: 76,
+                        display: "flex", flexDirection: "column", gap: 5,
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {isSelected && (
-                          <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: accent }}>✓</span>
-                        )}
-                        <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700, color: isSelected ? accent : cardText, letterSpacing: "0.06em" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {/* Checkmark slot — always occupies space to prevent layout shift */}
+                        <span style={{
+                          fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, lineHeight: 1,
+                          color: accent, width: 14, flexShrink: 0,
+                          opacity: isSelected ? 1 : 0,
+                        }}>✓</span>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700,
+                          color: isSelected ? accent : "#3d5e58",
+                          letterSpacing: "0.06em",
+                          transition: "color 0.15s",
+                        }}>
                           {region.label}
                         </div>
                       </div>
-                      <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.68rem", color: tertiary, lineHeight: 1.4 }}>
+                      <div style={{
+                        fontFamily: "'Inter',sans-serif", fontSize: "0.65rem", lineHeight: 1.35,
+                        color: isSelected ? tertiary : "#2b4440",
+                        paddingLeft: 19,
+                        transition: "color 0.15s",
+                      }}>
                         {region.neighborhoods}
                       </div>
                     </button>

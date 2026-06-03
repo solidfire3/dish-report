@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { buildTags, computeSignature, makeIdentityKey } from "@/lib/search-signature";
 import { getTilesForLocation } from "@/lib/metro-tiles";
+import { extractJson } from "@/lib/extract-json";
 
 const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
 const RESTAURANT_TTL_MS  = 120 * 24 * 60 * 60 * 1000;
@@ -153,13 +154,6 @@ ${excl.length
   ? "Return up to 5 results not in the excluded list, strictly sorted food_score descending."
   : "Return up to 16 results — include every venue you have meaningful review evidence for, strictly sorted food_score descending. Do not pad with invented or uncertain venues; quality over quantity. If only 9 venues genuinely qualify, return 9."
 }`;
-
-function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
-  const text = content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map(b => b.text).join("");
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Could not parse response");
-  return JSON.parse(match[0]);
-}
 
 // ─── SERVICE CLIENT ────────────────────────────────────────────────────────────
 

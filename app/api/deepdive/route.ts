@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient as createSupabase } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { extractJson } from "@/lib/extract-json";
 
 const RESTAURANT_TTL_MS = 120 * 24 * 60 * 60 * 1000;
 const STAMPEDE_GUARD_MS = 2 * 60 * 1000;
@@ -46,13 +47,6 @@ Typical good local spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6. 9.0+ is f
 
 Return ONLY valid JSON:
 {"name":"string","neighborhood":"string","address":"string|null","cuisine":"string","venue_type":"string","vibe_tags":["string"],"food_score":number,"confidence":"high|medium|low","price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","why":"string"}],"also_try":[{"dish":"string","note":"string"}],"skip":["string"],"insider_tips":["string"],"verdict":"string (2 punchy sentences)"}`;
-
-function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
-  const text = content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map(b => b.text).join("");
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Could not parse response");
-  return JSON.parse(match[0]);
-}
 
 function makeSvc() {
   return createSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

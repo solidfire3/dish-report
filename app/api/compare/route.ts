@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { extractJson } from "@/lib/extract-json";
 
 
 const COMPARE_PROMPT = `You are a food comparison analyst. A user just looked at a specific restaurant and wants to know if there's something similar — or better — nearby. Search for comparable restaurants within the specified radius and compare them on food quality only.
@@ -38,16 +39,6 @@ Return ONLY valid JSON:
   ]
 }
 Include 4-6 alternatives ordered by food_score desc.`;
-
-function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
-  const text = content
-    .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Could not parse response");
-  return JSON.parse(match[0]);
-}
 
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
