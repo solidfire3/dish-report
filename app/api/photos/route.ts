@@ -49,6 +49,24 @@ function isGoodMatch(queryName: string, placeName: string): boolean {
   return shared / union >= 0.35;
 }
 
+// ─── FOOD-LIKELIHOOD SCORING ──────────────────────────────────────────────────
+// Places doesn't expose explicit "food" tags in its searchText response.
+// Best available proxy: aspect ratio. Food close-ups and table shots are
+// roughly square to moderate landscape (0.8–1.8). Extreme-wide panoramics
+// (ratio > 2.0) are almost always exterior storefronts, not dishes.
+// This isn't perfect — interior wide shots can look similar — but it reliably
+// pushes obvious exterior panoramics below genuine food photos.
+function foodLikelihood(w: number | undefined, h: number | undefined): number {
+  if (!w || !h || w <= 0 || h <= 0) return 0.5; // unknown — neutral
+  const r = w / h;
+  if (r >= 0.8 && r <= 1.5) return 1.0;   // square / close-up — very likely food
+  if (r > 1.5 && r <= 2.0) return 0.65;   // moderate landscape — food or interior
+  if (r > 2.0 && r <= 3.0) return 0.3;    // wide — likely storefront panoramic
+  if (r > 3.0)             return 0.15;   // very wide — exterior banner shot
+  if (r < 0.8 && r >= 0.5) return 0.7;   // slight portrait — food close-up fine
+  return 0.35;                             // very portrait — unlikely food
+}
+
 // ─── ROUTE ────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -83,7 +101,7 @@ export async function GET(req: NextRequest) {
     const places: Array<{
       id?: string;
       displayName?: { text?: string };
-      photos?: Array<{ name: string }>;
+      photos?: Array<{ name: string; widthPx?: number; heightPx?: number }>;
     }> = data.places ?? [];
 
     if (!places.length) return NextResponse.json({ photos: [] });
@@ -98,7 +116,14 @@ export async function GET(req: NextRequest) {
 
     if (!matched?.photos?.length) return NextResponse.json({ photos: [] });
 
-    const photos: string[] = matched.photos.slice(0, 10).map(p => p.name);
+    // Sort by food likelihood (desc) so food close-ups lead, exterior panoramics trail.
+    // Stable sort preserves Places' own ranking as a tiebreaker.
+    const photos: string[] = matched.photos
+      .slice(0, 10)
+      .map(p => ({ name: p.name, score: foodLikelihood(p.widthPx, p.heightPx) }))
+      .sort((a, b) => b.score - a.score)
+      .map(p => p.name);
+
     return NextResponse.json({ photos });
   } catch {
     return NextResponse.json({ photos: [] });

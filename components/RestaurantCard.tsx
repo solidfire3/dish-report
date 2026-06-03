@@ -485,81 +485,67 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* ── Thumbnail: 4:3 aspect-ratio photo strip (up to 3 photos) ──────── */}
-        {/* Aspect ratio enforced via paddingTop — prevents zoom/blowup on odd-sized source images */}
-        <div style={{ position: "relative", width: "100%", overflow: "hidden", flexShrink: 0 }}>
-          <div style={{ paddingTop: "75%" /* 4:3 */ }} />
-          <div style={{ position: "absolute", inset: 0 }}>
+        {/* Rank badge — absolute on card, sits atop thumbnails when present */}
+        {r.rank != null && (
+          <div style={{
+            position: "absolute", top: 12, left: 16, zIndex: 3,
+            background: "#7fe3c8", color: "#FFFFFF",
+            fontFamily: "var(--font-orbitron),'Courier New',monospace",
+            fontSize: "0.75rem", fontWeight: 700,
+            padding: "3px 9px", borderRadius: 8,
+            lineHeight: 1.4, letterSpacing: "0.04em",
+          }}>{r.rank}</div>
+        )}
+
+        {/* "Link copied" toast — absolute on card */}
+        {copied && (
+          <div style={{
+            position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+            background: "rgba(16,33,30,0.92)", border: "1px solid #2c4a44",
+            borderRadius: 6, padding: "4px 12px",
+            fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: "#7fe3c8",
+            pointerEvents: "none", zIndex: 5, whiteSpace: "nowrap",
+          }}>Link copied ✓</div>
+        )}
+
+        {/* ── Square thumbnail row: up to 3 × 66px squares, food-biased ── */}
+        {/* Fixed 1:1 ratio per square prevents any zoom/blowup regardless of source dimensions */}
+        {(isLogo || displaySlots.length > 0) && (
+          <div style={{ display: "flex", gap: 6, padding: "12px 16px 0", flexWrap: "nowrap" }}>
             {isLogo ? (
-              // Logo: centered contain on dark background — never cropped or blown up
-              <div style={{ width: "100%", height: "100%", background: "#1b332e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              // Logo: contain on dark bg — never cropped into a square
+              <div
+                onClick={e => { e.stopPropagation(); if (allLightboxUrls.length > 0) openLightbox(0); }}
+                style={{
+                  width: 66, height: 66, borderRadius: 5, flexShrink: 0, overflow: "hidden",
+                  background: "#1b332e", display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: allLightboxUrls.length > 0 ? "pointer" : "default",
+                }}
+              >
                 <img
                   src={ogEntry!.url} alt={r.name}
                   onError={() => setOgFailed(true)}
-                  onClick={e => { e.stopPropagation(); if (allLightboxUrls.length > 0) openLightbox(0); }}
-                  style={{ maxWidth: "60%", maxHeight: "60%", objectFit: "contain", cursor: allLightboxUrls.length > 0 ? "pointer" : "default" }}
+                  style={{ maxWidth: "72%", maxHeight: "72%", objectFit: "contain" }}
                 />
               </div>
-            ) : displaySlots.length === 0 ? (
-              <Photo name={r.name} />
-            ) : displaySlots.length === 1 ? (
-              // Single photo: full-width cover
-              <img
-                src={displaySlots[0]} alt={r.name}
-                onClick={e => { e.stopPropagation(); openLightbox(0); }}
-                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
-              />
             ) : (
-              // 2–3 photos: main panel (60%) + stacked previews (40%)
-              <div style={{ display: "flex", width: "100%", height: "100%", gap: 2 }}>
-                <div style={{ width: "60%", height: "100%", flexShrink: 0, overflow: "hidden" }}>
+              displaySlots.map((url, sIdx) => (
+                <div
+                  key={sIdx}
+                  onClick={e => { e.stopPropagation(); openLightbox(sIdx); }}
+                  style={{ width: 66, height: 66, borderRadius: 5, flexShrink: 0, overflow: "hidden", cursor: "pointer" }}
+                >
                   <img
-                    src={displaySlots[0]} alt={r.name}
-                    onClick={e => { e.stopPropagation(); openLightbox(0); }}
-                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                    src={url}
+                    alt={sIdx === 0 ? r.name : ""}
+                    onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 </div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, overflow: "hidden" }}>
-                  {displaySlots.slice(1).map((url, sIdx) => (
-                    <div key={sIdx} style={{ flex: 1, overflow: "hidden" }}>
-                      <img
-                        src={url} alt=""
-                        onClick={e => { e.stopPropagation(); openLightbox(sIdx + 1); }}
-                        onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* "Link copied" toast */}
-            {copied && (
-              <div style={{
-                position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
-                background: "rgba(16,33,30,0.92)", border: "1px solid #2c4a44",
-                borderRadius: 6, padding: "4px 12px",
-                fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: "#7fe3c8",
-                pointerEvents: "none", zIndex: 5, whiteSpace: "nowrap",
-              }}>Link copied ✓</div>
-            )}
-
-            {/* Rank badge */}
-            {r.rank != null && (
-              <div style={{
-                position: "absolute", top: 8, left: 8,
-                background: "#7fe3c8", color: "#FFFFFF",
-                fontFamily: "var(--font-orbitron),'Courier New',monospace",
-                fontSize: "0.875rem", fontWeight: 700,
-                padding: "4px 12px", borderRadius: 12,
-                lineHeight: 1.4, letterSpacing: "0.04em",
-              }}>{r.rank}</div>
+              ))
             )}
           </div>
-        </div>
+        )}
 
         {/* ── Content area (tap to expand) ──────────────────────────────── */}
         <div style={{ cursor: "pointer" }} onClick={() => onToggle(i)}>
