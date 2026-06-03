@@ -5,7 +5,8 @@
  * - A card in the Refine UI (label + neighborhoods subtitle)
  * - A tile query when that region is selected ("Best [dish] in [tileQuery]")
  *
- * Adding a metro: add an entry to METROS. No other code changes needed.
+ * Adding a metro: add an entry to METROS and optionally add aliases below.
+ * No other code changes needed.
  */
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -23,8 +24,11 @@ export type MetroConfig = {
 };
 
 // ─── METRO DEFINITIONS ────────────────────────────────────────────────────────
+// First-pass regions — tunable based on user feedback and food geography.
 
 export const METROS: Record<string, MetroConfig> = {
+
+  // ── San Diego ──────────────────────────────────────────────────────────────
   "san diego": {
     displayName: "San Diego",
     regions: [
@@ -73,17 +77,180 @@ export const METROS: Record<string, MetroConfig> = {
     ],
   },
 
-  // Add metros here — only config changes needed:
-  // "los angeles": {
-  //   displayName: "Los Angeles",
-  //   regions: [
-  //     { id: "dtla", label: "Downtown / Central", neighborhoods: "Downtown, Koreatown, Mid-City", tileQuery: "Central Los Angeles" },
-  //     { id: "westside", label: "Westside", neighborhoods: "Santa Monica, Culver City, Mar Vista, Venice", tileQuery: "Westside Los Angeles" },
-  //     { id: "sfv", label: "San Fernando Valley", neighborhoods: "Sherman Oaks, Encino, Van Nuys, Burbank", tileQuery: "San Fernando Valley Los Angeles" },
-  //     { id: "south-bay-la", label: "South Bay", neighborhoods: "Torrance, Gardena, Hawthorne", tileQuery: "South Bay Los Angeles" },
-  //     { id: "sgv", label: "San Gabriel Valley", neighborhoods: "Alhambra, Monterey Park, Arcadia, Rowland Heights", tileQuery: "San Gabriel Valley Los Angeles" },
-  //   ],
-  // },
+  // ── Los Angeles ────────────────────────────────────────────────────────────
+  "los angeles": {
+    displayName: "Los Angeles",
+    regions: [
+      {
+        id:            "dtla",
+        label:         "DTLA / East LA",
+        neighborhoods: "Downtown, Koreatown, East LA, Boyle Heights, Silver Lake",
+        tileQuery:     "Downtown and East Los Angeles",
+      },
+      {
+        id:            "westside",
+        label:         "Westside",
+        neighborhoods: "Santa Monica, Culver City, Venice, Mar Vista, Brentwood",
+        tileQuery:     "Westside Los Angeles",
+      },
+      {
+        id:            "mid-city",
+        label:         "Mid-City / Hollywood",
+        neighborhoods: "Mid-City, Hollywood, Los Feliz, Fairfax, Pico-Robertson",
+        tileQuery:     "Mid-City and Hollywood Los Angeles",
+      },
+      {
+        id:            "sfv",
+        label:         "San Fernando Valley",
+        neighborhoods: "Sherman Oaks, Encino, Van Nuys, Burbank, Studio City",
+        tileQuery:     "San Fernando Valley Los Angeles",
+      },
+      {
+        id:            "south-bay-la",
+        label:         "South Bay",
+        neighborhoods: "Torrance, Gardena, Hawthorne, El Segundo, Inglewood",
+        tileQuery:     "South Bay Los Angeles",
+      },
+      {
+        id:            "sgv",
+        label:         "San Gabriel Valley",
+        neighborhoods: "Alhambra, Monterey Park, Arcadia, Rowland Heights, San Gabriel",
+        tileQuery:     "San Gabriel Valley Los Angeles",
+      },
+      {
+        id:            "pasadena",
+        label:         "Pasadena / NE LA",
+        neighborhoods: "Pasadena, Eagle Rock, Glendale, Monrovia, Sierra Madre",
+        tileQuery:     "Pasadena and Northeast Los Angeles",
+      },
+    ],
+  },
+
+  // ── New York ───────────────────────────────────────────────────────────────
+  "new york": {
+    displayName: "New York City",
+    regions: [
+      {
+        id:            "manhattan",
+        label:         "Manhattan",
+        neighborhoods: "Midtown, Upper East Side, Upper West Side, Harlem, Chelsea",
+        tileQuery:     "Manhattan New York City",
+      },
+      {
+        id:            "lower-manhattan",
+        label:         "Lower Manhattan",
+        neighborhoods: "Tribeca, Soho, West Village, Lower East Side, Chinatown, Financial District",
+        tileQuery:     "Lower Manhattan New York City",
+      },
+      {
+        id:            "brooklyn",
+        label:         "Brooklyn",
+        neighborhoods: "Williamsburg, Park Slope, Bushwick, Crown Heights, DUMBO, Flatbush",
+        tileQuery:     "Brooklyn New York City",
+      },
+      {
+        id:            "queens",
+        label:         "Queens",
+        neighborhoods: "Flushing, Astoria, Jackson Heights, Long Island City, Jamaica",
+        tileQuery:     "Queens New York City",
+      },
+      {
+        id:            "bronx",
+        label:         "The Bronx",
+        neighborhoods: "Fordham, Belmont, Riverdale, Tremont, Morris Park",
+        tileQuery:     "The Bronx New York City",
+      },
+    ],
+  },
+
+  // ── San Francisco ──────────────────────────────────────────────────────────
+  "san francisco": {
+    displayName: "San Francisco",
+    regions: [
+      {
+        id:            "mission",
+        label:         "Mission / Bernal",
+        neighborhoods: "Mission District, Bernal Heights, Noe Valley, Potrero Hill",
+        tileQuery:     "Mission District and Bernal Heights San Francisco",
+      },
+      {
+        id:            "north-beach",
+        label:         "North Beach / Chinatown",
+        neighborhoods: "North Beach, Chinatown, Financial District, Jackson Square",
+        tileQuery:     "North Beach and Chinatown San Francisco",
+      },
+      {
+        id:            "richmond-sunset",
+        label:         "Richmond / Sunset",
+        neighborhoods: "Inner Richmond, Outer Richmond, Inner Sunset, Outer Sunset",
+        tileQuery:     "Richmond and Sunset Districts San Francisco",
+      },
+      {
+        id:            "soma-downtown",
+        label:         "SoMa / Downtown",
+        neighborhoods: "SoMa, Union Square, Tenderloin, Civic Center, Hayes Valley",
+        tileQuery:     "SoMa and Downtown San Francisco",
+      },
+      {
+        id:            "marina-nob",
+        label:         "Marina / Nob Hill",
+        neighborhoods: "Marina, Pacific Heights, Nob Hill, Russian Hill, Cow Hollow",
+        tileQuery:     "Marina and Nob Hill San Francisco",
+      },
+    ],
+  },
+
+  // ── Chicago ────────────────────────────────────────────────────────────────
+  "chicago": {
+    displayName: "Chicago",
+    regions: [
+      {
+        id:            "loop",
+        label:         "Loop / Downtown",
+        neighborhoods: "Loop, River North, Streeterville, Magnificent Mile, West Loop",
+        tileQuery:     "Loop and Downtown Chicago",
+      },
+      {
+        id:            "north-side",
+        label:         "North Side",
+        neighborhoods: "Lincoln Park, Wicker Park, Bucktown, Logan Square, Lakeview",
+        tileQuery:     "North Side Chicago",
+      },
+      {
+        id:            "northwest-side",
+        label:         "Northwest Side",
+        neighborhoods: "Humboldt Park, Avondale, Irving Park, Albany Park, Andersonville",
+        tileQuery:     "Northwest Side Chicago",
+      },
+      {
+        id:            "south-side",
+        label:         "South Side",
+        neighborhoods: "Hyde Park, Bridgeport, Bronzeville, Pilsen, Back of the Yards",
+        tileQuery:     "South Side Chicago",
+      },
+      {
+        id:            "chinatown-pilsen",
+        label:         "Chinatown / Pilsen",
+        neighborhoods: "Chinatown, Pilsen, Little Village, Bridgeport",
+        tileQuery:     "Chinatown and Pilsen Chicago",
+      },
+    ],
+  },
+
+};
+
+// ─── ALIAS MAP ────────────────────────────────────────────────────────────────
+// Maps common abbreviations and alternate forms to METROS keys.
+// Applied in getMetroForLocation before the exact-key lookup.
+const METRO_ALIASES: Record<string, string> = {
+  "la":              "los angeles",
+  "nyc":             "new york",
+  "ny":              "new york",     // bare "NY" → New York (not Louisiana state)
+  "ny city":         "new york",
+  "new york city":   "new york",
+  "new york, ny":    "new york",
+  "sf":              "san francisco",
+  "san fran":        "san francisco",
 };
 
 // ─── NORMALIZATION ────────────────────────────────────────────────────────────
@@ -108,7 +275,7 @@ const STATE_NAME_RE = new RegExp(
   ].join('|') + ')\\s*$'
 );
 
-const COUNTRY_RE     = /,?\s*(usa|us|united states|united states of america)\s*$/;
+const COUNTRY_RE     = /,?\s*(usa|us|united states|united states of america)\s*$/i;
 const ZIP_RE         = /,?\s*\d{5}(-\d{4})?\s*$/;
 const TRAILING_COMMA = /,\s*$/;
 
@@ -116,9 +283,19 @@ export function normalizeLocation(s: string): string {
   let n = s.toLowerCase().trim().replace(/\s+/g, ' ');
   n = n.replace(ZIP_RE, '').trim();
   n = n.replace(COUNTRY_RE, '').trim();
-  n = n.replace(STATE_NAME_RE, '').trim();
+
+  // Strip trailing state name only if it would NOT consume the entire string.
+  // Bug guard: "New York" is both a city and a state — stripping it would return "".
+  // Rule: only strip if the result is non-empty (there is a city before the state qualifier).
+  const afterStateName = n.replace(STATE_NAME_RE, '').trim();
+  if (afterStateName.length > 0) {
+    n = afterStateName;
+  }
+
+  // Strip trailing 2-letter state abbreviation ("Los Angeles, CA" → "Los Angeles")
   const m = n.match(/^(.+?)(?:,\s*|\s+)([a-z]{2})\s*$/);
   if (m && STATE_ABBREVS.has(m[2]) && m[1].trim().length > 0) n = m[1].trim();
+
   return n.replace(TRAILING_COMMA, '').trim();
 }
 
@@ -130,14 +307,16 @@ export function normalizeLocation(s: string): string {
  */
 export function getMetroForLocation(location: string): MetroConfig | null {
   const normalized = normalizeLocation(location);
+  if (!normalized) return null;
 
   // If location matches any tile/region query string → already specific
   for (const metro of Object.values(METROS)) {
     if (metro.regions.some(r => normalizeLocation(r.tileQuery) === normalized)) return null;
   }
 
-  // Exact metro name match
-  return METROS[normalized] ?? null;
+  // Check alias map first, then exact key lookup
+  const key = METRO_ALIASES[normalized] ?? normalized;
+  return METROS[key] ?? null;
 }
 
 /**
