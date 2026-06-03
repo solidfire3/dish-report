@@ -424,6 +424,18 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
   const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
 
+  // Photo strip: up to 3 display slots (og:image photo first, then Places photos)
+  const isLogo = Boolean(ogEntry && !ogFailed && ogEntry.imgType === "logo");
+  const ogPhoto = (!isLogo && ogEntry && !ogFailed) ? ogEntry.url : null;
+  // Build display slots; dedup: if ogEntry IS the first Places photo, skip the duplicate
+  const displaySlots: string[] = ogPhoto
+    ? [ogPhoto, ...photoUrls.filter(u => u !== ogPhoto).slice(0, 2)]
+    : photoUrls.slice(0, 3);
+  // Lightbox covers all available photos (og first if it's a real photo, then Places)
+  const allLightboxUrls: string[] = ogPhoto
+    ? [ogPhoto, ...photoUrls.filter(u => u !== ogPhoto)]
+    : photoUrls;
+
   // Share: generate a deep link that reruns the search and brings user back here
   const handleShare = () => {
     const base = window.location.origin;
@@ -473,74 +485,80 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* ── Thumbnail: logo/photo source → placeholder ──────────────── */}
-        <div style={{ position: "relative", height: 180, overflow: "hidden", flexShrink: 0 }}>
-          {ogEntry && !ogFailed ? (
-            // Logo (contain on dark bg) or photo (cover)
-            <div style={{
-              width: "100%", height: "100%",
-              background: ogEntry.imgType === "logo" ? "#1b332e" : undefined,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <img
-                src={ogEntry.url}
-                alt={r.name}
-                onError={() => setOgFailed(true)}
-                onClick={e => { e.stopPropagation(); if (photoUrls.length > 0) openLightbox(0); }}
-                style={{
-                  width: "100%", height: "100%",
-                  objectFit: ogEntry.imgType === "logo" ? "contain" : "cover",
-                  padding: ogEntry.imgType === "logo" ? "20px" : 0,
-                  cursor: photoUrls.length > 0 ? "pointer" : "default",
-                }}
-              />
-            </div>
-          ) : photoUrls.length > 0 ? (
-            // Google Places photo(s)
-            <div style={{ display: "flex", height: "100%", overflowX: "auto", scrollbarWidth: "none" }}>
-              {photoUrls.map((url, idx) => (
+        {/* ── Thumbnail: 4:3 aspect-ratio photo strip (up to 3 photos) ──────── */}
+        {/* Aspect ratio enforced via paddingTop — prevents zoom/blowup on odd-sized source images */}
+        <div style={{ position: "relative", width: "100%", overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ paddingTop: "75%" /* 4:3 */ }} />
+          <div style={{ position: "absolute", inset: 0 }}>
+            {isLogo ? (
+              // Logo: centered contain on dark background — never cropped or blown up
+              <div style={{ width: "100%", height: "100%", background: "#1b332e", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <img
-                  key={idx}
-                  src={url}
-                  alt={r.name}
-                  onClick={e => { e.stopPropagation(); openLightbox(idx); }}
-                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  style={{
-                    height: "100%", flexShrink: 0, objectFit: "cover", cursor: "pointer",
-                    width: photoUrls.length === 1 ? "100%" : "72vw",
-                    maxWidth: photoUrls.length === 1 ? "100%" : 290,
-                    minWidth: photoUrls.length === 1 ? "auto" : 180,
-                  }}
+                  src={ogEntry!.url} alt={r.name}
+                  onError={() => setOgFailed(true)}
+                  onClick={e => { e.stopPropagation(); if (allLightboxUrls.length > 0) openLightbox(0); }}
+                  style={{ maxWidth: "60%", maxHeight: "60%", objectFit: "contain", cursor: allLightboxUrls.length > 0 ? "pointer" : "default" }}
                 />
-              ))}
-            </div>
-          ) : (
-            // Tasteful placeholder
-            <Photo name={r.name} />
-          )}
+              </div>
+            ) : displaySlots.length === 0 ? (
+              <Photo name={r.name} />
+            ) : displaySlots.length === 1 ? (
+              // Single photo: full-width cover
+              <img
+                src={displaySlots[0]} alt={r.name}
+                onClick={e => { e.stopPropagation(); openLightbox(0); }}
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+              />
+            ) : (
+              // 2–3 photos: main panel (60%) + stacked previews (40%)
+              <div style={{ display: "flex", width: "100%", height: "100%", gap: 2 }}>
+                <div style={{ width: "60%", height: "100%", flexShrink: 0, overflow: "hidden" }}>
+                  <img
+                    src={displaySlots[0]} alt={r.name}
+                    onClick={e => { e.stopPropagation(); openLightbox(0); }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, overflow: "hidden" }}>
+                  {displaySlots.slice(1).map((url, sIdx) => (
+                    <div key={sIdx} style={{ flex: 1, overflow: "hidden" }}>
+                      <img
+                        src={url} alt=""
+                        onClick={e => { e.stopPropagation(); openLightbox(sIdx + 1); }}
+                        onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {/* "Link copied" toast */}
-          {copied && (
-            <div style={{
-              position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
-              background: "rgba(16,33,30,0.92)", border: "1px solid #2c4a44",
-              borderRadius: 6, padding: "4px 12px",
-              fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: "#7fe3c8",
-              pointerEvents: "none", zIndex: 5, whiteSpace: "nowrap",
-            }}>Link copied ✓</div>
-          )}
+            {/* "Link copied" toast */}
+            {copied && (
+              <div style={{
+                position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+                background: "rgba(16,33,30,0.92)", border: "1px solid #2c4a44",
+                borderRadius: 6, padding: "4px 12px",
+                fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: "#7fe3c8",
+                pointerEvents: "none", zIndex: 5, whiteSpace: "nowrap",
+              }}>Link copied ✓</div>
+            )}
 
-          {/* Rank badge */}
-          {r.rank != null && (
-            <div style={{
-              position: "absolute", top: 8, left: 8,
-              background: "#7fe3c8", color: "#FFFFFF",
-              fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-              fontSize: "0.875rem", fontWeight: 700,
-              padding: "4px 12px", borderRadius: 12,
-              lineHeight: 1.4, letterSpacing: "0.04em",
-            }}>{r.rank}</div>
-          )}
+            {/* Rank badge */}
+            {r.rank != null && (
+              <div style={{
+                position: "absolute", top: 8, left: 8,
+                background: "#7fe3c8", color: "#FFFFFF",
+                fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                fontSize: "0.875rem", fontWeight: 700,
+                padding: "4px 12px", borderRadius: 12,
+                lineHeight: 1.4, letterSpacing: "0.04em",
+              }}>{r.rank}</div>
+            )}
+          </div>
         </div>
 
         {/* ── Content area (tap to expand) ──────────────────────────────── */}
@@ -653,10 +671,10 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
 
             {/* Photos */}
             <button
-              style={{ ...actionBtn, opacity: photoUrls.length === 0 ? 0.4 : 1 }}
-              onClick={() => photoUrls.length > 0 && openLightbox(0)}
-              disabled={photoUrls.length === 0}
-              onMouseEnter={e => { if (photoUrls.length > 0) e.currentTarget.style.color = t.text; }}
+              style={{ ...actionBtn, opacity: allLightboxUrls.length === 0 ? 0.4 : 1 }}
+              onClick={() => allLightboxUrls.length > 0 && openLightbox(0)}
+              disabled={allLightboxUrls.length === 0}
+              onMouseEnter={e => { if (allLightboxUrls.length > 0) e.currentTarget.style.color = t.text; }}
               onMouseLeave={e => { e.currentTarget.style.color = t.secondary; }}
             >
               <PhotosIcon />Photos
@@ -909,9 +927,9 @@ export function RestCard({ r, i, expanded, onToggle, onDeepDive, meta, isFav, on
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxOpen && photoUrls.length > 0 && (
-        <Lightbox urls={photoUrls} startIndex={lightboxIdx} onClose={() => setLightboxOpen(false)} />
+      {/* Lightbox — uses all available photos including og:image */}
+      {lightboxOpen && allLightboxUrls.length > 0 && (
+        <Lightbox urls={allLightboxUrls} startIndex={lightboxIdx} onClose={() => setLightboxOpen(false)} />
       )}
     </>
   );

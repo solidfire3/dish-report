@@ -20,6 +20,7 @@ import { RestCard }                                 from "@/components/Restauran
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
 import { getTilesForLocation, normalizeLocation, getMetroForLocation, detectRegionFromNeighborhood, type MetroConfig } from "@/lib/metro-tiles";
+import { applyFontSize, persistFontSize, getStoredFontSize, type FontSize } from "@/lib/font-scale";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 // FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
@@ -351,6 +352,23 @@ function DishIntel() {
     setDark(saved);
     document.documentElement.classList.toggle("dark", saved);
   }, []);
+
+  // ── Font scale — applies to html font-size so all rem units scale globally ──
+  const [fontSz, setFontSz] = useState<FontSize>("normal");
+  useEffect(() => {
+    const stored = getStoredFontSize();
+    setFontSz(stored);
+    applyFontSize(stored);
+  }, []);
+
+  const handleFontSz = (s: FontSize) => {
+    setFontSz(s);
+    persistFontSize(s);
+    // Sync to Supabase user metadata when signed in (cross-device persistence)
+    if (user) {
+      sb().auth.updateUser({ data: { font_size: s } }).catch(() => {});
+    }
+  };
   const toggleDark = () => {
     setDark(v => {
       const next = !v;
@@ -465,13 +483,19 @@ function DishIntel() {
     return () => clearTimeout(t);
   }, [user]);
 
-  // Fetch home swipe-rail data when user signs in
+  // Fetch home swipe-rail data when user signs in; also sync font size from account metadata
   useEffect(() => {
     if (!user) { setHomeRecent([]); setHomeLists([]); return; }
     sb().from("user_searches").select("id,dish,city,search_cache_id").order("created_at",{ascending:false}).limit(6)
       .then((r: {data: Array<{id:string;dish:string;city:string;search_cache_id:string|null}>|null})=>setHomeRecent(r.data??[]),()=>{});
     sb().from("lists").select("id,name").order("created_at",{ascending:false}).limit(6)
       .then((r: {data: Array<{id:string;name:string}>|null})=>setHomeLists(r.data??[]),()=>{});
+    // Apply font size preference stored in account metadata (cross-device sync)
+    const metaSize = user.user_metadata?.font_size as FontSize | undefined;
+    if (metaSize && ["normal", "large", "xl"].includes(metaSize) && metaSize !== fontSz) {
+      setFontSz(metaSize);
+      persistFontSize(metaSize);
+    }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore stashed search after sign-in redirect
@@ -1211,6 +1235,8 @@ function DishIntel() {
           dark={dark}
           onToggleDark={toggleDark}
           favCount={favs.length}
+          fontSz={fontSz}
+          onFontSz={handleFontSz}
           onFavsClick={() => {
             if (["done", "deepdone"].includes(phase)) pushNav();
             setPhase("idle"); setShowFavs(v => !v);

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import type { FontSize } from "@/lib/font-scale";
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────
 const SunIcon = () => (
@@ -77,11 +78,13 @@ type HeaderProps = {
   onToggleDark?: () => void;
   favCount?: number;
   onFavsClick?: () => void;
+  fontSz?: FontSize;
+  onFontSz?: (s: FontSize) => void;
 };
 
 export function Header({
   user, onSignOut, hasBack, onBack, dark: darkProp, onToggleDark: onToggleDarkProp,
-  favCount, onFavsClick,
+  favCount, onFavsClick, fontSz = "normal", onFontSz,
 }: HeaderProps) {
   const router = useRouter();
 
@@ -242,6 +245,33 @@ export function Header({
               </button>
             )}
 
+            {/* Text size button — cycles Normal → Large → X-Large */}
+            {onFontSz && (() => {
+              const sizes: FontSize[] = ["normal", "large", "xl"];
+              const labels: Record<FontSize, string> = { normal: "A", large: "A", xl: "A" };
+              const pxMap: Record<FontSize, number> = { normal: 13, large: 15, xl: 17 };
+              const isActive = fontSz !== "normal";
+              return (
+                <button
+                  onClick={() => onFontSz(sizes[(sizes.indexOf(fontSz) + 1) % sizes.length])}
+                  title={`Text size: ${fontSz === "normal" ? "Normal" : fontSz === "large" ? "Large" : "X-Large"} (click to cycle)`}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    height: 28, minWidth: 32, padding: "0 7px", borderRadius: 6,
+                    background: isActive ? accentLight : "transparent",
+                    border: `1px solid ${isActive ? accentBorder : borderStrong}`,
+                    color: isActive ? accent : secondary,
+                    cursor: "pointer", transition: "all 0.15s", flexShrink: 0,
+                    fontFamily: "'IBM Plex Mono','Courier New',monospace",
+                    fontSize: pxMap[fontSz], fontWeight: 700, lineHeight: 1,
+                    letterSpacing: "-0.02em",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? accentBorder : borderStrong; e.currentTarget.style.color = isActive ? accent : secondary; }}
+                >{labels[fontSz]}</button>
+              );
+            })()}
+
             {/* ONLINE indicator (replaces dark mode toggle) */}
             <span style={{
               fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#3fd98a",
@@ -330,6 +360,39 @@ export function Header({
             </div>
             <div style={{ fontSize: "0.8rem", color: "#d4e4df", overflow: "hidden", textOverflow: "ellipsis" }}>
               {user.email}
+            </div>
+          </div>
+        )}
+
+        {/* Text size picker */}
+        {onFontSz && (
+          <div style={{ padding: "14px 20px 16px", borderBottom: "1px solid #1a2e28" }}>
+            <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: "#5f857d", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 10 }}>
+              TEXT SIZE
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["normal", "large", "xl"] as const).map((s, idx) => (
+                <button
+                  key={s}
+                  onClick={() => onFontSz(s)}
+                  style={{
+                    flex: 1, padding: "10px 4px", borderRadius: 6, cursor: "pointer",
+                    background: fontSz === s ? "#3d6b62" : "#1b332e",
+                    border: `1px solid ${fontSz === s ? "#4d8377" : "#2c4a44"}`,
+                    color: fontSz === s ? "#eafaf4" : "#8aa9a2",
+                    fontFamily: "'IBM Plex Mono',monospace",
+                    fontSize: [13, 16, 19][idx], fontWeight: 700, lineHeight: 1,
+                    transition: "all 0.15s", textAlign: "center",
+                  }}
+                >A</button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+              {["Normal", "Large", "X-Large"].map(label => (
+                <div key={label} style={{ flex: 1, textAlign: "center", fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: "#5f857d", letterSpacing: "0.06em" }}>
+                  {label}
+                </div>
+              ))}
             </div>
           </div>
         )}

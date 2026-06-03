@@ -214,82 +214,70 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
     <>
       <div style={{ background: t.bg, minHeight: "100vh", paddingBottom: 64 }}>
 
-        {/* ── Hero photo strip — snapping, 280px desktop / 220px mobile ── */}
+        {/* ── Hero photo strip — 16:9 aspect ratio, real photos only (up to 5) ── */}
         {(() => {
-          const MIN_SLOTS = 5;
-          const realPhotos = photoUrls;
-          // Pad with null slots so we always show at least MIN_SLOTS items
-          const slots: (string | null)[] = [
-            ...realPhotos,
-            ...Array(Math.max(0, MIN_SLOTS - realPhotos.length)).fill(null),
-          ];
+          const realPhotos = photoUrls.slice(0, 5);
           const initial = (data.name?.[0] || "?").toUpperCase();
-          return (
-            <>
-              <style>{`
-                .dr-photo-strip { height: 280px; }
-                @media (max-width: 640px) { .dr-photo-strip { height: 220px; } }
-              `}</style>
-              <div className="dr-photo-strip" style={{ position: "relative", overflow: "hidden", background: "#2c4a44" }}>
-                <div style={{
-                  display: "flex", height: "100%",
-                  overflowX: "auto", scrollbarWidth: "none",
-                  scrollSnapType: "x mandatory",
-                  WebkitOverflowScrolling: "touch",
-                }}>
-                  {slots.map((url, idx) => (
-                    <div key={idx} style={{
-                      position: "relative", height: "100%", flexShrink: 0,
-                      scrollSnapAlign: "start",
-                      // Show partial next slot to signal scrollability
-                      width: slots.length === 1 ? "100%" : "88%",
-                      minWidth: slots.length === 1 ? "100%" : 260,
-                    }}>
-                      {url ? (
-                        <>
-                          <img
-                            src={url} alt=""
-                            onClick={() => { setLightboxIdx(idx < realPhotos.length ? idx : 0); setLightboxOpen(true); }}
-                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
-                          />
-                          {idx === 0 && (
-                            <div style={{
-                              position: "absolute", bottom: 8, left: 10,
-                              background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4,
-                            }}>
-                              <span style={{
-                                fontFamily: "'IBM Plex Mono', monospace",
-                                fontSize: 9, color: "#d4e4df",
-                                textTransform: "uppercase", letterSpacing: "0.15em",
-                              }}>ESTABLISHMENT</span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        /* Placeholder slot for missing photos */
-                        <div style={{
-                          width: "100%", height: "100%",
-                          background: "#1b332e", border: "none",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <span style={{
-                            fontFamily: "var(--font-orbitron), 'Courier New', monospace",
-                            fontSize: "4rem", fontWeight: 900, color: "#7fe3c8", opacity: 0.35,
-                          }}>{initial}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+
+          // No photos: single placeholder in 16:9 container
+          if (realPhotos.length === 0) {
+            return (
+              <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#1b332e", overflow: "hidden" }}>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontFamily: "var(--font-orbitron),'Courier New',monospace", fontSize: "4rem", fontWeight: 900, color: "#7fe3c8", opacity: 0.35 }}>
+                    {initial}
+                  </span>
                 </div>
-                {/* Gradient overlay */}
-                <div style={{
-                  position: "absolute", bottom: 0, left: 0, right: 0, height: "50%",
-                  background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))",
-                  pointerEvents: "none",
-                }} />
               </div>
-            </>
+            );
+          }
+
+          return (
+            // 16:9 aspect-ratio container via padding-top trick — ensures no fixed-height zoom distortion
+            <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", overflow: "hidden", background: "#2c4a44" }}>
+              <div style={{
+                position: "absolute", inset: 0,
+                display: "flex",
+                overflowX: "auto", scrollbarWidth: "none" as const,
+                scrollSnapType: "x mandatory",
+                WebkitOverflowScrolling: "touch",
+              }}>
+                {realPhotos.map((url, idx) => (
+                  <div key={idx} style={{
+                    position: "relative", height: "100%", flexShrink: 0,
+                    scrollSnapAlign: "start",
+                    width: realPhotos.length === 1 ? "100%" : "88%",
+                    minWidth: realPhotos.length === 1 ? "100%" : 260,
+                  }}>
+                    <img
+                      src={url} alt=""
+                      onClick={() => { setLightboxIdx(idx); setLightboxOpen(true); }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }}
+                    />
+                    {idx === 0 && (
+                      <div style={{ position: "absolute", bottom: 8, left: 10, background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4 }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#d4e4df", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+                          ESTABLISHMENT
+                        </span>
+                      </div>
+                    )}
+                    {realPhotos.length > 1 && (
+                      <div style={{ position: "absolute", bottom: 8, right: 10, background: "rgba(0,0,0,0.55)", padding: "3px 8px", borderRadius: 4 }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#d4e4df", letterSpacing: "0.10em" }}>
+                          {idx + 1}/{realPhotos.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0, height: "45%",
+                background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.40))",
+                pointerEvents: "none",
+              }} />
+            </div>
           );
         })()}
 

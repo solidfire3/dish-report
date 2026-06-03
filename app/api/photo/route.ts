@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (!apiKey) return new NextResponse(null, { status: 500 });
 
   try {
-    const url = `https://places.googleapis.com/v1/${name}/media?maxWidthPx=800&key=${apiKey}`;
+    const url = `https://places.googleapis.com/v1/${name}/media?maxWidthPx=1600&key=${apiKey}`;
     const res = await fetch(url, { redirect: "follow" });
 
     if (!res.ok) return new NextResponse(null, { status: 404 });
