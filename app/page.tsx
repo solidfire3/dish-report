@@ -19,6 +19,7 @@ import { LoadingTracker }                           from "@/components/LoadingTr
 import { RestCard }                                 from "@/components/RestaurantCard";
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
+import { getTilesForLocation, normalizeLocation } from "@/lib/metro-tiles";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 // FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
@@ -385,6 +386,8 @@ function DishIntel() {
   const [fromCache,        setFromCache]        = useState(false);
   const [searchMode,       setSearchMode]       = useState<"original" | "refresh" | undefined>(undefined);
   const [showSignInNudge,  setShowSignInNudge]  = useState(false);
+  // Real tile names passed to LoadingTracker so it shows what's actually being searched
+  const [activeTiles,      setActiveTiles]      = useState<string[] | null>(null);
   // Result count + honorable mentions controls
   const [resultCount,      setResultCount]      = useState<5 | 10>(5);
   const [showMentions,     setShowMentions]     = useState(true);
@@ -744,7 +747,10 @@ function DishIntel() {
   const handleForceRefresh = async () => {
     if (!searchedDish) return;
     setFromCache(false);
-    setSearchMode("refresh");   // LoadingTracker shows "REFRESHING · re-running live analysis"
+    setSearchMode("refresh");
+    setActiveTiles((!area && locMode !== "area")
+      ? getTilesForLocation(normalizeLocation(city))
+      : null);
     searchResultCache.current = null;
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -818,7 +824,11 @@ function DishIntel() {
 
     console.log("[search] no match -> running pipeline");
     setFromCache(false);
-    setSearchMode("original");  // LoadingTracker shows "NEW QUERY DETECTED"
+    setSearchMode("original");
+    // Compute real tile names now so LoadingTracker shows what's actually being searched
+    setActiveTiles((!searchArea && searchLocMode !== "area")
+      ? getTilesForLocation(normalizeLocation(searchCity))
+      : null);
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -1769,6 +1779,8 @@ function DishIntel() {
           onDone={handleAnalysisDone}
           onStop={stopSearch}
           searchMode={searchMode}
+          tiles={activeTiles}
+          resultCount={apiComplete ? restaurants.length : undefined}
         />
       )}
 

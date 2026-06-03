@@ -101,12 +101,21 @@ Score tiers (anchor every score against these named bands):
 The typical good local neighborhood spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6.
 9.0+ is for true standouts only — do not award for popularity alone.
 
-QUERY RELEVANCE — controls inclusion, not scores:
-Only include restaurants that are GENUINELY known for the searched dish or category.
-EXCLUDE any restaurant where the searched item is incidental to a different concept:
-- A fine-dining tasting-menu restaurant in a "best pizza" search → excluded.
-- A café that happens to sell burgers in a "best burger" search → excluded.
-The restaurant must be a real destination for the specific query. This is a strict gate.
+QUERY RELEVANCE — strict destination gate, controls inclusion not scores:
+A venue MUST be a genuine destination for the searched dish — a PRIMARY reason people go there.
+The test: "Is this place specifically known FOR [dish]?"
+INCLUDE only when the dish is a core offering that people seek out at this specific venue.
+EXCLUDE strictly:
+- A sushi restaurant that has poke bowls on the menu → EXCLUDED from a "poke" search, unless
+  the restaurant is specifically and widely known for its poke (rare; not just "offers poke").
+- Any venue where the dish is a secondary item, side offering, or equal-among-many.
+- Multi-cuisine spots where the dish is one of ten equal-priority offerings.
+- A fine-dining tasting-menu restaurant in a "pizza" or "tacos" search.
+- Any café or general restaurant in a "burger" or "ramen" search unless it's a burger/ramen
+  destination specifically.
+Return fewer genuinely-relevant results rather than padding with venues that merely have
+the dish on the menu. Quality of relevance over quantity.
+This gate applies independently per tile; each tile must meet this standard.
 
 GEOGRAPHIC CONTAINMENT — non-negotiable:
 Only include venues physically located in or within reasonable proximity of the searched location.
