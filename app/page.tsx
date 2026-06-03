@@ -413,6 +413,8 @@ function DishIntel() {
     metro: MetroConfig;
   } | null>(null);
   const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
+  // Editable city inside the Refine step — user can change to any city/country
+  const [refineCity,        setRefineCity]        = useState("");
   // Result count + honorable mentions controls
   const [resultCount,      setResultCount]      = useState<5 | 10>(5);
   const [showMentions,     setShowMentions]     = useState(true);
@@ -872,7 +874,8 @@ function DishIntel() {
     searchCity = city,
     searchLocMode = locMode,
     searchArea = area,
-    searchRadius = radius
+    searchRadius = radius,
+    skipMetroCheck = false   // true when called from the Refine step's non-metro path
   ) => {
     const cacheKey = `${d}|${searchCity}|${searchLocMode}|${searchArea}|${searchRadius}`;
 
@@ -892,18 +895,21 @@ function DishIntel() {
 
     // ── Refine step: intercept broad metro searches ───────────────────────────
     // Show region-select UI before running. Skip for: already-specific areas,
-    // radius-mode searches, or metros not in the config.
-    const _metro = (!searchArea && searchLocMode !== "area")
-      ? getMetroForLocation(normalizeLocation(searchCity))
-      : null;
-    if (_metro) {
-      setRefineState({ dish: d, city: searchCity, locMode: searchLocMode, area: searchArea, searchRadius, metro: _metro });
-      // Pre-select only the user's GPS neighborhood, if detectable. Mental model:
-      // "I'm here — tap to add more areas." Default to none if location is unknown.
-      const detectedId = detectRegionFromNeighborhood(gpsNeighborhood, _metro);
-      setSelectedRegionIds(detectedId ? [detectedId] : []);
-      setPhase("refine");
-      return;
+    // radius-mode searches, metros not in the config, or when called from the
+    // Refine step itself (skipMetroCheck prevents re-triggering the intercept).
+    if (!skipMetroCheck) {
+      const _metro = (!searchArea && searchLocMode !== "area")
+        ? getMetroForLocation(normalizeLocation(searchCity))
+        : null;
+      if (_metro) {
+        setRefineState({ dish: d, city: searchCity, locMode: searchLocMode, area: searchArea, searchRadius, metro: _metro });
+        setRefineCity(searchCity);
+        // Pre-select only the user's GPS neighborhood, if detectable.
+        const detectedId = detectRegionFromNeighborhood(gpsNeighborhood, _metro);
+        setSelectedRegionIds(detectedId ? [detectedId] : []);
+        setPhase("refine");
+        return;
+      }
     }
 
     // Layer 2: DB quick check BEFORE showing loading screen
@@ -1422,105 +1428,151 @@ function DishIntel() {
           ) : (
           <>
 
-          {/* ── REFINE STEP — region picker for broad metro searches ──── */}
-          {phase === "refine" && refineState && (
+          {/* ── REFINE STEP — region picker with editable location ──── */}
+          {phase === "refine" && refineState && (() => {
+            // Compute metro live from the editable city — updates as user types
+            const currentMetro = getMetroForLocation(normalizeLocation(refineCity));
+            // Only keep region IDs that are valid for the current metro
+            const validSelectedIds = currentMetro
+              ? selectedRegionIds.filter(id => currentMetro.regions.some(r => r.id === id))
+              : [];
+            const canRun = currentMetro ? validSelectedIds.length > 0 : refineCity.trim().length > 0;
+
+            return (
             <div style={{ paddingTop: 20, paddingBottom: 40 }}>
               {/* Header */}
-              <div style={{ textAlign: "center", marginBottom: 22 }}>
-                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.65rem", fontWeight: 700, color: "#5f857d", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 6 }}>REFINE SEARCH</div>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: text, marginBottom: 6 }}>
-                  {refineState.dish} <span style={{ color: secondary }}>·</span> {refineState.metro.displayName}
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.65rem", fontWeight: 700, color: "#5f857d", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 10 }}>REFINE SEARCH</div>
+
+                {/* Dish name */}
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.05rem", fontWeight: 700, color: text, marginBottom: 10 }}>
+                  {refineState.dish}
                 </div>
+
+                {/* Editable location — "in [city input]" */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.7rem", color: secondary, letterSpacing: "0.08em" }}>in</span>
+                  <input
+                    value={refineCity}
+                    onChange={e => {
+                      setRefineCity(e.target.value);
+                      // When city changes, reset region selection to avoid stale IDs
+                      setSelectedRegionIds([]);
+                    }}
+                    onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
+                    placeholder="City, State or Country"
+                    style={{
+                      background: cardBg,
+                      border: `1.5px solid ${accentBdr}`,
+                      borderRadius: 8,
+                      padding: "7px 12px",
+                      color: cardText,
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                      outline: "none",
+                      minWidth: 180,
+                      maxWidth: 260,
+                      textAlign: "center",
+                      transition: "border-color 0.15s",
+                    }}
+                    onFocus={e => { e.target.style.borderColor = accent; }}
+                    onBlur={e => { e.target.style.borderColor = accentBdr; }}
+                  />
+                </div>
+
                 <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem", color: secondary }}>
-                  {gpsNeighborhood && selectedRegionIds.length === 1
-                    ? "Your area selected — tap to add more regions"
-                    : "Tap regions to include them · fewer = faster"}
+                  {currentMetro
+                    ? (validSelectedIds.length === 1 && gpsNeighborhood
+                        ? "Your area selected — tap to add more regions"
+                        : "Tap regions to include them · fewer = faster")
+                    : refineCity.trim()
+                      ? "No area breakdown for this location — searching the full city"
+                      : "Enter a city to search"}
                 </div>
               </div>
 
-              {/* ALL OF [CITY] COUNTY button */}
-              <div style={{ textAlign: "center", marginBottom: 14 }}>
-                {(() => {
-                  const allSelected = selectedRegionIds.length === refineState.metro.regions.length;
-                  return (
-                    <button
-                      onClick={() => setSelectedRegionIds(
-                        allSelected ? [] : refineState.metro.regions.map(r => r.id)
-                      )}
-                      style={{
-                        background: allSelected ? brand : accentBg,
-                        border: `1.5px solid ${allSelected ? accent : accentBdr}`,
-                        borderRadius: 6, padding: "7px 20px",
-                        fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
-                        letterSpacing: "0.12em", textTransform: "uppercase",
-                        color: allSelected ? brandTxt : accent,
-                        cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
-                      }}
-                    >
-                      {allSelected ? "✓ " : ""}ALL OF {refineState.metro.displayName.toUpperCase()} COUNTY
-                    </button>
-                  );
-                })()}
-              </div>
+              {currentMetro ? (
+                <>
+                  {/* ALL OF [CITY] button — only shown when a metro is recognized */}
+                  <div style={{ textAlign: "center", marginBottom: 14 }}>
+                    {(() => {
+                      const allSelected = validSelectedIds.length === currentMetro.regions.length;
+                      return (
+                        <button
+                          onClick={() => setSelectedRegionIds(
+                            allSelected ? [] : currentMetro.regions.map(r => r.id)
+                          )}
+                          style={{
+                            background: allSelected ? brand : accentBg,
+                            border: `1.5px solid ${allSelected ? accent : accentBdr}`,
+                            borderRadius: 6, padding: "7px 20px",
+                            fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                            letterSpacing: "0.12em", textTransform: "uppercase",
+                            color: allSelected ? brandTxt : accent,
+                            cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
+                          }}
+                        >
+                          {allSelected ? "✓ " : ""}ALL OF {currentMetro.displayName.toUpperCase()} COUNTY
+                        </button>
+                      );
+                    })()}
+                  </div>
 
-              {/* Region cards grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-                {refineState.metro.regions.map(region => {
-                  const isSelected = selectedRegionIds.includes(region.id);
-                  return (
-                    <button
-                      key={region.id}
-                      onClick={() => setSelectedRegionIds(prev =>
-                        prev.includes(region.id)
-                          ? prev.filter(id => id !== region.id)
-                          : [...prev, region.id]
-                      )}
-                      style={{
-                        // Selected: lifted teal surface, bright border — looks "on"
-                        // Unselected: near-black, barely-visible border — looks "off"
-                        background: isSelected ? "#1b332e" : "#0b1614",
-                        border: `${isSelected ? "2px" : "1px"} solid ${isSelected ? accent : "#1a2e28"}`,
-                        borderRadius: 8, padding: isSelected ? "11px 11px" : "12px 12px",
-                        textAlign: "left", cursor: "pointer",
-                        transition: "border-color 0.15s, background 0.15s",
-                        minHeight: 76,
-                        display: "flex", flexDirection: "column", gap: 5,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        {/* Checkmark slot — always occupies space to prevent layout shift */}
-                        <span style={{
-                          fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, lineHeight: 1,
-                          color: accent, width: 14, flexShrink: 0,
-                          opacity: isSelected ? 1 : 0,
-                        }}>✓</span>
-                        <div style={{
-                          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700,
-                          color: isSelected ? accent : "#3d5e58",
-                          letterSpacing: "0.06em",
-                          transition: "color 0.15s",
-                        }}>
-                          {region.label}
-                        </div>
-                      </div>
-                      <div style={{
-                        fontFamily: "'Inter',sans-serif", fontSize: "0.65rem", lineHeight: 1.35,
-                        color: isSelected ? tertiary : "#2b4440",
-                        paddingLeft: 19,
-                        transition: "color 0.15s",
-                      }}>
-                        {region.neighborhoods}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                  {/* Region cards grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                    {currentMetro.regions.map(region => {
+                      const isSelected = validSelectedIds.includes(region.id);
+                      return (
+                        <button
+                          key={region.id}
+                          onClick={() => setSelectedRegionIds(prev =>
+                            prev.includes(region.id)
+                              ? prev.filter(id => id !== region.id)
+                              : [...prev, region.id]
+                          )}
+                          style={{
+                            background: isSelected ? "#1b332e" : "#0b1614",
+                            border: `${isSelected ? "2px" : "1px"} solid ${isSelected ? accent : "#1a2e28"}`,
+                            borderRadius: 8, padding: isSelected ? "11px 11px" : "12px 12px",
+                            textAlign: "left", cursor: "pointer",
+                            transition: "border-color 0.15s, background 0.15s",
+                            minHeight: 76,
+                            display: "flex", flexDirection: "column", gap: 5,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, lineHeight: 1, color: accent, width: 14, flexShrink: 0, opacity: isSelected ? 1 : 0 }}>✓</span>
+                            <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700, color: isSelected ? accent : "#3d5e58", letterSpacing: "0.06em", transition: "color 0.15s" }}>
+                              {region.label}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.65rem", lineHeight: 1.35, color: isSelected ? tertiary : "#2b4440", paddingLeft: 19, transition: "color 0.15s" }}>
+                            {region.neighborhoods}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                /* Non-metro city: no region picker — full city search */
+                refineCity.trim() && (
+                  <div style={{
+                    background: accentBg, border: `1px solid ${accentBdr}`,
+                    borderRadius: 8, padding: "14px 16px", marginBottom: 20,
+                    fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem",
+                    color: tertiary, letterSpacing: "0.06em", textAlign: "center",
+                  }}>
+                    Searching all of <span style={{ color: accent, fontWeight: 700 }}>{refineCity.trim()}</span> — no area breakdown configured for this location
+                  </div>
+                )
+              )}
 
               {/* Result controls */}
               <div style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "14px 14px", marginBottom: 16 }}>
                 <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6rem", color: "#5f857d", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>RESULT OPTIONS</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  {/* Count selector */}
                   <div style={{ display: "flex", background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 6, overflow: "hidden" }}>
                     {([5, 10] as const).map(n => (
                       <button key={n} onClick={() => setResultCount(n)} style={{
@@ -1531,7 +1583,6 @@ function DishIntel() {
                       }}>TOP {n}</button>
                     ))}
                   </div>
-                  {/* Mentions toggle */}
                   <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                     <input type="checkbox" checked={showMentions} onChange={e => setShowMentions(e.target.checked)} style={{ accentColor: brand, width: 14, height: 14 }} />
                     <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.08em" }}>HONORABLE MENTIONS</span>
@@ -1542,24 +1593,41 @@ function DishIntel() {
               {/* RUN SEARCH */}
               <button
                 onClick={() => {
-                  if (selectedRegionIds.length === 0) return;
-                  runSearchWithRegions(refineState.dish, refineState.city, refineState.locMode, refineState.area, refineState.searchRadius, refineState.metro, selectedRegionIds);
+                  if (!canRun) return;
+                  if (currentMetro) {
+                    // Metro path: fire parallel tile queries for selected regions
+                    runSearchWithRegions(
+                      refineState.dish, refineCity.trim(), refineState.locMode,
+                      refineState.area, refineState.searchRadius, currentMetro, validSelectedIds
+                    );
+                  } else {
+                    // Non-metro path: direct full-city search, skip metro intercept
+                    setRefineState(null);
+                    runSearch(
+                      refineState.dish, refineCity.trim(), refineState.locMode,
+                      refineState.area, refineState.searchRadius, true
+                    );
+                  }
                 }}
-                disabled={selectedRegionIds.length === 0}
+                disabled={!canRun}
                 style={{
                   width: "100%", padding: "14px",
-                  background: selectedRegionIds.length === 0 ? accentBg : brand,
-                  border: `1px solid ${selectedRegionIds.length === 0 ? accentBdr : brand}`,
-                  borderRadius: 8, cursor: selectedRegionIds.length === 0 ? "not-allowed" : "pointer",
+                  background: canRun ? brand : accentBg,
+                  border: `1px solid ${canRun ? brand : accentBdr}`,
+                  borderRadius: 8, cursor: canRun ? "pointer" : "not-allowed",
                   fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.875rem",
                   fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-                  color: selectedRegionIds.length === 0 ? tertiary : brandTxt,
+                  color: canRun ? brandTxt : tertiary,
                   transition: "background 0.15s",
                 }}
               >
-                {selectedRegionIds.length === 0
-                  ? "SELECT AT LEAST ONE REGION"
-                  : `RUN SEARCH · ${selectedRegionIds.length} ${selectedRegionIds.length === 1 ? "REGION" : "REGIONS"}`}
+                {!refineCity.trim()
+                  ? "ENTER A CITY TO SEARCH"
+                  : currentMetro
+                    ? validSelectedIds.length === 0
+                      ? "SELECT AT LEAST ONE REGION"
+                      : `RUN SEARCH · ${validSelectedIds.length} ${validSelectedIds.length === 1 ? "REGION" : "REGIONS"}`
+                    : `SEARCH ${refineCity.trim().toUpperCase()}`}
               </button>
 
               {/* Back to idle */}
@@ -1569,7 +1637,8 @@ function DishIntel() {
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ── Classifying ──────────────────────────────────────────── */}
           {phase === "classifying" && (
