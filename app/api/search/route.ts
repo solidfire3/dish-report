@@ -107,6 +107,14 @@ EXCLUDE any restaurant where the searched item is incidental to a different conc
 - A café that happens to sell burgers in a "best burger" search → excluded.
 The restaurant must be a real destination for the specific query. This is a strict gate.
 
+GEOGRAPHIC CONTAINMENT — non-negotiable:
+Only include venues physically located in or within reasonable proximity of the searched location.
+Do NOT include venues from a different city or region simply because they are well-reviewed for this dish.
+A venue just across a neighborhood boundary within the same metro area is acceptable.
+A venue in a clearly different city or region is NOT acceptable, even if the web search surfaced it.
+Verify that each returned venue's address actually places it in or near the searched area.
+Location accuracy matters as much as dish quality — a confident wrong-location result is worse than no result.
+
 SOURCE GROUNDING — every claim must be traceable to retrieved sources:
 Ground all factual claims in actually retrieved review/source material, NOT general knowledge.
 - Do NOT invent restaurants, addresses, specific dishes, or quotes not supported by sources.
@@ -159,7 +167,7 @@ async function runPipeline(
   const locStr = locMode === "area" && area
     ? `within ${radius} miles of ${area}`
     : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`;
-  const userMsg = `Best places for "${dish}" ${locStr}.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
+  const userMsg = `Best places for "${dish}" ${locStr}. GEOGRAPHIC REQUIREMENT: Only include venues physically located ${locStr} — exclude any venue whose address is not in or near this area, even if the web search surfaced it.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
   const msg = await client.messages.create({
     model: "claude-sonnet-4-6", max_tokens: 8000,
     system: makeSearchPrompt(exclude),
