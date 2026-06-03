@@ -50,18 +50,23 @@ export function buildTags({
   area,
   locMode,
   radius,
+  regionKey,
 }: {
   dish: string;
   city: string;
   area?: string | null;
   locMode?: string | null;
   radius?: number | null;
+  regionKey?: string | null;  // sorted region IDs, e.g. "central,coastal" — makes cache key unique per selection
 }): SearchTags {
   // Always resolve to actual place — "near me" must never survive into the signature
   const rawLocation = locMode === "area" && area ? area : city;
   const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
   const locationBase = normalizeTag(rawLocation);
-  const location = effectiveRadius ? `${locationBase}|r${effectiveRadius}` : locationBase;
+  // Include region selection in the location tag so different region sets cache separately
+  const location = regionKey
+    ? `${locationBase}|regions:${regionKey}`
+    : effectiveRadius ? `${locationBase}|r${effectiveRadius}` : locationBase;
 
   const dishClean = (dish || "")
     .replace(LOC_INTENT_RE, "")

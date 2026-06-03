@@ -1,53 +1,93 @@
 /**
- * Geographic tiling config for broad metro searches.
+ * Metro region config for geographic tiling and the pre-search Refine step.
  *
- * When a city-level search resolves to a configured metro name, the pipeline
- * issues one Anthropic query per tile IN PARALLEL, merges all candidates,
- * dedupes by identity_key, then scores the combined set — giving far more
- * comprehensive neighborhood coverage than a single broad-city query.
+ * Each metro entry defines selectable regions. Each region becomes:
+ * - A card in the Refine UI (label + neighborhoods subtitle)
+ * - A tile query when that region is selected ("Best [dish] in [tileQuery]")
  *
- * Structure: lowercase metro name → array of tile sub-area strings.
- * Each tile becomes the location in its query: "Best poke in Central San Diego."
- *
- * Metros NOT listed here use the existing single-query behavior — no change.
- * To add a metro: add an entry below.
+ * Adding a metro: add an entry to METROS. No other code changes needed.
  */
-export const METRO_TILES: Record<string, string[]> = {
-  "san diego": [
-    "Central San Diego",
-    "North County San Diego",
-    "East County San Diego",
-  ],
 
-  // Add metros as coverage demand grows:
-  // "los angeles": [
-  //   "Downtown and Central LA",
-  //   "Westside and Beach Cities",
-  //   "San Fernando Valley",
-  //   "South Bay LA",
-  //   "East LA and San Gabriel Valley",
-  // ],
-  // "new york city": [
-  //   "Manhattan",
-  //   "Brooklyn",
-  //   "Queens",
-  //   "Bronx and Upper Manhattan",
-  // ],
-  // "san francisco": [
-  //   "San Francisco City",
-  //   "East Bay",
-  //   "Peninsula and South Bay",
-  // ],
+// ─── TYPES ────────────────────────────────────────────────────────────────────
+
+export type MetroRegion = {
+  id:            string;  // URL-safe identifier, e.g. "central"
+  label:         string;  // Display name, e.g. "Central"
+  neighborhoods: string;  // Subtitle shown in the card, e.g. "Downtown, North Park..."
+  tileQuery:     string;  // Location string used in the search query
+};
+
+export type MetroConfig = {
+  displayName: string;      // e.g. "San Diego"
+  regions: MetroRegion[];
+};
+
+// ─── METRO DEFINITIONS ────────────────────────────────────────────────────────
+
+export const METROS: Record<string, MetroConfig> = {
+  "san diego": {
+    displayName: "San Diego",
+    regions: [
+      {
+        id:            "central",
+        label:         "Central",
+        neighborhoods: "Downtown, North Park, Hillcrest, City Heights",
+        tileQuery:     "Central San Diego",
+      },
+      {
+        id:            "convoy",
+        label:         "Convoy / Kearny Mesa",
+        neighborhoods: "Convoy District, Kearny Mesa, Clairemont",
+        tileQuery:     "Convoy and Kearny Mesa San Diego",
+      },
+      {
+        id:            "coastal",
+        label:         "Coastal",
+        neighborhoods: "Pacific Beach, La Jolla, Ocean Beach, Point Loma",
+        tileQuery:     "Coastal San Diego",
+      },
+      {
+        id:            "south-bay",
+        label:         "South Bay",
+        neighborhoods: "Chula Vista, National City, Imperial Beach",
+        tileQuery:     "South Bay San Diego",
+      },
+      {
+        id:            "north-coastal",
+        label:         "North County Coastal",
+        neighborhoods: "Encinitas, Carlsbad, Oceanside, Del Mar",
+        tileQuery:     "North County Coastal San Diego",
+      },
+      {
+        id:            "north-inland",
+        label:         "North County Inland",
+        neighborhoods: "Escondido, San Marcos, Vista, Poway",
+        tileQuery:     "North County Inland San Diego",
+      },
+      {
+        id:            "east",
+        label:         "East County",
+        neighborhoods: "El Cajon, La Mesa, Santee",
+        tileQuery:     "East County San Diego",
+      },
+    ],
+  },
+
+  // Add metros here — only config changes needed:
+  // "los angeles": {
+  //   displayName: "Los Angeles",
+  //   regions: [
+  //     { id: "dtla", label: "Downtown / Central", neighborhoods: "Downtown, Koreatown, Mid-City", tileQuery: "Central Los Angeles" },
+  //     { id: "westside", label: "Westside", neighborhoods: "Santa Monica, Culver City, Mar Vista, Venice", tileQuery: "Westside Los Angeles" },
+  //     { id: "sfv", label: "San Fernando Valley", neighborhoods: "Sherman Oaks, Encino, Van Nuys, Burbank", tileQuery: "San Fernando Valley Los Angeles" },
+  //     { id: "south-bay-la", label: "South Bay", neighborhoods: "Torrance, Gardena, Hawthorne", tileQuery: "South Bay Los Angeles" },
+  //     { id: "sgv", label: "San Gabriel Valley", neighborhoods: "Alhambra, Monterey Park, Arcadia, Rowland Heights", tileQuery: "San Gabriel Valley Los Angeles" },
+  //   ],
+  // },
 };
 
 // ─── NORMALIZATION ────────────────────────────────────────────────────────────
-// Strips trailing state/country qualifiers so "San Diego, CA" and
-// "San Diego California" both normalize to "san diego" for metro matching.
-// NOTE: exact-match-after-normalization is intentional — "North Park San Diego"
-// normalizes to "north park san diego" which does NOT equal "san diego", so
-// neighborhood descriptors with the metro name appended still single-query.
 
-/** US state 2-letter abbreviations (lowercase). */
 const STATE_ABBREVS = new Set([
   'al','ak','az','ar','ca','co','ct','de','fl','ga','hi','id','il','in','ia',
   'ks','ky','la','me','md','ma','mi','mn','ms','mo','mt','ne','nv','nh','nj',
@@ -55,7 +95,6 @@ const STATE_ABBREVS = new Set([
   'va','wa','wv','wi','wy',
 ]);
 
-/** Full US state name pattern (lowercase, handles multi-word states). */
 const STATE_NAME_RE = new RegExp(
   ',?\\s*(' + [
     'north carolina','north dakota','south carolina','south dakota','west virginia',
@@ -69,68 +108,43 @@ const STATE_NAME_RE = new RegExp(
   ].join('|') + ')\\s*$'
 );
 
-const COUNTRY_RE  = /,?\s*(usa|us|united states|united states of america)\s*$/;
-const ZIP_RE      = /,?\s*\d{5}(-\d{4})?\s*$/;
+const COUNTRY_RE     = /,?\s*(usa|us|united states|united states of america)\s*$/;
+const ZIP_RE         = /,?\s*\d{5}(-\d{4})?\s*$/;
 const TRAILING_COMMA = /,\s*$/;
 
-/**
- * Normalize a location string for metro matching:
- * lowercase → collapse whitespace → strip zip → strip country →
- * strip full state name → strip 2-letter state abbrev → strip trailing comma.
- *
- * "San Diego, CA"        → "san diego"
- * "San Diego California" → "san diego"
- * "North Park San Diego" → "north park san diego"  (not stripped — keeps neighborhood prefix)
- * "SD"                   → "sd"  (ambiguous; not stripped since it IS the only token)
- */
 export function normalizeLocation(s: string): string {
   let n = s.toLowerCase().trim().replace(/\s+/g, ' ');
-
-  // Strip zip codes first (may appear after state: "San Diego, CA 92101")
   n = n.replace(ZIP_RE, '').trim();
-
-  // Strip country
   n = n.replace(COUNTRY_RE, '').trim();
-
-  // Strip full state names
   n = n.replace(STATE_NAME_RE, '').trim();
-
-  // Strip 2-letter state abbreviation — ONLY when city content precedes it
-  // ("san diego, ca" → "san diego"; "sd" alone → unchanged since cityPart would be "")
   const m = n.match(/^(.+?)(?:,\s*|\s+)([a-z]{2})\s*$/);
-  if (m && STATE_ABBREVS.has(m[2]) && m[1].trim().length > 0) {
-    n = m[1].trim();
-  }
-
-  // Strip trailing comma artifact
+  if (m && STATE_ABBREVS.has(m[2]) && m[1].trim().length > 0) n = m[1].trim();
   return n.replace(TRAILING_COMMA, '').trim();
 }
 
 // ─── DETECTION ────────────────────────────────────────────────────────────────
 
 /**
- * Returns tile sub-areas if `location` resolves to a broad configured metro.
- * Returns null if location is already sub-area level (tile name, neighborhood,
- * or unknown).
- *
- * Matching strategy (after normalization of both sides):
- * 1. If normalized location matches a tile sub-area name  → null (already specific)
- * 2. If normalized location exactly equals a metro key   → return tiles
- * 3. Otherwise                                           → null (single query)
- *
- * Exact-match-after-normalization is deliberate:
- * "North Park San Diego" normalizes to "north park san diego" ≠ "san diego"
- * so neighborhood+metro strings don't accidentally trigger metro tiling.
- * Only bare metro names (± state/country) tile.
+ * Returns the full MetroConfig if the location resolves to a configured metro,
+ * null if already sub-area level or no config match.
  */
-export function getTilesForLocation(location: string): string[] | null {
+export function getMetroForLocation(location: string): MetroConfig | null {
   const normalized = normalizeLocation(location);
 
-  // Rule 1: Already a tile sub-area? → single query (already specific)
-  for (const tiles of Object.values(METRO_TILES)) {
-    if (tiles.some(tile => normalizeLocation(tile) === normalized)) return null;
+  // If location matches any tile/region query string → already specific
+  for (const metro of Object.values(METROS)) {
+    if (metro.regions.some(r => normalizeLocation(r.tileQuery) === normalized)) return null;
   }
 
-  // Rule 2: Exact metro match after normalization → tile
-  return METRO_TILES[normalized] ?? null;
+  // Exact metro name match
+  return METROS[normalized] ?? null;
+}
+
+/**
+ * Returns all tile query strings for a metro (for backward-compat auto-tiling).
+ * Returns null if no metro match or already specific.
+ */
+export function getTilesForLocation(location: string): string[] | null {
+  const metro = getMetroForLocation(location);
+  return metro ? metro.regions.map(r => r.tileQuery) : null;
 }

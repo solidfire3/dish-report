@@ -201,13 +201,14 @@ type CandidateSet = {
 
 async function gatherCandidates(
   client: Anthropic, dish: string, city: string, area: string,
-  locMode: string, radius: number
+  locMode: string, radius: number,
+  tileQueriesOverride?: string[]  // explicit tiles from Refine step; overrides auto-detection
 ): Promise<CandidateSet> {
-  // Tiling triggers only for broad city-level searches of configured metros.
-  // Radius searches (area mode) and searches with a specific sub-area are
-  // already geographically focused — single query only.
+  // tileQueriesOverride → user's explicit region selection from the Refine step
+  // Otherwise: auto-detect from metro config for broad city searches
   const isBroadCitySearch = !area && locMode !== "area";
-  const tiles = isBroadCitySearch ? getTilesForLocation(city) : null;
+  const tiles = tileQueriesOverride
+    ?? (isBroadCitySearch ? getTilesForLocation(city) : null);
 
   if (tiles) {
     console.log(`[tiling] "${city}" → ${tiles.length} tiles in parallel: ${tiles.join(", ")}`);
@@ -351,12 +352,15 @@ async function triggerBackgroundRefresh(cachedId: string, pipelineFn: () => Prom
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
-    const { mode, dish, city, area, locMode, radius, exclude = [], forceRefresh = false } = await req.json();
+    const {
+      mode, dish, city, area, locMode, radius, exclude = [], forceRefresh = false,
+      tileQueries,   // explicit tile queries from the Refine step (overrides auto-tiling)
+      regionKey,     // sorted region IDs for unique cache key, e.g. "central,coastal"
+    } = await req.json();
 
     // ── Piece 1: Quick cache check — DB lookup only, no pipeline ─────────────
-    // Used by the client before showing the loading screen.
     if (mode === "quick") {
-      const tags = buildTags({ dish, city, area, locMode, radius });
+      const tags = buildTags({ dish, city, area, locMode, radius, regionKey: regionKey ?? null });
       const sig  = computeSignature(tags);
       const cached = await lookupCache(sig);
       if (cached?.results && new Date(cached.expires_at).getTime() > Date.now()) {
@@ -389,7 +393,7 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     }
 
-    const tags = buildTags({ dish, city, area, locMode, radius });
+    const tags = buildTags({ dish, city, area, locMode, radius, regionKey: regionKey ?? null });
     const sig  = computeSignature(tags);
 
     // Check DB cache (unless forceRefresh explicitly bypasses it)
@@ -406,7 +410,7 @@ export async function POST(req: Request) {
             console.log("[cache] DB HIT stale — sig:", sig, "| backgrounding refresh");
             // Background refresh also tiles so the refreshed cache is equally comprehensive
             triggerBackgroundRefresh(cached.id, async () => {
-              const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius);
+              const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius, tileQueries as string[] | undefined);
               return { ...baseFields, results: rawResults };
             }).catch(() => {});
           }
@@ -423,7 +427,7 @@ export async function POST(req: Request) {
 
     // Pipeline + normalization + cache write (cache miss OR forceRefresh).
     // gatherCandidates handles tiling for broad metro searches transparently.
-    const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius);
+    const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius, tileQueries as string[] | undefined);
 
     const db = makeSvc();
     const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {

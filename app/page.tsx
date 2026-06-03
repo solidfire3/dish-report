@@ -19,7 +19,7 @@ import { LoadingTracker }                           from "@/components/LoadingTr
 import { RestCard }                                 from "@/components/RestaurantCard";
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
-import { getTilesForLocation, normalizeLocation } from "@/lib/metro-tiles";
+import { getTilesForLocation, normalizeLocation, getMetroForLocation, type MetroConfig } from "@/lib/metro-tiles";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 // FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
@@ -388,6 +388,12 @@ function DishIntel() {
   const [showSignInNudge,  setShowSignInNudge]  = useState(false);
   // Real tile names passed to LoadingTracker so it shows what's actually being searched
   const [activeTiles,      setActiveTiles]      = useState<string[] | null>(null);
+  // Refine step state — set when a broad metro search is intercepted
+  const [refineState,      setRefineState]      = useState<{
+    dish: string; city: string; locMode: string; area: string; searchRadius: number;
+    metro: MetroConfig;
+  } | null>(null);
+  const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
   // Result count + honorable mentions controls
   const [resultCount,      setResultCount]      = useState<5 | 10>(5);
   const [showMentions,     setShowMentions]     = useState(true);
@@ -743,6 +749,65 @@ function DishIntel() {
     try { localStorage.removeItem("dr-active-search"); } catch {}
   };
 
+  // Run search with explicitly selected regions (from the Refine step).
+  // Fires parallel tile queries for the chosen regions only; caches under
+  // a signature that includes the region set so selections cache separately.
+  const runSearchWithRegions = async (
+    dish: string, city: string, searchLocMode: string, searchArea: string,
+    searchRadius: number, metro: MetroConfig, regionIds: string[]
+  ) => {
+    const selectedRegions = metro.regions.filter(r => regionIds.includes(r.id));
+    if (selectedRegions.length === 0) return;
+
+    const tileQueries = selectedRegions.map(r => r.tileQuery);
+    const regionKey   = [...regionIds].sort().join(",");
+
+    setActiveTiles(tileQueries);
+    setRefineState(null);
+
+    const cacheKey = `${dish}|${city}|${searchLocMode}|${searchArea}|${searchRadius}|${regionKey}`;
+
+    pushNav();
+    setPhase("analyzing"); setExpanded(null); setApiComplete(false);
+    setSearchedDish(dish); setLoadingQuery(dish); setNarrowQuestions(null);
+    setFromCache(false); setSearchMode("original");
+
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    try {
+      const data = await apiFetch(
+        "/api/search",
+        { mode: "search", dish, city, area: searchArea, locMode: searchLocMode,
+          radius: searchRadius, exclude: [], tileQueries, regionKey },
+        ctrl.signal
+      );
+      const m = { dish: data.dish, city: data.city };
+      const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
+      const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
+      setMeta(m);
+      setRestaurants(ranked);
+      searchResultCache.current = { key: cacheKey, results: ranked, meta: m };
+      setPendingPhase("done"); setApiComplete(true); abortRef.current = null;
+    } catch (e) {
+      abortRef.current = null;
+      if (e instanceof Error && e.name === "AbortError") {
+        if (!userAbortedRef.current) {
+          setApiComplete(false); setPendingPhase("");
+          setErrMsg("Connection interrupted. Tap Retry — if the search completed server-side, results load instantly.");
+          setPhase("error");
+        }
+        userAbortedRef.current = false;
+        return;
+      }
+      userAbortedRef.current = false;
+      setApiComplete(false); setPendingPhase("");
+      setErrMsg(e instanceof Error ? e.message : "Analysis failed");
+      setPhase("error");
+    }
+  };
+
   // Force a live re-run, bypassing the DB cache (used by "Refresh" on cached results)
   const handleForceRefresh = async () => {
     if (!searchedDish) return;
@@ -798,6 +863,19 @@ function DishIntel() {
       return;
     }
     console.log("[cache] REF MISS — key:", cacheKey);
+
+    // ── Refine step: intercept broad metro searches ───────────────────────────
+    // Show region-select UI before running. Skip for: already-specific areas,
+    // radius-mode searches, or metros not in the config.
+    const _metro = (!searchArea && searchLocMode !== "area")
+      ? getMetroForLocation(normalizeLocation(searchCity))
+      : null;
+    if (_metro) {
+      setRefineState({ dish: d, city: searchCity, locMode: searchLocMode, area: searchArea, searchRadius, metro: _metro });
+      setSelectedRegionIds(_metro.regions.map(r => r.id)); // default: all regions selected
+      setPhase("refine");
+      return;
+    }
 
     // Layer 2: DB quick check BEFORE showing loading screen
     // If it's a cache hit, results appear instantly with no loading animation.
@@ -1312,6 +1390,136 @@ function DishIntel() {
             </div>
           ) : (
           <>
+
+          {/* ── REFINE STEP — region picker for broad metro searches ──── */}
+          {phase === "refine" && refineState && (
+            <div style={{ paddingTop: 20, paddingBottom: 40 }}>
+              {/* Header */}
+              <div style={{ textAlign: "center", marginBottom: 22 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.65rem", fontWeight: 700, color: "#5f857d", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 6 }}>REFINE SEARCH</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: text, marginBottom: 6 }}>
+                  {refineState.dish} <span style={{ color: secondary }}>·</span> {refineState.metro.displayName}
+                </div>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.68rem", color: secondary }}>
+                  Pick regions — fewer = faster, more targeted results
+                </div>
+              </div>
+
+              {/* ALL button */}
+              <div style={{ textAlign: "center", marginBottom: 14 }}>
+                <button
+                  onClick={() => setSelectedRegionIds(
+                    selectedRegionIds.length === refineState.metro.regions.length
+                      ? [] : refineState.metro.regions.map(r => r.id)
+                  )}
+                  style={{
+                    background: selectedRegionIds.length === refineState.metro.regions.length ? brand : accentBg,
+                    border: `1px solid ${selectedRegionIds.length === refineState.metro.regions.length ? brand : accentBdr}`,
+                    borderRadius: 6, padding: "7px 18px",
+                    fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                    letterSpacing: "0.12em", textTransform: "uppercase",
+                    color: selectedRegionIds.length === refineState.metro.regions.length ? brandTxt : accent,
+                    cursor: "pointer", transition: "background 0.15s",
+                  }}
+                >
+                  {selectedRegionIds.length === refineState.metro.regions.length
+                    ? `✓ ALL OF ${refineState.metro.displayName.toUpperCase()} COUNTY`
+                    : `SELECT ALL REGIONS`}
+                </button>
+              </div>
+
+              {/* Region cards grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {refineState.metro.regions.map(region => {
+                  const isSelected = selectedRegionIds.includes(region.id);
+                  return (
+                    <button
+                      key={region.id}
+                      onClick={() => setSelectedRegionIds(prev =>
+                        prev.includes(region.id)
+                          ? prev.filter(id => id !== region.id)
+                          : [...prev, region.id]
+                      )}
+                      style={{
+                        background: isSelected ? accentBg : cardBg,
+                        border: `1.5px solid ${isSelected ? accent : boxBorder}`,
+                        borderRadius: 8, padding: "12px 12px",
+                        textAlign: "left", cursor: "pointer",
+                        transition: "border-color 0.15s, background 0.15s",
+                        minHeight: 72,
+                        display: "flex", flexDirection: "column", gap: 4,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {isSelected && (
+                          <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: accent }}>✓</span>
+                        )}
+                        <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700, color: isSelected ? accent : cardText, letterSpacing: "0.06em" }}>
+                          {region.label}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.68rem", color: tertiary, lineHeight: 1.4 }}>
+                        {region.neighborhoods}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Result controls */}
+              <div style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "14px 14px", marginBottom: 16 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6rem", color: "#5f857d", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>RESULT OPTIONS</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  {/* Count selector */}
+                  <div style={{ display: "flex", background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 6, overflow: "hidden" }}>
+                    {([5, 10] as const).map(n => (
+                      <button key={n} onClick={() => setResultCount(n)} style={{
+                        fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: "0.10em",
+                        padding: "5px 12px", border: "none", cursor: "pointer",
+                        background: resultCount === n ? brand : "transparent",
+                        color: resultCount === n ? brandTxt : accent, transition: "background 0.15s",
+                      }}>TOP {n}</button>
+                    ))}
+                  </div>
+                  {/* Mentions toggle */}
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="checkbox" checked={showMentions} onChange={e => setShowMentions(e.target.checked)} style={{ accentColor: brand, width: 14, height: 14 }} />
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.08em" }}>HONORABLE MENTIONS</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* RUN SEARCH */}
+              <button
+                onClick={() => {
+                  if (selectedRegionIds.length === 0) return;
+                  runSearchWithRegions(refineState.dish, refineState.city, refineState.locMode, refineState.area, refineState.searchRadius, refineState.metro, selectedRegionIds);
+                }}
+                disabled={selectedRegionIds.length === 0}
+                style={{
+                  width: "100%", padding: "14px",
+                  background: selectedRegionIds.length === 0 ? accentBg : brand,
+                  border: `1px solid ${selectedRegionIds.length === 0 ? accentBdr : brand}`,
+                  borderRadius: 8, cursor: selectedRegionIds.length === 0 ? "not-allowed" : "pointer",
+                  fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.875rem",
+                  fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                  color: selectedRegionIds.length === 0 ? tertiary : brandTxt,
+                  transition: "background 0.15s",
+                }}
+              >
+                {selectedRegionIds.length === 0
+                  ? "SELECT AT LEAST ONE REGION"
+                  : `RUN SEARCH · ${selectedRegionIds.length} ${selectedRegionIds.length === 1 ? "REGION" : "REGIONS"}`}
+              </button>
+
+              {/* Back to idle */}
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <button onClick={() => { setPhase("idle"); setRefineState(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: secondary, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: "0.10em", textDecoration: "underline" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Classifying ──────────────────────────────────────────── */}
           {phase === "classifying" && (
