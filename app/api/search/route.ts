@@ -133,7 +133,7 @@ ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"dish_badge":"string|null","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
 ${excl.length
   ? "Return up to 5 results not in the excluded list, strictly sorted food_score descending."
-  : "Return up to 10 results — include every venue you have meaningful review evidence for, strictly sorted food_score descending. Do not pad with invented or uncertain venues, but do not artificially cap the count either. If 8 venues have strong evidence, return 8."
+  : "Return up to 16 results — include every venue you have meaningful review evidence for, strictly sorted food_score descending. Do not pad with invented or uncertain venues; quality over quantity. If only 9 venues genuinely qualify, return 9."
 }`;
 
 function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {

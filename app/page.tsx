@@ -385,9 +385,10 @@ function DishIntel() {
   const [fromCache,        setFromCache]        = useState(false);
   const [searchMode,       setSearchMode]       = useState<"original" | "refresh" | undefined>(undefined);
   const [showSignInNudge,  setShowSignInNudge]  = useState(false);
+  // Result count + honorable mentions controls
+  const [resultCount,      setResultCount]      = useState<5 | 10>(5);
+  const [showMentions,     setShowMentions]     = useState(true);
   // Pre-scored results beyond the displayed 5 — revealed on "load more" with no API call.
-  // Invariant: pendingResults are always ranked BELOW the currently displayed restaurants.
-  const [pendingResults,   setPendingResults]   = useState<Restaurant[]>([]);
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -397,7 +398,6 @@ function DishIntel() {
   const [restaurants,   setRestaurants]  = useState<Restaurant[]>([]);
   const [meta,          setMeta]         = useState<SearchMeta | null>(null);
   const [expanded,      setExpanded]     = useState<number | null>(null);
-  const [loadingMore,   setLoadingMore]  = useState(false);
   const [errMsg,        setErrMsg]       = useState("");
   const [resultsReady,  setResultsReady] = useState(false);
 
@@ -478,8 +478,7 @@ function DishIntel() {
       if (q && Array.isArray(results) && m) {
         setSearchedDish(q);
         const _ranked = sortByScore(results as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
-        setRestaurants(_ranked.slice(0, 5));
-        setPendingResults(_ranked.slice(5));
+        setRestaurants(_ranked);
         setMeta(m);
         setPhase("done");
       }
@@ -550,8 +549,7 @@ function DishIntel() {
       if (!Array.isArray(res) || res.length === 0) return;
       const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
       const m: SearchMeta = { dish: dish || "", city: c || "" };
-      setRestaurants(ranked.slice(0, 5));
-      setPendingResults(ranked.slice(5));
+      setRestaurants(ranked);
       setMeta(m);
       setSearchedDish(dish || "");
       if (c) setCity(c);
@@ -645,7 +643,6 @@ function DishIntel() {
     setSearchedDish(""); setDeepData(null); setCompareData(null); setMarketData(null);
     setConfirmIsMarket(false); setErrMsg(""); setExpanded(null);
     setConfirmMatches(null); setNavStack([]); setResultsReady(false);
-    setPendingResults([]);
   };
 
   // ─── FAVORITES ────────────────────────────────────────────────────────────
@@ -763,7 +760,7 @@ function DishIntel() {
       const m = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
       const ranked = sortByScore(res as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
-      setMeta(m); setRestaurants(ranked.slice(0, 5)); setPendingResults(ranked.slice(5));
+      setMeta(m); setRestaurants(ranked);
       searchResultCache.current = { key: `${searchedDish}|${city}|${locMode}|${area}|${radius}`, results: ranked, meta: m };
       setPendingPhase("done"); setApiComplete(true); abortRef.current = null;
     } catch (e) {
@@ -788,8 +785,7 @@ function DishIntel() {
       pushNav();
       setMeta(searchResultCache.current.meta);
       const _ref = searchResultCache.current.results;
-      setRestaurants(_ref.slice(0, 5));
-      setPendingResults(_ref.slice(5));
+      setRestaurants(_ref);
       setSearchedDish(d);
       setFromCache(true);
       setPhase("cache-reveal");  // brief honest flash: "CACHED RESULT FOUND"
@@ -811,8 +807,7 @@ function DishIntel() {
         const ranked = sortByScore(res as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
         const m: SearchMeta = { dish: quick.results.dish || d, city: quick.results.city || searchCity };
         setMeta(m);
-        setRestaurants(ranked.slice(0, 5));
-        setPendingResults(ranked.slice(5));
+        setRestaurants(ranked);
         setSearchedDish(d);
         searchResultCache.current = { key: cacheKey, results: ranked, meta: m };
         setFromCache(true);
@@ -843,8 +838,7 @@ function DishIntel() {
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
       const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
       setMeta(meta);
-      setRestaurants(ranked.slice(0, 5));
-      setPendingResults(ranked.slice(5));
+      setRestaurants(ranked);
       searchResultCache.current = { key: cacheKey, results: ranked, meta }; // cache for session
       setPendingPhase("done");
       setApiComplete(true);
@@ -955,41 +949,7 @@ function DishIntel() {
     }
   };
 
-  const loadMore = async () => {
-    if (loadingMore) return; setLoadingMore(true);
-
-    // RANKING INVARIANT: pendingResults were scored together with the initial 5.
-    // Using them first guarantees nothing higher-scored ever appears on "load more".
-    if (pendingResults.length > 0) {
-      const start = restaurants.length + 1;
-      const nextBatch = pendingResults.slice(0, 5);
-      setRestaurants(p => [...p, ...nextBatch.map((r, i) => ({ ...r, rank: start + i }))]);
-      setPendingResults(prev => prev.slice(5));
-      setLoadingMore(false);
-      return;
-    }
-
-    // Pre-scored set exhausted — fetch a fresh batch with exclusions.
-    // This happens when the initial pipeline returned fewer than 10 candidates
-    // (old 5-entry cache blobs, or genuinely sparse coverage).
-    // Display results honestly. If a fresh result outscores displayed ones,
-    // log it for analytics — it means the initial pool was too small —
-    // but never suppress it; the ranking will sort correctly server-side.
-    try {
-      const data = await apiFetch("/api/search", {
-        mode: "search", dish: searchedDish, city, area, locMode, radius,
-        exclude: restaurants.map(r => r.name),
-      });
-      const start = restaurants.length + 1;
-      const more  = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
-      const lowestDisplayed = restaurants.reduce((min, r) => Math.min(min, r.food_score ?? 10), 10);
-      const outrankers = more.filter(r => (r.food_score ?? 0) > lowestDisplayed);
-      if (outrankers.length > 0) {
-        console.warn("[ranking] load-more returned higher-scored venues than initial set — initial candidate pool was too small:", outrankers.map(r => `${r.name} (${r.food_score})`));
-      }
-      setRestaurants(p => [...p, ...more.map((r, i) => ({ ...r, rank: start + i }))]);
-    } catch {} finally { setLoadingMore(false); }
-  };
+  // loadMore removed — replaced by honorable mentions system.
 
   // Route every browse/suggested/category tap through classify so location
   // follow-up questions appear when needed. Direct runSearch() skips classify.
@@ -1272,7 +1232,7 @@ function DishIntel() {
                           if (rs.length > 0) {
                             const ranked = sortByScore(rs).map((r,i)=>({...r,rank:i+1}));
                             const m = {dish: blob.dish||s.dish, city: blob.city||s.city};
-                            setMeta(m); setRestaurants(ranked.slice(0,5)); setPendingResults(ranked.slice(5)); setSearchedDish(s.dish); setPhase("done"); setFromCache(true); return;
+                            setMeta(m); setRestaurants(ranked); setSearchedDish(s.dish); setPhase("done"); setFromCache(true); return;
                           }
                         }
                       }
@@ -1602,52 +1562,135 @@ function DishIntel() {
                   >Refresh</button>
                 </div>
               )}
-              {/* Results header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
-                <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0, textAlign: "center" }}>
-                  <span style={{ fontWeight: 600, color: accent }}>{restaurants.length} results</span>
-                  {" "}for{" "}
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{meta.dish}</span>
-                  {meta.city && <span style={{ color: secondary }}>{" "}near {meta.city}</span>}
-                </div>
-                {hasBack && <BackBtn onBack={goBack} dark={dark} />}
-                <button
-                  onClick={reset}
-                  style={{ background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}
-                >New search</button>
-              </div>
+              {/* Results header + controls */}
+              {(() => {
+                // Threshold-based split: definitive vs honorable mentions
+                const MENTION_MIN = 6.0;
+                const definitives = restaurants.slice(0, resultCount);
+                const mentions = showMentions
+                  ? restaurants.slice(resultCount).filter(r => (r.food_score ?? 0) >= MENTION_MIN).slice(0, 5)
+                  : [];
+                return (
+                  <>
+                    {/* Header row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
+                      <div style={{ fontFamily: "'Inter',sans-serif", fontSize: "0.875rem", color: text, flex: 1, minWidth: 0, textAlign: "center" }}>
+                        <span style={{ fontWeight: 600, color: accent }}>{definitives.length} results</span>
+                        {" "}for{" "}
+                        <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{meta.dish}</span>
+                        {meta.city && <span style={{ color: secondary }}>{" "}near {meta.city}</span>}
+                      </div>
+                      {hasBack && <BackBtn onBack={goBack} dark={dark} />}
+                      <button onClick={reset} style={{ background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}>New search</button>
+                    </div>
 
-              {/* Cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                {restaurants.filter(r => r != null).map((r, i) => (
-                  <RestCard
-                    key={i} r={r} i={i} expanded={expanded}
-                    onToggle={j => setExpanded(expanded === j ? null : j)}
-                    onDeepDive={(name, score, restaurantId) => handleDeepDive(name, meta.city, score, restaurantId)}
-                    meta={meta} searchedDish={searchedDish}
-                    isFav={isFav(r.name)} onToggleFav={toggleFav}
-                    onAddToList={openAddToList}
-                  />
-                ))}
-              </div>
+                    {/* Controls: result count + mentions toggle */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                      {/* Count selector */}
+                      <div style={{ display: "flex", background: accentBg, border: `1px solid ${accentBdr}`, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+                        {([5, 10] as const).map(n => (
+                          <button key={n} onClick={() => setResultCount(n)} style={{
+                            fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: "0.10em",
+                            padding: "5px 12px", border: "none", cursor: "pointer",
+                            background: resultCount === n ? brand : "transparent",
+                            color: resultCount === n ? brandTxt : accent,
+                            transition: "background 0.15s",
+                          }}>TOP {n}</button>
+                        ))}
+                      </div>
+                      {/* Mentions toggle */}
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={showMentions}
+                          onChange={e => setShowMentions(e.target.checked)}
+                          style={{ accentColor: brand, width: 14, height: 14 }}
+                        />
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: secondary, letterSpacing: "0.08em" }}>HONORABLE MENTIONS</span>
+                      </label>
+                    </div>
 
-              {/* Load more */}
-              <div style={{ padding: "20px 0 8px", display: "flex", justifyContent: "center" }}>
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  style={{
-                    background: cardBg, border: `1px solid ${border}`,
-                    borderRadius: 8, color: secondary,
-                    fontFamily: "'Inter',sans-serif", fontSize: "0.8rem",
-                    padding: "10px 24px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 8,
-                    opacity: loadingMore ? 0.6 : 1,
-                  }}
-                >
-                  {loadingMore ? <><div className="spin" style={{ borderColor: border, borderTopColor: accent }} />Loading...</> : "Load 5 more results"}
-                </button>
-              </div>
+                    {/* Definitive result cards */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      {definitives.filter(r => r != null).map((r, i) => (
+                        <RestCard
+                          key={i} r={r} i={i} expanded={expanded}
+                          onToggle={j => setExpanded(expanded === j ? null : j)}
+                          onDeepDive={(name, score, restaurantId) => handleDeepDive(name, meta.city, score, restaurantId)}
+                          meta={meta} searchedDish={searchedDish}
+                          isFav={isFav(r.name)} onToggleFav={toggleFav}
+                          onAddToList={openAddToList}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Honorable mentions section */}
+                    {mentions.length > 0 && (
+                      <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${border}` }}>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: "0.65rem", fontWeight: 700,
+                          color: "#5f857d", letterSpacing: "0.22em",
+                          textTransform: "uppercase", textAlign: "center",
+                          marginBottom: 4,
+                        }}>HONORABLE MENTIONS</div>
+                        <div style={{
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: "0.6rem", color: secondary,
+                          textAlign: "center", marginBottom: 14,
+                          letterSpacing: "0.04em",
+                        }}>Decent options — real scores, less detail</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {mentions.map((r, i) => {
+                            const sc = r.food_score ?? 5;
+                            const scClr = sc >= 9 ? "#3fd98a" : sc >= 8 ? "#7bc24a" : sc >= 7 ? "#e8b133" : sc >= 6 ? "#e07b3a" : "#d64545";
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => handleDeepDive(r.name, meta.city, r.food_score, r.restaurant_id)}
+                                style={{
+                                  background: cardBg, border: `1px solid ${boxBorder}`,
+                                  borderRadius: 8, padding: "12px 16px",
+                                  display: "flex", alignItems: "center", gap: 14,
+                                  textAlign: "left", cursor: "pointer", width: "100%",
+                                  transition: "border-color 0.15s",
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = accent}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = boxBorder}
+                              >
+                                <div style={{
+                                  fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                                  fontSize: "1.4rem", fontWeight: 900,
+                                  color: scClr, lineHeight: 1, flexShrink: 0, width: 46,
+                                }}>{sc.toFixed(1)}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontFamily: "'Playfair Display',serif",
+                                    fontSize: "0.95rem", fontWeight: 700, color: cardText,
+                                    overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                                  }}>{r.name}</div>
+                                  <div style={{
+                                    fontFamily: "'IBM Plex Mono',monospace",
+                                    fontSize: "0.68rem", color: tertiary, marginTop: 2,
+                                  }}>
+                                    {[r.neighborhood, r.venue_type, r.price_range].filter(Boolean).join(" · ")}
+                                  </div>
+                                  {r.win_reason && (
+                                    <div style={{ fontFamily: "'DM Sans','Inter',sans-serif", fontSize: "0.8rem", color: cardSec, marginTop: 3, lineHeight: 1.4, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                                      {r.win_reason}
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ color: tertiary, fontSize: "0.85rem", flexShrink: 0 }}>→</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
