@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { buildTags, computeSignature, makeIdentityKey } from "@/lib/search-signature";
+import { getTilesForLocation } from "@/lib/metro-tiles";
 
 const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
 const RESTAURANT_TTL_MS  = 120 * 24 * 60 * 60 * 1000;
@@ -161,12 +162,13 @@ function makeSvc() {
 
 async function runPipeline(
   client: Anthropic, dish: string, city: string, area: string,
-  locMode: string, radius: number, exclude: string[]
+  locMode: string, radius: number, exclude: string[],
+  locStrOverride?: string   // used by tile queries to specify the tile sub-area
 ): Promise<unknown> {
   const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
-  const locStr = locMode === "area" && area
+  const locStr = locStrOverride ?? (locMode === "area" && area
     ? `within ${radius} miles of ${area}`
-    : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`;
+    : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`);
   const userMsg = `Best places for "${dish}" ${locStr}. GEOGRAPHIC REQUIREMENT: Only include venues physically located ${locStr} — exclude any venue whose address is not in or near this area, even if the web search surfaced it.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
   const msg = await client.messages.create({
     model: "claude-sonnet-4-6", max_tokens: 8000,
@@ -176,6 +178,56 @@ async function runPipeline(
     messages: [{ role: "user", content: userMsg }],
   });
   return extractJson(msg.content);
+}
+
+// ─── GEOGRAPHIC TILING ────────────────────────────────────────────────────────
+// Gathers raw candidate restaurants: either via parallel tile queries (metro
+// searches) or a single query (everything else). Returns the deduped raw
+// results array plus the base fields (dish, city) for the response envelope.
+
+type CandidateSet = {
+  rawResults: Record<string, unknown>[];
+  baseFields:  Record<string, unknown>;
+};
+
+async function gatherCandidates(
+  client: Anthropic, dish: string, city: string, area: string,
+  locMode: string, radius: number
+): Promise<CandidateSet> {
+  // Tiling triggers only for broad city-level searches of configured metros.
+  // Radius searches (area mode) and searches with a specific sub-area are
+  // already geographically focused — single query only.
+  const isBroadCitySearch = !area && locMode !== "area";
+  const tiles = isBroadCitySearch ? getTilesForLocation(city) : null;
+
+  if (tiles) {
+    console.log(`[tiling] "${city}" → ${tiles.length} tiles in parallel: ${tiles.join(", ")}`);
+    // Run all tile queries in parallel — wall time ≈ slowest single tile (~30-60s)
+    const tileResponses = await Promise.all(
+      tiles.map(tile => runPipeline(client, dish, city, area, locMode, radius, [], `in ${tile}`))
+    );
+    // Merge all tile candidates
+    const allRaw = tileResponses.flatMap(
+      r => ((r as Record<string, unknown>).results || []) as Record<string, unknown>[]
+    );
+    // Dedupe by identity_key: same venue from overlapping tiles → keep first occurrence.
+    // First tile wins — tiles are ordered center-first, so central results get priority.
+    const seen = new Map<string, Record<string, unknown>>();
+    for (const r of allRaw) {
+      const key = makeIdentityKey(r.name as string, r.address as string);
+      if (key && key !== "|" && !seen.has(key)) seen.set(key, r);
+    }
+    const rawResults = Array.from(seen.values());
+    console.log(`[tiling] ${allRaw.length} total candidates → ${rawResults.length} after dedupe`);
+    return { rawResults, baseFields: { dish, city } };
+  }
+
+  // Single query — existing behavior
+  const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
+  return {
+    rawResults: ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[],
+    baseFields: rawResult as Record<string, unknown>,
+  };
 }
 
 // ─── RESTAURANT NORMALIZATION ──────────────────────────────────────────────────
@@ -343,7 +395,11 @@ export async function POST(req: Request) {
             (Date.now() - new Date(cached.refreshing_at).getTime() < STAMPEDE_GUARD_MS);
           if (!isRefreshing) {
             console.log("[cache] DB HIT stale — sig:", sig, "| backgrounding refresh");
-            triggerBackgroundRefresh(cached.id, () => runPipeline(client, dish, city, area, locMode, radius, [])).catch(() => {});
+            // Background refresh also tiles so the refreshed cache is equally comprehensive
+            triggerBackgroundRefresh(cached.id, async () => {
+              const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius);
+              return { ...baseFields, results: rawResults };
+            }).catch(() => {});
           }
         } else {
           console.log("[cache] DB HIT fresh — sig:", sig, "| ZERO Anthropic/Places calls");
@@ -356,9 +412,9 @@ export async function POST(req: Request) {
       console.log("[cache] forceRefresh — sig:", sig, "| skipping cache, running pipeline");
     }
 
-    // Pipeline + normalization + cache write (cache miss OR forceRefresh)
-    const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
-    const rawResults = ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[];
+    // Pipeline + normalization + cache write (cache miss OR forceRefresh).
+    // gatherCandidates handles tiling for broad metro searches transparently.
+    const { rawResults, baseFields } = await gatherCandidates(client, dish, city, area, locMode, radius);
 
     const db = makeSvc();
     const augmentedResults: Record<string, unknown>[] = await Promise.all(rawResults.map(async r => {
@@ -368,11 +424,12 @@ export async function POST(req: Request) {
       return { ...r, food_score: durable_score, dish_badge: (r.dish_badge as string | null) ?? null, restaurant_id };
     }));
 
-    // FIX 1: enforce food_score DESC regardless of model output order, then re-assign ranks
+    // Enforce food_score DESC over the FULL merged set, then re-assign ranks.
+    // This preserves the top-N invariant: top N shown = true top N of all candidates.
     augmentedResults.sort((a, b) => (Number(b.food_score) || 0) - (Number(a.food_score) || 0));
     augmentedResults.forEach((r, i) => { (r as Record<string, unknown>).rank = i + 1; });
 
-    const augmentedResult = { ...(rawResult as Record<string, unknown>), results: augmentedResults };
+    const augmentedResult = { ...baseFields, results: augmentedResults };
     const searchCacheId = await upsertCache(sig, augmentedResult, tags, dish);
 
     if (searchCacheId) {
