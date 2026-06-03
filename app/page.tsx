@@ -1564,12 +1564,12 @@ function DishIntel() {
               )}
               {/* Results header + controls */}
               {(() => {
-                // Threshold-based split: definitive vs honorable mentions
-                const MENTION_MIN = 6.0;
+                // Pure honest ranking — no score floors, no padding.
+                // Definitives = true top N by score. Mentions = next-ranked results that genuinely exist.
                 const definitives = restaurants.slice(0, resultCount);
-                const mentions = showMentions
-                  ? restaurants.slice(resultCount).filter(r => (r.food_score ?? 0) >= MENTION_MIN).slice(0, 5)
-                  : [];
+                // No score gate: mentions are simply the next ranked results below the definitive cut.
+                const mentionCandidates = restaurants.slice(resultCount, resultCount + 5);
+                const mentions = showMentions ? mentionCandidates : [];
                 return (
                   <>
                     {/* Header row */}
@@ -1624,8 +1624,8 @@ function DishIntel() {
                       ))}
                     </div>
 
-                    {/* Honorable mentions section */}
-                    {mentions.length > 0 && (
+                    {/* Honorable mentions section — shown when toggle is ON */}
+                    {showMentions && (
                       <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${border}` }}>
                         <div style={{
                           fontFamily: "'IBM Plex Mono',monospace",
@@ -1639,7 +1639,15 @@ function DishIntel() {
                           fontSize: "0.6rem", color: secondary,
                           textAlign: "center", marginBottom: 14,
                           letterSpacing: "0.04em",
-                        }}>Decent options — real scores, less detail</div>
+                        }}>Next-ranked results — real scores, less detail</div>
+                        {mentions.length === 0 && (
+                          <div style={{
+                            fontFamily: "'IBM Plex Mono',monospace",
+                            fontSize: "0.7rem", color: tertiary,
+                            textAlign: "center", padding: "14px 0",
+                            letterSpacing: "0.06em",
+                          }}>No honorable mentions for this search</div>
+                        )}
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                           {mentions.map((r, i) => {
                             const sc = r.food_score ?? 5;
