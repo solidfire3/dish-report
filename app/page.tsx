@@ -550,7 +550,8 @@ function DishIntel() {
       if (!Array.isArray(res) || res.length === 0) return;
       const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
       const m: SearchMeta = { dish: dish || "", city: c || "" };
-      setRestaurants(ranked);
+      setRestaurants(ranked.slice(0, 5));
+      setPendingResults(ranked.slice(5));
       setMeta(m);
       setSearchedDish(dish || "");
       if (c) setCity(c);
@@ -762,7 +763,7 @@ function DishIntel() {
       const m = { dish: data.dish, city: data.city };
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
       const ranked = sortByScore(res as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
-      setMeta(m); setRestaurants(ranked);
+      setMeta(m); setRestaurants(ranked.slice(0, 5)); setPendingResults(ranked.slice(5));
       searchResultCache.current = { key: `${searchedDish}|${city}|${locMode}|${area}|${radius}`, results: ranked, meta: m };
       setPendingPhase("done"); setApiComplete(true); abortRef.current = null;
     } catch (e) {
@@ -786,7 +787,9 @@ function DishIntel() {
       console.log("[cache] REF HIT — key:", cacheKey);
       pushNav();
       setMeta(searchResultCache.current.meta);
-      setRestaurants(searchResultCache.current.results);
+      const _ref = searchResultCache.current.results;
+      setRestaurants(_ref.slice(0, 5));
+      setPendingResults(_ref.slice(5));
       setSearchedDish(d);
       setFromCache(true);
       setPhase("cache-reveal");  // brief honest flash: "CACHED RESULT FOUND"
@@ -808,7 +811,8 @@ function DishIntel() {
         const ranked = sortByScore(res as Restaurant[]).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
         const m: SearchMeta = { dish: quick.results.dish || d, city: quick.results.city || searchCity };
         setMeta(m);
-        setRestaurants(ranked);
+        setRestaurants(ranked.slice(0, 5));
+        setPendingResults(ranked.slice(5));
         setSearchedDish(d);
         searchResultCache.current = { key: cacheKey, results: ranked, meta: m };
         setFromCache(true);
@@ -839,7 +843,8 @@ function DishIntel() {
       const res = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
       const ranked = sortByScore(res as Restaurant[]).map((r, i) => ({ ...r, rank: i + 1 }));
       setMeta(meta);
-      setRestaurants(ranked);
+      setRestaurants(ranked.slice(0, 5));
+      setPendingResults(ranked.slice(5));
       searchResultCache.current = { key: cacheKey, results: ranked, meta }; // cache for session
       setPendingPhase("done");
       setApiComplete(true);
@@ -964,7 +969,12 @@ function DishIntel() {
       return;
     }
 
-    // Pre-scored set exhausted — fetch a fresh batch with exclusions
+    // Pre-scored set exhausted — fetch a fresh batch with exclusions.
+    // This happens when the initial pipeline returned fewer than 10 candidates
+    // (old 5-entry cache blobs, or genuinely sparse coverage).
+    // Display results honestly. If a fresh result outscores displayed ones,
+    // log it for analytics — it means the initial pool was too small —
+    // but never suppress it; the ranking will sort correctly server-side.
     try {
       const data = await apiFetch("/api/search", {
         mode: "search", dish: searchedDish, city, area, locMode, radius,
@@ -972,6 +982,11 @@ function DishIntel() {
       });
       const start = restaurants.length + 1;
       const more  = (Array.isArray(data.results) ? data.results : []) as Restaurant[];
+      const lowestDisplayed = restaurants.reduce((min, r) => Math.min(min, r.food_score ?? 10), 10);
+      const outrankers = more.filter(r => (r.food_score ?? 0) > lowestDisplayed);
+      if (outrankers.length > 0) {
+        console.warn("[ranking] load-more returned higher-scored venues than initial set — initial candidate pool was too small:", outrankers.map(r => `${r.name} (${r.food_score})`));
+      }
       setRestaurants(p => [...p, ...more.map((r, i) => ({ ...r, rank: start + i }))]);
     } catch {} finally { setLoadingMore(false); }
   };
@@ -1257,7 +1272,7 @@ function DishIntel() {
                           if (rs.length > 0) {
                             const ranked = sortByScore(rs).map((r,i)=>({...r,rank:i+1}));
                             const m = {dish: blob.dish||s.dish, city: blob.city||s.city};
-                            setMeta(m); setRestaurants(ranked); setSearchedDish(s.dish); setPhase("done"); setFromCache(true); return;
+                            setMeta(m); setRestaurants(ranked.slice(0,5)); setPendingResults(ranked.slice(5)); setSearchedDish(s.dish); setPhase("done"); setFromCache(true); return;
                           }
                         }
                       }

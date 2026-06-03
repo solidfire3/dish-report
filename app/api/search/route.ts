@@ -100,15 +100,14 @@ Score tiers (anchor every score against these named bands):
 The typical good local neighborhood spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6.
 9.0+ is for true standouts only — do not award for popularity alone.
 
-QUERY RELEVANCE — controls inclusion, not scores (Fix 2):
+QUERY RELEVANCE — controls inclusion, not scores:
 Only include restaurants that are GENUINELY known for the searched dish or category.
 EXCLUDE any restaurant where the searched item is incidental to a different concept:
 - A fine-dining tasting-menu restaurant in a "best pizza" search → excluded.
 - A café that happens to sell burgers in a "best burger" search → excluded.
 The restaurant must be a real destination for the specific query. This is a strict gate.
-Fewer genuinely relevant results beat 5 loosely related ones.
 
-SOURCE GROUNDING — every claim must be traceable to retrieved sources (Fix 3):
+SOURCE GROUNDING — every claim must be traceable to retrieved sources:
 Ground all factual claims in actually retrieved review/source material, NOT general knowledge.
 - Do NOT invent restaurants, addresses, specific dishes, or quotes not supported by sources.
 - If a restaurant's existence or relevance cannot be confirmed from retrieved sources, omit it.
@@ -116,12 +115,13 @@ Ground all factual claims in actually retrieved review/source material, NOT gene
 - best_quote must be from an actual retrieved review. If none available, use "".
 - If unsure a place is real and relevant, omit it rather than guess.
 
-CONFIDENCE — use as a real inclusion gate (Fix 4):
+CONFIDENCE — honest signal assessment, do NOT use to reduce candidate count:
 "high" = strong, consistent signal from multiple independent sources.
 "medium" = some signal but limited or inconsistent.
 "low" = thin signal, very few reviews, or conflicting information.
-PREFERENCE: drop low-confidence results rather than include shaky picks. Return fewer than 5 if needed.
-Never present a low-confidence result as a reliable top pick. "Not enough signal" is honest and acceptable.
+Include ALL "high" and "medium" confidence results in the ranked output — they deserve a rank.
+Exclude "low" confidence venues only if you already have 10 qualifying results without them.
+Do NOT artificially cap the result count. Return every venue with meaningful evidence up to the maximum.
 
 DISH BADGE (contextual label — no effect on score or ranking):
 - dish_badge: 2-5 word string, or null. Only populate if this restaurant is genuinely CELEBRATED by locals for the searched dish/category — e.g. "local birria legend", "destination for ramen", "known for carnitas".
@@ -132,8 +132,8 @@ DISH BADGE (contextual label — no effect on score or ranking):
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"dish_badge":"string|null","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
 ${excl.length
-  ? "Up to 5 additional results, strictly sorted food_score descending."
-  : "Return EXACTLY 10 results (the full candidate set), strictly sorted food_score descending. All 10 are scored together — the top 5 will be shown first and the lower 5 revealed on demand. Fewer than 10 only if the search area genuinely has fewer qualifying venues."
+  ? "Return up to 5 results not in the excluded list, strictly sorted food_score descending."
+  : "Return up to 10 results — include every venue you have meaningful review evidence for, strictly sorted food_score descending. Do not pad with invented or uncertain venues, but do not artificially cap the count either. If 8 venues have strong evidence, return 8."
 }`;
 
 function extractJson(content: Anthropic.Messages.ContentBlock[]): unknown {
