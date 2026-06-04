@@ -356,6 +356,7 @@ function DishIntel() {
   const searchParams  = useSearchParams();
   const abortRef         = useRef<AbortController | null>(null);
   const bgPollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const blockToastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasHiddenRef     = useRef(false);
   const autoSearchFired  = useRef(false);
   // Session caches — instant recall without re-hitting the API
@@ -444,6 +445,7 @@ function DishIntel() {
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [backgrounded,  setBackgrounded] = useState(false);   // search demoted to banner
+  const [blockToast,    setBlockToast]   = useState(false);   // "search in progress" notice
   const [terminalInitialQuery, setTerminalInitialQuery] = useState("");
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
   const [searchedDish,  setSearchedDish] = useState("");
@@ -847,6 +849,13 @@ function DishIntel() {
     try { localStorage.removeItem("dr-background-search"); } catch {}
   };
 
+  // Show a brief "search in progress" toast — auto-dismisses in 3.5s
+  const showBlockNotice = () => {
+    setBlockToast(true);
+    if (blockToastTimer.current) clearTimeout(blockToastTimer.current);
+    blockToastTimer.current = setTimeout(() => setBlockToast(false), 3500);
+  };
+
   // User tapped "↓ LET IT RUN IN BACKGROUND" on the loading screen
   const handleBackground = () => {
     try {
@@ -893,6 +902,7 @@ function DishIntel() {
     dish: string, city: string, searchLocMode: string, searchArea: string,
     searchRadius: number, metro: MetroConfig, regionIds: string[]
   ) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     const selectedRegions = metro.regions.filter(r => regionIds.includes(r.id));
     if (selectedRegions.length === 0) return;
 
@@ -987,6 +997,7 @@ function DishIntel() {
     skipMetroCheck = false,        // true when called from the Refine step's non-metro path
     isLikelyRestaurant = false     // safety net: skip metro intercept → go straight to confirm
   ) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     const cacheKey = `${d}|${searchCity}|${searchLocMode}|${searchArea}|${searchRadius}`;
 
     // Layer 1: session ref cache
@@ -1127,6 +1138,7 @@ function DishIntel() {
 
   // Unified search handler — called by SearchBar with (query, filters)
   const handleSearchFromBar = async (q: string, filters: FilterState, skipClassify = false) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     const trimmed = q.trim();
     if (!trimmed) return;
 
@@ -1203,6 +1215,7 @@ function DishIntel() {
 
   // Cuisine explorer dish tap: pre-fill the terminal so the user can review/edit before running
   const handleDishPreFill = (dish: string) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     setTerminalInitialQuery(dish);
     setShowTerminal(true);
   };
@@ -1239,6 +1252,7 @@ function DishIntel() {
     name: string, cityStr?: string, searchScore?: number,
     restaurantId?: string, googlePlaceId?: string, address?: string
   ) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     const c = cityStr || ddCity;
     // Cache key priority: google place_id > internal restaurant_id > name+city
     const cacheKey = googlePlaceId
@@ -1295,6 +1309,7 @@ function DishIntel() {
 
   // User clicked "Find exact place: [query]" → text search → 1 result: deep dive; multiple: picker
   const handleExactPlaceSearch = async (query: string) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     setPhase("classifying");
     try {
       const res  = await fetch(`/api/places?mode=textsearch&query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
@@ -1417,6 +1432,7 @@ function DishIntel() {
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+        @keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
       `}</style>
 
       <div style={{ background: bg, color: text, minHeight: "100vh", fontFamily: "'Inter', -apple-system, sans-serif" }}>
@@ -2306,6 +2322,33 @@ function DishIntel() {
           tiles={activeTiles}
           resultCount={apiComplete ? restaurants.length : undefined}
         />
+      )}
+
+      {/* ── "Search in progress" block toast ──────────────────────── */}
+      {blockToast && (
+        <div style={{
+          position: "fixed",
+          bottom: backgrounded ? 72 : 20,
+          left: "50%", transform: "translateX(-50%)",
+          zIndex: 9200,
+          background: "#10211e",
+          border: "1px solid #e8b133",
+          borderRadius: 8,
+          padding: "11px 18px",
+          maxWidth: "min(380px, calc(100vw - 32px))",
+          width: "max-content",
+          fontFamily: "'IBM Plex Mono','Courier New',monospace",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.45)",
+          animation: "toast-in 0.22s cubic-bezier(0.4,0,0.2,1) both",
+          pointerEvents: "none",
+        }}>
+          <div style={{ fontSize: "0.5rem", color: "#e8b133", letterSpacing: "0.20em", textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
+            SEARCH IN PROGRESS
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#d4e4df", lineHeight: 1.4 }}>
+            Cancel the running search first, or wait for the banner.
+          </div>
+        </div>
       )}
 
       {/* ── Background banner (working → ready) ────────────────────── */}
