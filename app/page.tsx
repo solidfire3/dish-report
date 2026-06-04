@@ -57,6 +57,13 @@ function isLikelyRestaurantName(query: string): boolean {
   if (words.some(w => _REST_WORDS.has(w))) return true;
   // Ampersand pattern — e.g. "Juniper & Ivy" — but not "fish & chips"
   if (query.includes(' & ') && !words.some(w => _DISH_WORDS.has(w))) return true;
+  // "Dish Word + Proper Name" pattern — e.g. "Sushi Ota", "Ramen Nagi", "Pizza Port".
+  // First word is a known dish type; remaining words contain at least one title-case
+  // token that isn't itself a dish word (i.e. it looks like a venue name, not a modifier).
+  const origWords = query.trim().split(/\s+/);
+  if (origWords.length >= 2 && _DISH_WORDS.has(words[0])) {
+    if (origWords.slice(1).some(w => /^[A-Z]/.test(w) && !_DISH_WORDS.has(w.toLowerCase()))) return true;
+  }
   return false;
 }
 
@@ -875,7 +882,8 @@ function DishIntel() {
     searchLocMode = locMode,
     searchArea = area,
     searchRadius = radius,
-    skipMetroCheck = false   // true when called from the Refine step's non-metro path
+    skipMetroCheck = false,        // true when called from the Refine step's non-metro path
+    isLikelyRestaurant = false     // safety net: skip metro intercept → go straight to confirm
   ) => {
     const cacheKey = `${d}|${searchCity}|${searchLocMode}|${searchArea}|${searchRadius}`;
 
@@ -902,6 +910,14 @@ function DishIntel() {
         ? getMetroForLocation(normalizeLocation(searchCity))
         : null;
       if (_metro) {
+        // Safety net: if the query was flagged as a restaurant name (by the caller
+        // or by a re-check here — covers URL params, recent-search taps, classify
+        // failures, and any other path that bypasses handleSearchFromBar detection),
+        // route to the restaurant confirm flow instead of the region picker.
+        if (isLikelyRestaurant || isLikelyRestaurantName(d)) {
+          await triggerRestaurantConfirm(d, searchCity);
+          return;
+        }
         setRefineState({ dish: d, city: searchCity, locMode: searchLocMode, area: searchArea, searchRadius, metro: _metro });
         setRefineCity(searchCity);
         // Pre-select only the user's GPS neighborhood, if detectable.
@@ -1068,7 +1084,9 @@ function DishIntel() {
         await runSearch(enriched, city, locMode, area, searchRadius);
       }
     } catch {
-      await runSearch(enriched, city, locMode, area, searchRadius);
+      // Classify failed — pass restaurant hint so the safety net in runSearch
+      // can skip the metro intercept if the original query looked like a venue name.
+      await runSearch(enriched, city, locMode, area, searchRadius, false, isLikelyRestaurantName(q));
     }
   };
 

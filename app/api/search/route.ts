@@ -15,11 +15,11 @@ const STAMPEDE_GUARD_MS  = 2 * 60 * 1000;
 
 const CLASSIFY_PROMPT = `You are a food search intent classifier. Determine the type of query and respond accordingly.
 
-CASE 1 — Specific restaurant lookup (the query is clearly a proper-noun RESTAURANT NAME, not a dish, cuisine, or food category):
-Signs: A business name containing words like cafe, café, restaurant, grill, kitchen, bar, taqueria, pizzeria, bistro, tavern, eatery, cantina, diner, gastropub, steakhouse, trattoria, izakaya, ramen-ya — OR an ampersand pattern (e.g. "Name & Name") where both sides are proper nouns not dish/food words.
-Examples: "Fig Tree Cafe", "Juniper & Ivy", "Nobu San Diego", "In-N-Out", "The French Laundry", "Katsuya", "Sushi Ota", "Pizzeria Mozza", "Nick's Kitchen & Market", "Kettner Exchange".
+CASE 1 — Specific restaurant lookup (the query is a proper-noun RESTAURANT NAME, not a dish, cuisine, or food category):
+Signs: A business name containing words like cafe, café, restaurant, grill, kitchen, bar, taqueria, pizzeria, bistro, tavern, eatery, cantina, diner, gastropub, steakhouse, trattoria, izakaya, ramen-ya — OR an ampersand pattern (e.g. "Name & Name") where both sides are proper nouns not food words — OR a proper-noun-style name with NO restaurant-type suffix (e.g. "Nobu", "Katsuya", "Bestia", "Otium", "In-N-Out") that does not read as a generic dish or cuisine category.
+Examples: "Fig Tree Cafe", "Juniper & Ivy", "Nobu San Diego", "Nobu", "In-N-Out", "The French Laundry", "Katsuya", "Sushi Ota", "Pizzeria Mozza", "Nick's Kitchen & Market", "Kettner Exchange", "Bestia", "Republique".
 NOT restaurant_search: "wagyu", "omakase", "ramen", "korean bbq", "best tacos", "dim sum near me" — these are dish/cuisine searches even if they sound specific.
-If uncertain (could be either), lean toward NOT restaurant_search and let the dish search handle it.
+BIAS RULE — When in doubt between "this could be a specific place" and "this could be a dish/category", prefer restaurant_search: true and let the confirm step validate. A wrong restaurant guess costs one confirmation tap; a missed restaurant guess silently dumps the user into a broken region search flow. Only hold back restaurant_search: true when the query is clearly a generic food term (ramen, pizza, tacos, etc.) or has an explicit search-intent prefix (best, top, good, find, where).
 Return: { "restaurant_search": true, "name": "<extracted restaurant name>", "broad": false }
 
 CASE 2 — Broad dish/cuisine (no location intent):
