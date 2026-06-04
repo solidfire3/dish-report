@@ -167,12 +167,13 @@ export type TerminalSearchProps = {
   onPlaceSelect?:      (placeId: string, name: string, address: string) => void;
   onExactPlaceSearch?: (query: string) => void;
   locationHint?:       string;  // city name for biasing autocomplete results
+  initialQuery?:       string;  // pre-fills the query field on open (user can edit before running)
 };
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 type SuggestItem = { label: string; search_id?: string | null; run_count?: number; source: "mine" | "popular" };
 
-export function TerminalSearch({ isOpen, onSearch, onClose, onPlaceSelect, onExactPlaceSearch, locationHint }: TerminalSearchProps) {
+export function TerminalSearch({ isOpen, onSearch, onClose, onPlaceSelect, onExactPlaceSearch, locationHint, initialQuery }: TerminalSearchProps) {
   const [query,               setQuery]               = useState("");
   const [closing,             setClosing]             = useState(false);
   const [distance,            setDistance]            = useState("Any");
@@ -190,10 +191,10 @@ export function TerminalSearch({ isOpen, onSearch, onClose, onPlaceSelect, onExa
   const placesTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionToken  = useRef<string>("");
 
-  // Reset on open
+  // Reset on open — uses initialQuery if provided so cuisine explorer pre-fills work
   useEffect(() => {
     if (isOpen) {
-      setQuery(""); setSuggestions([]);
+      setQuery(initialQuery ?? ""); setSuggestions([]);
       setDistance("Any"); setMode("Any"); setPrice("Any");
       setClosing(false); setConfirmPulse(false);
       setPlaces([]); setPlacesLoading(false); setPlacesActive(-1);

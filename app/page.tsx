@@ -15,6 +15,7 @@ import { DEFAULT_FILTERS } from "@/components/SearchBar";
 import { Header, BackBtn }                         from "@/components/Header";
 import { SearchBar, NarrowingFlow, DeepDiveInputs } from "@/components/SearchBar";
 import { TerminalSearch }                           from "@/components/TerminalSearch";
+import { CuisineExplorer }                          from "@/components/CuisineExplorer";
 import { LoadingTracker }                           from "@/components/LoadingTracker";
 import { BackgroundBanner }                         from "@/components/BackgroundBanner";
 import { RestCard }                                 from "@/components/RestaurantCard";
@@ -270,37 +271,49 @@ function ContextFilter({ icon, label, options, value, onChange, dark: _dark }: {
 const COMMON_DISHES_PRIMARY   = ['Tacos', 'Pizza', 'Burger', 'Sushi', 'Wings', 'Ramen'];
 const COMMON_DISHES_SECONDARY = ['Korean BBQ', 'Burritos', 'Fried Chicken', 'Dim Sum', 'Poke', 'Pasta', 'BBQ', 'Dumplings', 'Pho'];
 
-function SectionContent({ dark, isSearching, handleBrowse }: { dark: boolean; isSearching: boolean; handleBrowse: (q: string) => void }) {
+// Light card palette — home / browse surfaces
+const LC_BG    = "#dde6e2";
+const LC_BDR   = "#b9c7c1";
+const LC_TEXT  = "#1c3b35";
+const LC_CHIP  = "#eef3f0";
+
+function SectionContent({ dark: _dark, isSearching: _isSearching, handleBrowse, onDishPreFill }: {
+  dark: boolean; isSearching: boolean;
+  handleBrowse: (q: string) => void;
+  onDishPreFill: (dish: string) => void;
+}) {
   const [showMoreDishes, setShowMoreDishes] = useState(false);
   const sectionTitle: React.CSSProperties = {
     fontFamily: "'IBM Plex Mono',monospace",
     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
   };
-  // Match the hero filter pill style exactly
+  // Light-card dish chip — browse cards on bone page
   const dishChip = (label: string) => (
     <button
       key={label}
       onClick={() => handleBrowse(label)}
       style={{
-        background: "#1b332e", border: "1px solid #2c4a44",
-        borderRadius: 20, padding: "0 14px", height: 30,
+        background: LC_CHIP, border: `1px solid ${LC_BDR}`,
+        borderRadius: 20, padding: "0 14px", height: 32,
         fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
-        color: "#7fe3c8", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-        textTransform: "uppercase", letterSpacing: "0.12em",
-        transition: "background 0.15s",
+        color: LC_TEXT, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+        letterSpacing: "0.10em",
+        transition: "background 0.12s, border-color 0.12s",
         display: "flex", alignItems: "center",
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
-      onMouseLeave={e => { e.currentTarget.style.background = "#1b332e"; }}
+      onMouseEnter={e => { e.currentTarget.style.background = LC_BG; e.currentTarget.style.borderColor = LC_TEXT; }}
+      onMouseLeave={e => { e.currentTarget.style.background = LC_CHIP; e.currentTarget.style.borderColor = LC_BDR; }}
     >{label}</button>
   );
   return (
     <>
-      <section style={{ paddingBottom: 20 }}>
-        <div style={sectionTitle}>SELECT QUERY TYPE</div>
-        <Browse onSelect={handleBrowse} disabled={isSearching} dark={dark} />
+      {/* ── Cuisine Explorer ──────────────────────────────────────────────── */}
+      <section style={{ paddingBottom: 24 }}>
+        <CuisineExplorer onDishSelect={onDishPreFill} />
       </section>
+
+      {/* ── Common Dishes quick-launch chips ─────────────────────────────── */}
       <section style={{ paddingBottom: 28 }}>
         <div style={sectionTitle}>COMMON DISHES</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
@@ -315,14 +328,14 @@ function SectionContent({ dark, isSearching, handleBrowse }: { dark: boolean; is
           onClick={() => setShowMoreDishes(v => !v)}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            background: "#1b332e", border: "1px solid #2c4a44",
+            background: LC_CHIP, border: `1px solid ${LC_BDR}`,
             borderRadius: 20, padding: "6px 16px", marginTop: 8,
             fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
-            color: "#7fe3c8", cursor: "pointer", transition: "background 0.15s",
-            letterSpacing: "0.12em", textTransform: "uppercase",
+            color: LC_TEXT, cursor: "pointer", transition: "background 0.12s",
+            letterSpacing: "0.10em", textTransform: "uppercase",
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "#1b332e"; }}
+          onMouseEnter={e => { e.currentTarget.style.background = LC_BG; }}
+          onMouseLeave={e => { e.currentTarget.style.background = LC_CHIP; }}
         >
           <svg
             width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -431,6 +444,7 @@ function DishIntel() {
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [backgrounded,  setBackgrounded] = useState(false);   // search demoted to banner
+  const [terminalInitialQuery, setTerminalInitialQuery] = useState("");
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
   const [searchedDish,  setSearchedDish] = useState("");
   const [loadingQuery,  setLoadingQuery]  = useState(""); // what LoadingTracker displays
@@ -1187,6 +1201,12 @@ function DishIntel() {
     handleSearchFromBar(d, DEFAULT_FILTERS);
   };
 
+  // Cuisine explorer dish tap: pre-fill the terminal so the user can review/edit before running
+  const handleDishPreFill = (dish: string) => {
+    setTerminalInitialQuery(dish);
+    setShowTerminal(true);
+  };
+
   // ─── DEEP DIVE ─────────────────────────────────────────────────────────────
   const handleCompare = async (r: number, currentData: DeepDiveData, mode = "similar") => {
     pushNav(); setPhase("analyzing"); setApiComplete(false); setCompareData(null); setNarrowQuestions(null);
@@ -1487,17 +1507,17 @@ function DishIntel() {
                       key={f.label}
                       onClick={() => runSearch(f.query)}
                       style={{
-                        background: accentBg, border: `1px solid ${accentBdr}`,
+                        background: LC_CHIP, border: `1px solid ${LC_BDR}`,
                         borderRadius: 20, padding: "0 14px", height: 30,
                         fontFamily: "'IBM Plex Mono',monospace",
-                        fontSize: 10, color: accent,
-                        textTransform: "uppercase", letterSpacing: "0.14em",
+                        fontSize: 10, color: LC_TEXT,
+                        letterSpacing: "0.10em",
                         cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                        transition: "background 0.15s",
+                        transition: "background 0.12s, border-color 0.12s",
                         display: "flex", alignItems: "center",
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = accentBg; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = LC_BG; e.currentTarget.style.borderColor = LC_TEXT; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = LC_CHIP; e.currentTarget.style.borderColor = LC_BDR; }}
                     >{f.label}</button>
                   ))}
                 </div>
@@ -1530,20 +1550,22 @@ function DishIntel() {
                       }
                       runSearch(s.dish, s.city);
                     }}
-                    style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=accent}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=boxBorder}
+                    style={{ background: LC_BG, border: `1px solid ${LC_BDR}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=LC_TEXT}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=LC_BDR}
                     >
-                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: cardText, lineHeight: 1.25, marginBottom: 4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{s.dish}</div>
-                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: tertiary, letterSpacing: "0.04em" }}>{s.city}</div>
+                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: LC_TEXT, lineHeight: 1.25, marginBottom: 4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{s.dish}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, color: "#4a6962", letterSpacing: "0.04em" }}>{s.city}</div>
                     </button>
                   ))}
                   {favs.slice(0,4).map((f,i) => (
                     <button key={`fav-${i}`} onClick={() => { setShowFavs(true); setPhase("idle"); }}
-                    style={{ background: cardBg, border: `1px solid ${accentBdr}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left" }}
+                    style={{ background: LC_BG, border: `1px solid ${LC_BDR}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=LC_TEXT}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=LC_BDR}
                     >
-                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: accent, letterSpacing: "0.14em", marginBottom: 4, textTransform: "uppercase" }}>♥ Saved</div>
-                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: cardText, lineHeight: 1.25, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{f.name}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: "#2f7a65", letterSpacing: "0.14em", marginBottom: 4, textTransform: "uppercase" }}>♥ Saved</div>
+                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: LC_TEXT, lineHeight: 1.25, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{f.name}</div>
                       {f.food_score && <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, fontWeight: 700, color: "#7bc24a", marginTop: 4 }}>{f.food_score.toFixed(1)}</div>}
                     </button>
                   ))}
@@ -1561,12 +1583,12 @@ function DishIntel() {
                 <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 20px 16px", scrollbarWidth: "none" as const }}>
                   {homeLists.map(l => (
                     <button key={l.id} onClick={() => router.push("/dashboard/lists")}
-                    style={{ background: cardBg, border: `1px solid ${boxBorder}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=accent}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=boxBorder}
+                    style={{ background: LC_BG, border: `1px solid ${LC_BDR}`, borderRadius: 8, padding: "10px 12px", minWidth: 120, maxWidth: 130, flexShrink: 0, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=LC_TEXT}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=LC_BDR}
                     >
-                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: accent, letterSpacing: "0.14em", marginBottom: 5, textTransform: "uppercase" }}>LIST</div>
-                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: cardText, lineHeight: 1.25, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{l.name}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: "#2f7a65", letterSpacing: "0.14em", marginBottom: 5, textTransform: "uppercase" }}>LIST</div>
+                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.85rem", fontWeight: 700, color: LC_TEXT, lineHeight: 1.25, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as const }}>{l.name}</div>
                     </button>
                   ))}
                 </div>
@@ -1923,40 +1945,40 @@ function DishIntel() {
                         key={i}
                         onClick={() => handleBrowse(s.text)}
                         style={{
-                          background: "#10211e", border: "1px solid #2c4a44",
+                          background: LC_BG, border: `1px solid ${LC_BDR}`,
                           borderRadius: 12, padding: 14,
                           minHeight: 140, width: 160, flexShrink: 0,
                           cursor: "pointer",
                           display: "flex", flexDirection: "column",
                           transition: "border-color 0.15s, box-shadow 0.15s",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#7fe3c8"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.22)"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#2c4a44"; (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.12)"; }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = LC_TEXT; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px rgba(28,59,53,0.12)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = LC_BDR; (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)"; }}
                       >
-                        {/* Initial — matches the "code" in query-type cards */}
+                        {/* Initial */}
                         <div style={{
                           fontFamily: "var(--font-orbitron),'Courier New',monospace",
                           fontSize: "1.75rem", fontWeight: 900, lineHeight: 1,
-                          color: "rgba(127,227,200,0.25)", letterSpacing: "0.02em", marginBottom: 8,
+                          color: "rgba(28,59,53,0.18)", letterSpacing: "0.02em", marginBottom: 8,
                         }}>{s.initial}</div>
-                        {/* Query text — matches the "name" line */}
+                        {/* Query text */}
                         <div style={{
-                          fontFamily: "var(--font-orbitron),'Courier New',monospace",
+                          fontFamily: "'IBM Plex Mono','Courier New',monospace",
                           fontSize: "0.75rem", fontWeight: 700, lineHeight: 1.2,
-                          color: "#7fe3c8", letterSpacing: "0.02em", marginBottom: 4,
+                          color: LC_TEXT, letterSpacing: "0.02em", marginBottom: 4,
                           overflow: "hidden", display: "-webkit-box",
                           WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
                         }}>{s.text.split(" near ")[0]}</div>
                         {/* Descriptor */}
                         <div style={{
                           fontFamily: "'DM Sans','Inter',sans-serif",
-                          fontSize: "0.72rem", color: "#8aa9a2", lineHeight: 1.3, flex: 1,
+                          fontSize: "0.72rem", color: "#4a6962", lineHeight: 1.3, flex: 1,
                         }}>{s.text.includes(" near ") ? `near ${s.text.split(" near ")[1]}` : "tap to search"}</div>
-                        {/* Hint — matches "Tap to explore" */}
+                        {/* Hint */}
                         <div style={{
-                          fontFamily: "'Sevastopol',Georgia,serif",
-                          fontSize: 8, color: "#7fe3c8", opacity: 0.6,
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontSize: 8, color: LC_TEXT, opacity: 0.45,
                           textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 10,
                         }}>Tap to search</div>
                       </div>
@@ -1970,6 +1992,7 @@ function DishIntel() {
                 dark={dark}
                 isSearching={isSearching}
                 handleBrowse={handleBrowse}
+                onDishPreFill={handleDishPreFill}
               />
             </>
           )}
@@ -2259,10 +2282,11 @@ function DishIntel() {
       <TerminalSearch
         isOpen={showTerminal}
         onSearch={(q, f) => { setShowTerminal(false); handleSearchFromBar(q, f, true); }}
-        onClose={() => setShowTerminal(false)}
-        onPlaceSelect={(placeId, name, address) => { setShowTerminal(false); handlePlaceSelect(placeId, name, address); }}
-        onExactPlaceSearch={(q) => { setShowTerminal(false); handleExactPlaceSearch(q); }}
+        onClose={() => { setShowTerminal(false); setTerminalInitialQuery(""); }}
+        onPlaceSelect={(placeId, name, address) => { setShowTerminal(false); setTerminalInitialQuery(""); handlePlaceSelect(placeId, name, address); }}
+        onExactPlaceSearch={(q) => { setShowTerminal(false); setTerminalInitialQuery(""); handleExactPlaceSearch(q); }}
         locationHint={city}
+        initialQuery={terminalInitialQuery}
       />
 
       {/* ── Full-screen loading overlay (foreground mode) ──────────── */}
