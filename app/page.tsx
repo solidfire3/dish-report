@@ -471,7 +471,7 @@ function DishIntel() {
   // Near You Now — real high-scored restaurants from DB, shuffled on each page load
   const [nearYouRests, setNearYouRests] = useState<Array<{
     id: string; name: string; food_score: number;
-    neighborhood: string | null; cuisine: string | null;
+    neighborhood: string | null; venue_type: string | null;
   }>>([]);
   const [terminalInitialQuery, setTerminalInitialQuery] = useState("");
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
@@ -738,15 +738,16 @@ function DishIntel() {
   // Near You Now — fetch high-scored restaurants near the current city on load/city change
   useEffect(() => {
     if (!city) return;
-    type NearRest = { id: string; name: string; food_score: number; neighborhood: string | null; cuisine: string | null };
+    type NearRest = { id: string; name: string; food_score: number; neighborhood: string | null; venue_type: string | null };
     sb().from("restaurants")
-      .select("id, name, food_score, neighborhood, cuisine")
+      .select("id, name, food_score, neighborhood, venue_type")
       .ilike("address", `%${city}%`)
       .not("food_score", "is", null)
       .gte("food_score", 7.0)
       .order("food_score", { ascending: false })
       .limit(30)
-      .then(({ data }: { data: NearRest[] | null }) => {
+      .then(({ data, error }: { data: NearRest[] | null; error: { message: string } | null }) => {
+        if (error) { console.error("[near-you-now] query failed:", error.message); return; }
         if (!data?.length) return;
         const shuffled = shuffleSeeded(data, Date.now());
         setNearYouRests(shuffled.slice(0, 6));
@@ -2026,7 +2027,7 @@ function DishIntel() {
                             textTransform: "uppercase", lineHeight: 1.2,
                             overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
                             maxWidth: "62%",
-                          }}>{r.cuisine || "Restaurant"}</div>
+                          }}>{r.venue_type || "Restaurant"}</div>
                           <div style={{
                             fontFamily: "'IBM Plex Mono',monospace",
                             fontSize: "0.875rem", fontWeight: 700, lineHeight: 1,
