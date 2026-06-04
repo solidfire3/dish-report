@@ -52,13 +52,14 @@ function makeSvc() {
   return createSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
-async function runDeepDivePipeline(client: Anthropic, name: string, city: string): Promise<unknown> {
+async function runDeepDivePipeline(client: Anthropic, name: string, city: string, address?: string): Promise<unknown> {
+  const location = address ? `at ${address}` : `in ${city}`;
   const msg = await client.messages.create({
     model: "claude-sonnet-4-6", max_tokens: 8000,
     system: DEEP_PROMPT,
     // @ts-ignore
     tools: [{ type: "web_search_20250305", name: "web_search" }],
-    messages: [{ role: "user", content: `"${name}" in ${city}. Food cheat sheet. Return JSON.` }],
+    messages: [{ role: "user", content: `"${name}" ${location}. Food cheat sheet. Return JSON.` }],
   });
   return extractJson(msg.content);
 }
@@ -66,7 +67,7 @@ async function runDeepDivePipeline(client: Anthropic, name: string, city: string
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
-    const { mode, name, city, restaurant_id } = await req.json();
+    const { mode, name, city, restaurant_id, address } = await req.json();
 
     // ── Confirm (location lookup, unchanged) ──────────────────────────────────
     if (mode === "confirm") {
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
 
       // Restaurant exists but no deep_dive yet — run pipeline and store
       console.log("[deepdive] DB MISS (no deep_dive) — restaurant_id:", restaurant_id, "| running pipeline");
-      const fresh = await runDeepDivePipeline(client, name, city) as Record<string, unknown>;
+      const fresh = await runDeepDivePipeline(client, name, city, address) as Record<string, unknown>;
       const durableScore = row?.food_score ?? fresh.food_score;
       await db.from("restaurants").update({
         deep_dive: fresh,
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
       }
 
       // Not in DB or stale — call Anthropic
-      const fresh = await runDeepDivePipeline(client, name, city) as Record<string, unknown>;
+      const fresh = await runDeepDivePipeline(client, name, city, address) as Record<string, unknown>;
 
       // If we found a restaurant row, stamp the deep dive back (name-based cold open)
       if (byNameRow?.id) {
@@ -176,7 +177,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json(fresh);
     } catch {
-      const result = await runDeepDivePipeline(client, name, city);
+      const result = await runDeepDivePipeline(client, name, city, address);
       return NextResponse.json(result);
     }
 

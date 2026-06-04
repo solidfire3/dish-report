@@ -152,17 +152,27 @@ const TERMINAL_CSS = `
   }
 `;
 
+// ─── PLACES TYPES ─────────────────────────────────────────────────────────────
+type PlacePrediction = {
+  place_id: string;
+  description: string;
+  structured_formatting: { main_text: string; secondary_text: string };
+};
+
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 export type TerminalSearchProps = {
   isOpen: boolean;
-  onSearch: (query: string, filters: FilterState) => void;
-  onClose: () => void;
+  onSearch:            (query: string, filters: FilterState) => void;
+  onClose:             () => void;
+  onPlaceSelect?:      (placeId: string, name: string, address: string) => void;
+  onExactPlaceSearch?: (query: string) => void;
+  locationHint?:       string;  // city name for biasing autocomplete results
 };
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 type SuggestItem = { label: string; search_id?: string | null; run_count?: number; source: "mine" | "popular" };
 
-export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProps) {
+export function TerminalSearch({ isOpen, onSearch, onClose, onPlaceSelect, onExactPlaceSearch, locationHint }: TerminalSearchProps) {
   const [query,               setQuery]               = useState("");
   const [closing,             setClosing]             = useState(false);
   const [distance,            setDistance]            = useState("Any");
@@ -173,15 +183,45 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ── Places typeahead state ──────────────────────────────────────────────────
+  const [places,        setPlaces]        = useState<PlacePrediction[]>([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const [placesActive,  setPlacesActive]  = useState(-1);
+  const placesTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionToken  = useRef<string>("");
+
   // Reset on open
   useEffect(() => {
     if (isOpen) {
       setQuery(""); setSuggestions([]);
       setDistance("Any"); setMode("Any"); setPrice("Any");
       setClosing(false); setConfirmPulse(false);
+      setPlaces([]); setPlacesLoading(false); setPlacesActive(-1);
+      sessionToken.current = crypto.randomUUID();
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
+
+  // ── Debounced Places autocomplete fetch ────────────────────────────────────
+  useEffect(() => {
+    if (placesTimer.current) clearTimeout(placesTimer.current);
+    if (query.length < 3) { setPlaces([]); setPlacesActive(-1); return; }
+    placesTimer.current = setTimeout(async () => {
+      setPlacesLoading(true);
+      try {
+        const res  = await fetch(
+          `/api/places?mode=autocomplete&input=${encodeURIComponent(query)}&city=${encodeURIComponent(locationHint ?? "")}&token=${encodeURIComponent(sessionToken.current)}`
+        );
+        const data = await res.json() as { predictions?: PlacePrediction[] };
+        setPlaces(data.predictions ?? []);
+      } catch {
+        setPlaces([]);
+      } finally {
+        setPlacesLoading(false);
+      }
+    }, 300);
+    return () => { if (placesTimer.current) clearTimeout(placesTimer.current); };
+  }, [query, locationHint]);
 
   // Debounced typeahead — fetch prior searches matching the query
   useEffect(() => {
@@ -213,6 +253,20 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
     setClosing(true);
     setTimeout(() => { onClose(); setClosing(false); }, 280);
   }, [onClose]);
+
+  // ── Place selection helpers ────────────────────────────────────────────────
+  const selectPlace = useCallback((placeId: string, name: string, address: string) => {
+    setPlaces([]); setPlacesActive(-1);
+    sessionToken.current = crypto.randomUUID(); // reset session token after selection
+    onPlaceSelect?.(placeId, name, address);
+    handleClose();
+  }, [onPlaceSelect]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectExactPlace = useCallback((q: string) => {
+    setPlaces([]); setPlacesActive(-1);
+    onExactPlaceSearch?.(q);
+    handleClose();
+  }, [onExactPlaceSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = useCallback(() => {
     if (!query.trim()) return;
@@ -313,9 +367,28 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === "Enter") {
+                    const hasPlaces = query.length >= 3;
+                    const totalItems = places.length + 1; // +1 for "Find exact place"
+                    if (hasPlaces && e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setPlacesActive(i => Math.min(i + 1, totalItems - 1));
+                    } else if (hasPlaces && e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setPlacesActive(i => Math.max(i - 1, -1));
+                    } else if (e.key === "Enter" && placesActive >= 0) {
+                      e.preventDefault();
+                      if (placesActive < places.length) {
+                        const p = places[placesActive];
+                        selectPlace(p.place_id, p.structured_formatting.main_text, p.structured_formatting.secondary_text);
+                      } else {
+                        selectExactPlace(query);
+                      }
+                    } else if (e.key === "Enter") {
                       e.preventDefault();
                       handleEnter();
+                    } else if (e.key === "Escape" && placesActive >= 0) {
+                      e.preventDefault();
+                      setPlacesActive(-1);
                     }
                   }}
                   autoComplete="off" autoCorrect="off" spellCheck={false} aria-label="Search"
@@ -335,6 +408,61 @@ export function TerminalSearch({ isOpen, onSearch, onClose }: TerminalSearchProp
           {/* ── Refinements — appear immediately at 2+ chars ─────────────── */}
           {showRefinements && (
             <div style={{ marginTop: 24, animation: "ts-refine-in 0.3s ease both" }}>
+
+              {/* PLACES — Google Places typeahead, visible when query >= 3 chars */}
+              {query.length >= 3 && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.625rem", color: "#7fe3c8", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>
+                    {placesLoading && places.length === 0 ? "SEARCHING..." : "SPECIFIC PLACE"}
+                  </div>
+                  <div style={{ background: "#10211e", border: "1px solid #2c4a44", borderRadius: 12, overflow: "hidden" }}>
+                    {places.map((place, i) => (
+                      <button
+                        key={place.place_id}
+                        onClick={() => selectPlace(place.place_id, place.structured_formatting.main_text, place.structured_formatting.secondary_text)}
+                        onMouseEnter={() => setPlacesActive(i)}
+                        onMouseLeave={() => setPlacesActive(-1)}
+                        style={{
+                          display: "block", width: "100%",
+                          padding: "13px 16px", textAlign: "left",
+                          background: placesActive === i ? "#1b332e" : "transparent",
+                          border: "none",
+                          borderBottom: "1px solid #2c4a44",
+                          cursor: "pointer",
+                          transition: "background 0.1s",
+                          borderLeft: placesActive === i ? "3px solid #7fe3c8" : "3px solid transparent",
+                        }}
+                      >
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9375rem", fontWeight: 500, color: "#f0f4f1", lineHeight: 1.3 }}>
+                          {place.structured_formatting.main_text}
+                        </div>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: "#8aa9a2", marginTop: 3, lineHeight: 1.3 }}>
+                          {place.structured_formatting.secondary_text}
+                        </div>
+                      </button>
+                    ))}
+                    {/* Find exact place — always present */}
+                    <button
+                      onClick={() => selectExactPlace(query)}
+                      onMouseEnter={() => setPlacesActive(places.length)}
+                      onMouseLeave={() => setPlacesActive(-1)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        width: "100%", padding: "13px 16px", textAlign: "left",
+                        background: placesActive === places.length ? "#1b332e" : "transparent",
+                        border: "none", cursor: "pointer", transition: "background 0.1s",
+                        borderLeft: placesActive === places.length ? "3px solid #7fe3c8" : "3px solid transparent",
+                      }}
+                    >
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.9rem", color: "#7fe3c8" }}>
+                        Find exact place:{" "}
+                        <span style={{ fontStyle: "italic", opacity: 0.85 }}>&ldquo;{query}&rdquo;</span>
+                      </div>
+                      <div style={{ color: "#7fe3c8", marginLeft: 12, flexShrink: 0, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem" }}>→</div>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* NARROW IT DOWN — specific category match or generic fallback */}
               <div style={{ marginBottom: 20 }}>

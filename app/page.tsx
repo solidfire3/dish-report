@@ -1127,10 +1127,15 @@ function DishIntel() {
     } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
   };
 
-  const handleDeepDive = async (name: string, cityStr?: string, searchScore?: number, restaurantId?: string) => {
+  const handleDeepDive = async (
+    name: string, cityStr?: string, searchScore?: number,
+    restaurantId?: string, googlePlaceId?: string, address?: string
+  ) => {
     const c = cityStr || ddCity;
-    // Prefer restaurant_id for cache key stability — same restaurant from any path hits same session cache
-    const cacheKey = restaurantId ? `rid:${restaurantId}` : `${name}|${c}`.toLowerCase();
+    // Cache key priority: google place_id > internal restaurant_id > name+city
+    const cacheKey = googlePlaceId
+      ? `gp:${googlePlaceId}`
+      : restaurantId ? `rid:${restaurantId}` : `${name}|${c}`.toLowerCase();
 
     // Instant recall from session cache — no API, no loading screen
     if (deepDiveCache.current[cacheKey]) {
@@ -1145,7 +1150,10 @@ function DishIntel() {
     setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
     setLoadingQuery(`Deep diving ${name}`);
     try {
-      const data = await apiFetch("/api/deepdive", { mode: "deepdive", name, city: c, restaurant_id: restaurantId });
+      const data = await apiFetch("/api/deepdive", {
+        mode: "deepdive", name, city: c, restaurant_id: restaurantId,
+        ...(address ? { address } : {}),
+      });
       // DB-first path already serves the correct durable food_score.
       // Stamp searchScore only for cold opens (no restaurant_id) as safety fallback.
       if (searchScore != null && !restaurantId) data.food_score = searchScore;
@@ -1153,6 +1161,59 @@ function DishIntel() {
       setDeepData(data);
       setPendingPhase("deepdone"); setApiComplete(true);
     } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
+  };
+
+  // ─── PLACE SELECTION (from typeahead dropdown) ─────────────────────────────
+
+  // Extract city name from a Google Places address string
+  // e.g. "207 Poplar Ave, San Diego, CA 92101, USA" → "San Diego"
+  function extractCityFromAddress(addr: string): string {
+    const parts = addr.split(",").map(s => s.trim());
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if (/^(USA|United States)$/i.test(p)) continue;
+      if (/^[A-Z]{2}(\s+\d+)?$/.test(p)) continue;
+      return p;
+    }
+    return "";
+  }
+
+  // User clicked a specific place from the autocomplete dropdown → straight to deep dive
+  const handlePlaceSelect = (placeId: string, name: string, address: string) => {
+    const targetCity = extractCityFromAddress(address) || city;
+    setConfirmMatches(null);
+    handleDeepDive(name, targetCity, undefined, undefined, placeId, address);
+  };
+
+  // User clicked "Find exact place: [query]" → text search → 1 result: deep dive; multiple: picker
+  const handleExactPlaceSearch = async (query: string) => {
+    setPhase("classifying");
+    try {
+      const res  = await fetch(`/api/places?mode=textsearch&query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
+      const data = await res.json() as { results?: Array<{ place_id: string; name: string; formatted_address: string; vicinity?: string }> };
+      const results = data.results ?? [];
+
+      if (results.length === 0) {
+        await triggerRestaurantConfirm(query, city);
+      } else if (results.length === 1) {
+        const p = results[0];
+        handlePlaceSelect(p.place_id, p.name, p.formatted_address);
+      } else {
+        // Multiple locations — show picker using the confirmMatches UI
+        setDdName(query); setDdCity(city);
+        setConfirmMatches(results.slice(0, 6).map(r => ({
+          name: r.name,
+          address: r.formatted_address,
+          city: extractCityFromAddress(r.formatted_address) || city,
+          neighborhood: r.vicinity || "",
+          cuisine: "",
+          googlePlaceId: r.place_id,
+        })));
+        setPhase("idle");
+      }
+    } catch {
+      await triggerRestaurantConfirm(query, city);
+    }
   };
 
   const handleConfirm = async () => {
@@ -1829,7 +1890,7 @@ function DishIntel() {
           {(confirmMatches || confirming) && phase === "idle" && (
             <div style={{ paddingTop: 20 }}>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6875rem", color: accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 14 }}>
-                {confirming ? "LOCATING RESTAURANT..." : "DID YOU MEAN?"}
+                {confirming ? "LOCATING RESTAURANT..." : confirmMatches?.[0]?.googlePlaceId ? "WHICH LOCATION?" : "DID YOU MEAN?"}
               </div>
               {confirming && <div className="spin" style={{ borderColor: border, borderTopColor: accent, width: 20, height: 20 }} />}
               {confirmMatches && (
@@ -1839,7 +1900,7 @@ function DishIntel() {
                       key={i}
                       onClick={() => {
                         setConfirmMatches(null);
-                        handleDeepDive(m.name, m.city || ddCity, undefined, undefined);
+                        handleDeepDive(m.name, m.city || ddCity, undefined, undefined, m.googlePlaceId, m.address);
                       }}
                       style={{
                         background: cardBg, border: `1px solid ${border}`,
@@ -2111,6 +2172,9 @@ function DishIntel() {
         isOpen={showTerminal}
         onSearch={(q, f) => { setShowTerminal(false); handleSearchFromBar(q, f, true); }}
         onClose={() => setShowTerminal(false)}
+        onPlaceSelect={(placeId, name, address) => { setShowTerminal(false); handlePlaceSelect(placeId, name, address); }}
+        onExactPlaceSearch={(q) => { setShowTerminal(false); handleExactPlaceSearch(q); }}
+        locationHint={city}
       />
 
       {/* ── Full-screen loading overlay ─────────────────────────────── */}

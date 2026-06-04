@@ -47,7 +47,7 @@ export type CompareData = {
 };
 
 export type SearchMeta = { dish: string; city: string };
-export type ConfirmMatch = { name: string; address?: string; city?: string; neighborhood?: string; cuisine?: string };
+export type ConfirmMatch = { name: string; address?: string; city?: string; neighborhood?: string; cuisine?: string; googlePlaceId?: string };
 export type Fav = { name: string; neighborhood?: string; venue_type?: string; price_range?: string; food_score?: number };
 export type NarrowQuestion = { question: string; options: string[] };
 
