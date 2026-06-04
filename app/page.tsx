@@ -738,6 +738,7 @@ function DishIntel() {
   // Near You Now — fetch high-scored restaurants near the current city on load/city change
   useEffect(() => {
     if (!city) return;
+    type NearRest = { id: string; name: string; food_score: number; neighborhood: string | null; cuisine: string | null };
     sb().from("restaurants")
       .select("id, name, food_score, neighborhood, cuisine")
       .ilike("address", `%${city}%`)
@@ -745,10 +746,9 @@ function DishIntel() {
       .gte("food_score", 7.0)
       .order("food_score", { ascending: false })
       .limit(30)
-      .then(({ data }) => {
+      .then(({ data }: { data: NearRest[] | null }) => {
         if (!data?.length) return;
-        type NearRest = { id: string; name: string; food_score: number; neighborhood: string | null; cuisine: string | null };
-        const shuffled = shuffleSeeded(data as NearRest[], Date.now());
+        const shuffled = shuffleSeeded(data, Date.now());
         setNearYouRests(shuffled.slice(0, 6));
       });
   }, [city]); // eslint-disable-line react-hooks/exhaustive-deps
