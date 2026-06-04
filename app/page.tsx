@@ -1336,7 +1336,9 @@ function DishIntel() {
   // ─── DERIVED STATE ──────────────────────────────────────────────────────────
   const hasBack    = navStack.length > 0;
   const isSearching = phase === "analyzing";
-  const showIdle   = phase === "idle" && !showFavs;
+  // When backgrounded the search keeps running but the UI returns to the home view
+  // so the user can browse while the banner floats above.
+  const showIdle   = (phase === "idle" || backgrounded) && !showFavs;
 
   // Keep event-listener refs in sync (no stale closure issues)
   useEffect(() => { isSearchingRef.current  = isSearching;       }, [isSearching]);
@@ -1441,7 +1443,7 @@ function DishIntel() {
           .dr-sticky-search { position: sticky; top: 64px; z-index: 90; }
           @media (max-width: 640px) { .dr-sticky-search { top: 56px; } }
         `}</style>
-        {phase !== "idle" && (
+        {phase !== "idle" && !backgrounded && (
           <div className="dr-sticky-search" style={{
             background: bg, borderBottom: `1px solid ${border}`, padding: "10px 20px",
           }}>

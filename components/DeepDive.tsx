@@ -420,6 +420,62 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
           );
         })()}
 
+        {/* ── QUICK READ — 3 fast-facts badges ──────────────────────────── */}
+        {(() => {
+          // Badge 1 — #1 DISH: top must-order item name
+          const topDish = mos[0]?.item || null;
+
+          // Badge 2 — TOP INSIGHT: first sentence of verdict, capped to ~55 chars
+          const verdictRaw = (data.verdict ?? "").trim();
+          const firstSentence = verdictRaw.split(/(?<=[.!?])\s+/)[0]?.trim() || verdictRaw;
+          const topInsight = firstSentence.length > 58
+            ? firstSentence.slice(0, 55).replace(/\s+\S*$/, "") + "..."
+            : firstSentence || null;
+
+          // Badge 3 — BEST ADVICE: first insider tip short enough to read at a glance
+          const shortTip = tips.find((tip): tip is string =>
+            typeof tip === "string" && tip.length >= 6 && tip.length <= 80
+          ) || null;
+          const bestAdvice = shortTip && shortTip.length > 58
+            ? shortTip.slice(0, 55).replace(/\s+\S*$/, "") + "..."
+            : shortTip;
+
+          const badges = [
+            topDish    ? { label: "#1 DISH",      value: topDish,    color: "#3fd98a" } : null,
+            topInsight ? { label: "TOP INSIGHT",  value: topInsight, color: "#7fe3c8" } : null,
+            bestAdvice ? { label: "BEST ADVICE",  value: bestAdvice, color: "#e8b133" } : null,
+          ].filter(Boolean) as Array<{ label: string; value: string; color: string }>;
+
+          if (badges.length === 0) return null;
+          return (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 16px 0" }}>
+              {badges.map(b => (
+                <div key={b.label} style={{
+                  background: "#0d1f1c",
+                  border: "1px solid #2c4a44",
+                  borderLeft: `3px solid ${b.color}`,
+                  borderRadius: 6,
+                  padding: "9px 12px",
+                  flex: "1 1 140px",
+                  minWidth: 130, maxWidth: "100%",
+                }}>
+                  <div style={{
+                    fontFamily: "'IBM Plex Mono',monospace",
+                    fontSize: "0.5rem", fontWeight: 700,
+                    color: b.color, letterSpacing: "0.18em",
+                    textTransform: "uppercase", marginBottom: 5, opacity: 0.8,
+                  }}>{b.label}</div>
+                  <div style={{
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: "0.8rem", fontWeight: 500,
+                    color: "#d4e4df", lineHeight: 1.4,
+                  }}>{b.value}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Sentinel for sticky header */}
         <div ref={sentinelRef} style={{ height: 1 }} />
 
