@@ -4,16 +4,17 @@ import { useState, useEffect, useRef } from "react";
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
 export type LoadingTrackerProps = {
-  query?:       string;
-  dish?:        string;
-  location?:    string;
-  radius?:      number;
-  apiDone?:     boolean;
-  onDone?:      () => void;
-  onStop?:      () => void;
-  searchMode?:  "original" | "refresh";
-  tiles?:       string[] | null;   // real tile names from gatherCandidates; null = single query
-  resultCount?: number;            // actual candidate count once results arrive
+  query?:        string;
+  dish?:         string;
+  location?:     string;
+  radius?:       number;
+  apiDone?:      boolean;
+  onDone?:       () => void;
+  onStop?:       () => void;
+  onBackground?: () => void;  // user taps "let it run in background"
+  searchMode?:   "original" | "refresh";
+  tiles?:        string[] | null;   // real tile names from gatherCandidates; null = single query
+  resultCount?:  number;            // actual candidate count once results arrive
   // legacy compat props (unused)
   step?: number; lstep?: number; resultsReady?: boolean; onSeeResults?: () => void;
 };
@@ -181,6 +182,7 @@ export function LoadingTracker({
   apiDone = false,
   onDone,
   onStop,
+  onBackground,
   searchMode,
   tiles,
   resultCount,
@@ -322,7 +324,7 @@ export function LoadingTracker({
           border: "1px solid #2c4a44",
           borderRadius: 3,
           padding: "10px 12px 14px",
-          minHeight: 122,
+          height: 280, overflow: "hidden",
           display: "flex", flexDirection: "column",
         }}>
           {/* DATA EXHIBIT label */}
@@ -436,27 +438,52 @@ export function LoadingTracker({
         </div>
       </div>
 
-      {/* Abort control — below the framed screen */}
-      <button
-        onClick={onStop}
-        style={{
-          marginTop: 14,
-          background: "none",
-          border: "1px solid #c4cdc8",
-          borderRadius: 3,
-          color: "#7a8e8a",
-          fontFamily: "'IBM Plex Mono','Courier New',monospace",
-          fontSize: 9, letterSpacing: "0.22em",
-          padding: "5px 16px",
-          cursor: "pointer",
-          textTransform: "uppercase",
-          transition: "border-color 0.15s, color 0.15s",
-        }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = "#3d6b62"; e.currentTarget.style.color = "#3d6b62"; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = "#c4cdc8"; e.currentTarget.style.color = "#7a8e8a"; }}
-      >
-        ABORT
-      </button>
+      {/* Controls — below the framed screen */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: 14 }}>
+        {/* Background mode — primary action */}
+        {onBackground && (
+          <button
+            onClick={onBackground}
+            style={{
+              background: "none",
+              border: "1px solid #3d6b62",
+              borderRadius: 3,
+              color: "#7fe3c8",
+              fontFamily: "'IBM Plex Mono','Courier New',monospace",
+              fontSize: 9, letterSpacing: "0.22em",
+              padding: "6px 18px",
+              cursor: "pointer",
+              textTransform: "uppercase",
+              transition: "border-color 0.15s, color 0.15s, background 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(127,227,200,0.07)"; e.currentTarget.style.borderColor = "#7fe3c8"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.borderColor = "#3d6b62"; }}
+          >
+            ↓ LET IT RUN IN BACKGROUND
+          </button>
+        )}
+
+        {/* Abort — secondary */}
+        <button
+          onClick={onStop}
+          style={{
+            background: "none",
+            border: "1px solid #c4cdc8",
+            borderRadius: 3,
+            color: "#7a8e8a",
+            fontFamily: "'IBM Plex Mono','Courier New',monospace",
+            fontSize: 9, letterSpacing: "0.22em",
+            padding: "5px 16px",
+            cursor: "pointer",
+            textTransform: "uppercase",
+            transition: "border-color 0.15s, color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "#3d6b62"; e.currentTarget.style.color = "#3d6b62"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#c4cdc8"; e.currentTarget.style.color = "#7a8e8a"; }}
+        >
+          ABORT
+        </button>
+      </div>
 
       <style>{`
         @keyframes lt-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }

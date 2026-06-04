@@ -16,6 +16,7 @@ import { Header, BackBtn }                         from "@/components/Header";
 import { SearchBar, NarrowingFlow, DeepDiveInputs } from "@/components/SearchBar";
 import { TerminalSearch }                           from "@/components/TerminalSearch";
 import { LoadingTracker }                           from "@/components/LoadingTracker";
+import { BackgroundBanner }                         from "@/components/BackgroundBanner";
 import { RestCard }                                 from "@/components/RestaurantCard";
 import { Browse }                                   from "@/components/CategoryBrowse";
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
@@ -341,6 +342,7 @@ function DishIntel() {
   const router        = useRouter();
   const searchParams  = useSearchParams();
   const abortRef         = useRef<AbortController | null>(null);
+  const bgPollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const wasHiddenRef     = useRef(false);
   const autoSearchFired  = useRef(false);
   // Session caches — instant recall without re-hitting the API
@@ -428,6 +430,7 @@ function DishIntel() {
   // Pre-scored results beyond the displayed 5 — revealed on "load more" with no API call.
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
+  const [backgrounded,  setBackgrounded] = useState(false);   // search demoted to banner
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
   const [searchedDish,  setSearchedDish] = useState("");
   const [loadingQuery,  setLoadingQuery]  = useState(""); // what LoadingTracker displays
@@ -557,9 +560,67 @@ function DishIntel() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  // On mount: check for orphaned search from a previous session
+  // On mount: check for an explicitly-backgrounded search from a previous session.
+  // Polls mode:"quick" DB cache every 5s until a result is found or 90s elapses.
   useEffect(() => {
     try {
+      const bgSaved = localStorage.getItem("dr-background-search");
+      if (!bgSaved) return;
+      const { query: bq, city: bCity, area: bArea, locMode: bLocMode, radius: bRadius, startTime } = JSON.parse(bgSaved);
+      const age = Date.now() - startTime;
+      // Suppress the old stale-search banner — background banner takes over
+      localStorage.removeItem("dr-active-search");
+      if (!bq || age > 90000) {
+        localStorage.removeItem("dr-background-search");
+        return;
+      }
+      setLoadingQuery(bq);
+      setSearchedDish(bq);
+      if (bCity) { setCity(bCity); setDdCity(bCity); }
+      setBackgrounded(true);
+
+      let elapsed = age;
+      const doPoll = async () => {
+        try {
+          const res = await apiFetch("/api/search", {
+            mode: "quick", dish: bq,
+            city: bCity || "San Diego", area: bArea || "",
+            locMode: bLocMode || "city", radius: bRadius || 5,
+          });
+          if (res?.hit && res.results) {
+            const raw = (Array.isArray(res.results.results) ? res.results.results : []) as Restaurant[];
+            const ranked = sortByScore(raw).map((r: Restaurant, i: number) => ({ ...r, rank: i + 1 }));
+            const m: SearchMeta = { dish: res.results.dish || bq, city: res.results.city || bCity };
+            setRestaurants(ranked); setMeta(m);
+            searchResultCache.current = { key: `${bq}|${bCity}|${bLocMode}|${bArea}|${bRadius}`, results: ranked, meta: m };
+            setPendingPhase("done"); setApiComplete(true);
+            try { localStorage.removeItem("dr-background-search"); } catch {}
+            if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
+          }
+        } catch {}
+      };
+
+      doPoll();
+      bgPollRef.current = setInterval(() => {
+        elapsed += 5000;
+        if (elapsed >= 90000) {
+          if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
+          try { localStorage.removeItem("dr-background-search"); } catch {}
+          setBackgrounded(false); setApiComplete(false); setPendingPhase("");
+          setStaleSearch({ query: bq, fresh: false }); // re-use existing timeout banner
+        } else {
+          doPoll();
+        }
+      }, 5000);
+    } catch {}
+    return () => { if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; } };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On mount: check for orphaned search from a previous session (non-backgrounded)
+  useEffect(() => {
+    try {
+      // Skip if dr-background-search already handled recovery above
+      if (localStorage.getItem("dr-background-search")) return;
       const saved = localStorage.getItem("dr-active-search");
       if (!saved) return;
       const { query: q, startTime } = JSON.parse(saved);
@@ -766,6 +827,31 @@ function DishIntel() {
     abortRef.current = null;
     setApiComplete(false); setPendingPhase("");
     setPhase("idle");
+    // Also cancel any background poll
+    if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
+    setBackgrounded(false);
+    try { localStorage.removeItem("dr-background-search"); } catch {}
+  };
+
+  // User tapped "↓ LET IT RUN IN BACKGROUND" on the loading screen
+  const handleBackground = () => {
+    try {
+      localStorage.setItem("dr-background-search", JSON.stringify({
+        query: loadingQuery, city, area, locMode, radius,
+        startTime: Date.now(),
+      }));
+    } catch {}
+    setBackgrounded(true);
+  };
+
+  // User tapped the READY banner → open results
+  const handleBannerTap = () => {
+    handleAnalysisDone();
+  };
+
+  // User tapped X on the banner → cancel the whole search
+  const handleBannerCancel = () => {
+    stopSearch(); // also clears bgPollRef, backgrounded, and localStorage key
   };
 
   // Retry the last interrupted search (reuses cached result if server completed it)
@@ -776,10 +862,12 @@ function DishIntel() {
     setTimeout(() => runSearch(searchedDish, city, locMode, area, radius), 50);
   };
 
-  // Called by LoadingTracker when all stages complete and API is done
+  // Called by LoadingTracker (foreground) or BackgroundBanner tap (background mode)
   const handleAnalysisDone = () => {
+    if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
+    try { localStorage.removeItem("dr-background-search"); } catch {}
     const target = pendingPhase || "done";
-    setPendingPhase(""); setApiComplete(false);
+    setBackgrounded(false); setPendingPhase(""); setApiComplete(false);
     setPhase(target);
     try { localStorage.removeItem("dr-active-search"); } catch {}
   };
@@ -2177,8 +2265,8 @@ function DishIntel() {
         locationHint={city}
       />
 
-      {/* ── Full-screen loading overlay ─────────────────────────────── */}
-      {isSearching && (
+      {/* ── Full-screen loading overlay (foreground mode) ──────────── */}
+      {isSearching && !backgrounded && (
         <LoadingTracker
           query={loadingQuery}
           dish={searchedDish || loadingQuery}
@@ -2187,9 +2275,20 @@ function DishIntel() {
           apiDone={apiComplete}
           onDone={handleAnalysisDone}
           onStop={stopSearch}
+          onBackground={handleBackground}
           searchMode={searchMode}
           tiles={activeTiles}
           resultCount={apiComplete ? restaurants.length : undefined}
+        />
+      )}
+
+      {/* ── Background banner (working → ready) ────────────────────── */}
+      {backgrounded && (
+        <BackgroundBanner
+          dish={loadingQuery}
+          isReady={apiComplete}
+          onTap={handleBannerTap}
+          onCancel={handleBannerCancel}
         />
       )}
 
