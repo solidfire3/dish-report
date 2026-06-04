@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { buildTags, computeSignature, makeIdentityKey } from "@/lib/search-signature";
-import { getTilesForLocation } from "@/lib/metro-tiles";
+import { getTilesForLocation, getMetroForLocation, normalizeLocation } from "@/lib/metro-tiles";
 import { extractJson } from "@/lib/extract-json";
 
 const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
@@ -352,9 +352,26 @@ export async function POST(req: Request) {
       regionKey,     // sorted region IDs for unique cache key, e.g. "central,coastal"
     } = await req.json();
 
+    // ── Normalize regionKey so equivalent region sets share one cache entry ───
+    // Problem: auto-tiled searches (no regionKey) and Refine "all regions selected"
+    // searches run identical tiles but produced different cache keys, causing expensive
+    // re-runs that should be free cache hits.
+    // Fix: when no regionKey is provided and no explicit tileQueries override exists,
+    // derive the canonical "all regions" key from the metro config — the same string
+    // the Refine step would produce when every region is checked.
+    // Subset selections (e.g. "central,coastal" only) keep their explicit key and
+    // never collide with the full-city key.
+    const effectiveRegionKey: string | null = (() => {
+      if (regionKey) return regionKey as string;   // explicit Refine selection — use as-is
+      if (tileQueries) return null;                // explicit tiles without a key (non-metro path)
+      // Auto-tile path: canonicalize to "all regions sorted" for metro cities
+      const metro = getMetroForLocation(normalizeLocation((city as string) || ""));
+      return metro ? metro.regions.map(r => r.id).sort().join(",") : null;
+    })();
+
     // ── Piece 1: Quick cache check — DB lookup only, no pipeline ─────────────
     if (mode === "quick") {
-      const tags = buildTags({ dish, city, area, locMode, radius, regionKey: regionKey ?? null });
+      const tags = buildTags({ dish, city, area, locMode, radius, regionKey: effectiveRegionKey });
       const sig  = computeSignature(tags);
       const cached = await lookupCache(sig);
       if (cached?.results && new Date(cached.expires_at).getTime() > Date.now()) {
@@ -366,11 +383,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ hit: false });
     }
 
-    // ── Classify ──────────────────────────────────────────────────────────────
+    // ── Classify — lightweight 3-way routing, uses Haiku (no web search needed) ──
     if (mode === "classify") {
       if (hasLocationIntent(dish || "")) return NextResponse.json(LOCATION_QUESTIONS);
       const msg = await client.messages.create({
-        model: "claude-sonnet-4-6", max_tokens: 700,
+        model: "claude-haiku-4-5-20251001", max_tokens: 200,
         system: CLASSIFY_PROMPT,
         messages: [{ role: "user", content: `Dish query: "${dish}"` }],
       });
@@ -387,7 +404,7 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     }
 
-    const tags = buildTags({ dish, city, area, locMode, radius, regionKey: regionKey ?? null });
+    const tags = buildTags({ dish, city, area, locMode, radius, regionKey: effectiveRegionKey });
     const sig  = computeSignature(tags);
 
     // Check DB cache (unless forceRefresh explicitly bypasses it)
