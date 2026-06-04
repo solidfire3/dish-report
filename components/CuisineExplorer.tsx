@@ -9,9 +9,16 @@ const LC_TEXT  = "#1c3b35";
 const LC_CHIP  = "#eef3f0";
 const LC_MUTED = "#4a6962";
 
-type Props = { onDishSelect: (dish: string) => void };
+type Props = {
+  onDishSelect:   (dish: string) => void;
+  onSearchNow?:   (term: string | null) => void;
+};
 
-export function CuisineExplorer({ onDishSelect }: Props) {
+function trunc(s: string, max = 17): string {
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+export function CuisineExplorer({ onDishSelect, onSearchNow }: Props) {
   const [region,  setRegion]  = useState<string | null>(null);
   const [cuisine, setCuisine] = useState<string | null>(null);
 
@@ -29,29 +36,21 @@ export function CuisineExplorer({ onDishSelect }: Props) {
     display: "inline-flex", alignItems: "center",
   };
 
-  const Chip = ({
-    label, active, onClick,
-  }: { label: string; active?: boolean; onClick: () => void }) => (
+  const Chip = ({ label, active, onClick }: { label: string; active?: boolean; onClick: () => void }) => (
     <button
       onClick={onClick}
       style={{
         ...chipBase,
-        background: active ? LC_TEXT   : LC_CHIP,
-        color:      active ? LC_BG     : LC_TEXT,
-        borderColor: active ? LC_TEXT  : LC_BDR,
+        background: active ? LC_TEXT  : LC_CHIP,
+        color:      active ? LC_BG    : LC_TEXT,
+        borderColor: active ? LC_TEXT : LC_BDR,
         fontWeight: active ? 700 : 400,
       }}
       onMouseEnter={e => {
-        if (!active) {
-          e.currentTarget.style.background  = LC_BG;
-          e.currentTarget.style.borderColor = LC_TEXT;
-        }
+        if (!active) { e.currentTarget.style.background = LC_BG; e.currentTarget.style.borderColor = LC_TEXT; }
       }}
       onMouseLeave={e => {
-        if (!active) {
-          e.currentTarget.style.background  = LC_CHIP;
-          e.currentTarget.style.borderColor = LC_BDR;
-        }
+        if (!active) { e.currentTarget.style.background = LC_CHIP; e.currentTarget.style.borderColor = LC_BDR; }
       }}
     >{label}</button>
   );
@@ -59,22 +58,9 @@ export function CuisineExplorer({ onDishSelect }: Props) {
   const DishChip = ({ label }: { label: string }) => (
     <button
       onClick={() => onDishSelect(label)}
-      style={{
-        ...chipBase,
-        background: LC_BG,
-        color: LC_TEXT,
-        borderColor: LC_TEXT,
-        fontWeight: 500,
-        gap: 6,
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.background  = LC_TEXT;
-        e.currentTarget.style.color       = LC_BG;
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background  = LC_BG;
-        e.currentTarget.style.color       = LC_TEXT;
-      }}
+      style={{ ...chipBase, background: LC_BG, color: LC_TEXT, borderColor: LC_TEXT, fontWeight: 500, gap: 6 }}
+      onMouseEnter={e => { e.currentTarget.style.background = LC_TEXT; e.currentTarget.style.color = LC_BG; }}
+      onMouseLeave={e => { e.currentTarget.style.background = LC_BG; e.currentTarget.style.color = LC_TEXT; }}
     >
       {label}
       <span style={{ opacity: 0.55, fontSize: "0.6rem" }}>→</span>
@@ -88,19 +74,42 @@ export function CuisineExplorer({ onDishSelect }: Props) {
         background: "none", border: "none", cursor: "pointer",
         fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.625rem",
         letterSpacing: "0.10em", color: LC_MUTED,
-        textDecoration: "underline", textUnderlineOffset: 3,
-        padding: "2px 0",
+        textDecoration: "underline", textUnderlineOffset: 3, padding: "2px 0",
       }}
     >{label}</button>
   );
 
+  // SEARCH NOW button — always visible at bottom of explorer
+  const searchNowLabel = cuisine
+    ? `SEARCH ${trunc(cuisine.toUpperCase())}`
+    : region
+      ? `SEARCH ${trunc(region.toUpperCase())}`
+      : "OPEN SEARCH";
+
+  const SearchNow = () => (
+    <button
+      onClick={() => onSearchNow?.(cuisine || region || null)}
+      style={{
+        background: LC_TEXT, border: `1px solid ${LC_TEXT}`,
+        borderRadius: 6, padding: "7px 14px",
+        fontFamily: "'IBM Plex Mono',monospace",
+        fontSize: "0.625rem", fontWeight: 700,
+        color: LC_BG, letterSpacing: "0.12em",
+        textTransform: "uppercase", cursor: "pointer",
+        transition: "opacity 0.12s",
+        whiteSpace: "nowrap",
+        display: "inline-flex", alignItems: "center", gap: 6,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.opacity = "0.82"; }}
+      onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+    >
+      {searchNowLabel}
+      <span style={{ fontSize: "0.55rem", opacity: 0.7 }}>→</span>
+    </button>
+  );
+
   return (
-    <div style={{
-      background: LC_BG,
-      border: `1px solid ${LC_BDR}`,
-      borderRadius: 12,
-      padding: "18px 16px 20px",
-    }}>
+    <div style={{ background: LC_BG, border: `1px solid ${LC_BDR}`, borderRadius: 12, padding: "18px 16px 16px" }}>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <div style={{
@@ -108,9 +117,7 @@ export function CuisineExplorer({ onDishSelect }: Props) {
           fontSize: "0.75rem", fontWeight: 700,
           color: LC_TEXT, letterSpacing: "0.12em",
           textTransform: "uppercase", marginBottom: 4,
-        }}>
-          WHAT ARE YOU IN THE MOOD FOR?
-        </div>
+        }}>WHAT ARE YOU IN THE MOOD FOR?</div>
         <div style={{
           fontFamily: "'IBM Plex Mono',monospace",
           fontSize: "0.5625rem", color: LC_MUTED,
@@ -126,7 +133,7 @@ export function CuisineExplorer({ onDishSelect }: Props) {
 
       {/* Level 1 — regions */}
       {!region && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
           {CUISINE_EXPLORER.map(r => (
             <Chip key={r.label} label={r.label} onClick={() => setRegion(r.label)} />
           ))}
@@ -154,17 +161,20 @@ export function CuisineExplorer({ onDishSelect }: Props) {
             ))}
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <StartOver
-              label="← Back to cuisines"
-              onClick={() => setCuisine(null)}
-            />
-            <StartOver
-              label="Start over"
-              onClick={() => { setRegion(null); setCuisine(null); }}
-            />
+            <StartOver label="← Back" onClick={() => setCuisine(null)} />
+            <StartOver label="Start over" onClick={() => { setRegion(null); setCuisine(null); }} />
           </div>
         </>
       )}
+
+      {/* SEARCH NOW — persistent escape at every level */}
+      <div style={{
+        marginTop: 14,
+        display: "flex", justifyContent: "flex-end",
+        borderTop: `1px solid ${LC_BDR}`, paddingTop: 12,
+      }}>
+        <SearchNow />
+      </div>
     </div>
   );
 }

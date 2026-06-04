@@ -16,7 +16,7 @@ const CUISINES = [
 
 const DINING_STYLES = [
   "Dine-in", "Takeout", "Delivery", "Late night",
-  "Brunch", "Happy hour", "Special occasions", "Quick lunch",
+  "Brunch", "Date night", "Special occasions", "Quick lunch",
 ];
 
 const GROUP_SIZES = ["Solo", "Couple", "Small group (3–4)", "Large group (5+)"];

@@ -30,6 +30,27 @@ function sortByScore(results: Restaurant[]): Restaurant[] {
   return [...results].sort((a, b) => (b.food_score ?? 0) - (a.food_score ?? 0));
 }
 
+// Score colors tuned for the LIGHT card background (#dde6e2)
+function lightScoreColor(score: number): string {
+  if (score >= 9) return "#2a9b63";
+  if (score >= 8) return "#5a9a35";
+  if (score >= 7) return "#c79320";
+  if (score >= 6) return "#c2632a";
+  return "#c0392b";
+}
+
+// Seeded Fisher-Yates shuffle — deterministic but varies per call with Date.now() seed
+function shuffleSeeded<T>(arr: T[], seed: number): T[] {
+  const a = [...arr];
+  let s = (seed >>> 0) || 1;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0;
+    const j = s % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // ─── RESTAURANT NAME DETECTOR ─────────────────────────────────────────────────
 // Runs client-side before any API call — catches both terminal and bar searches.
 // Returns true when the query is almost certainly a specific venue name, not a dish.
@@ -116,9 +137,9 @@ function generateSuggestions(locationLabel: string): Suggestion[] {
     { text: `Top dinner spots near ${locationLabel}`, initial: "D" },
     { text: "Korean BBQ worth the wait tonight", initial: "K" },
     { text: "Best pasta open for dinner", initial: "P" },
-    { text: "Happy hour deals near me right now", initial: "H" },
     { text: "Date-night worthy in the area", initial: "D" },
     { text: "Best sushi open for dinner tonight", initial: "S" },
+    { text: "Cozy spots for dinner tonight", initial: "C" },
   ];
   return [
     { text: `Open late near ${locationLabel}`, initial: "L" },
@@ -135,7 +156,7 @@ const HERO_EXAMPLES = [
   "Best birria tacos open now near Serra Mesa",
   "Top ramen spots within 2 miles",
   "Where to take clients for dinner tonight",
-  "Best happy hour in North Park right now",
+  "Best omakase under $100 near me",
   "Carnitas that travel well for takeout",
   "Late night Korean BBQ near downtown",
 ];
@@ -144,8 +165,8 @@ const HERO_EXAMPLES = [
 const HERO_FILTERS = [
   { label: "Open now",   query: "open now restaurants near me" },
   { label: "Takeout",    query: "best takeout near me" },
-  { label: "Happy hour", query: "happy hour deals near me" },
   { label: "Late night", query: "late night food near me" },
+  { label: "Date night", query: "date night restaurant near me" },
 ];
 
 // ─── NEAR YOU CARD ────────────────────────────────────────────────────────────
@@ -277,10 +298,11 @@ const LC_BDR   = "#b9c7c1";
 const LC_TEXT  = "#1c3b35";
 const LC_CHIP  = "#eef3f0";
 
-function SectionContent({ dark: _dark, isSearching: _isSearching, handleBrowse, onDishPreFill }: {
+function SectionContent({ dark: _dark, isSearching: _isSearching, handleBrowse, onDishPreFill, onExplorerSearchNow }: {
   dark: boolean; isSearching: boolean;
   handleBrowse: (q: string) => void;
   onDishPreFill: (dish: string) => void;
+  onExplorerSearchNow: (term: string | null) => void;
 }) {
   const [showMoreDishes, setShowMoreDishes] = useState(false);
   const sectionTitle: React.CSSProperties = {
@@ -310,7 +332,7 @@ function SectionContent({ dark: _dark, isSearching: _isSearching, handleBrowse, 
     <>
       {/* ── Cuisine Explorer ──────────────────────────────────────────────── */}
       <section style={{ paddingBottom: 24 }}>
-        <CuisineExplorer onDishSelect={onDishPreFill} />
+        <CuisineExplorer onDishSelect={onDishPreFill} onSearchNow={onExplorerSearchNow} />
       </section>
 
       {/* ── Common Dishes quick-launch chips ─────────────────────────────── */}
@@ -446,6 +468,11 @@ function DishIntel() {
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [backgrounded,  setBackgrounded] = useState(false);   // search demoted to banner
   const [blockToast,    setBlockToast]   = useState(false);   // "search in progress" notice
+  // Near You Now — real high-scored restaurants from DB, shuffled on each page load
+  const [nearYouRests, setNearYouRests] = useState<Array<{
+    id: string; name: string; food_score: number;
+    neighborhood: string | null; cuisine: string | null;
+  }>>([]);
   const [terminalInitialQuery, setTerminalInitialQuery] = useState("");
   const [staleSearch,   setStaleSearch]  = useState<{ query: string; fresh: boolean } | null>(null);
   const [searchedDish,  setSearchedDish] = useState("");
@@ -707,6 +734,24 @@ function DishIntel() {
       } catch { /* GPS failed silently */ }
     }, () => { /* permission denied — silently continue */ });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Near You Now — fetch high-scored restaurants near the current city on load/city change
+  useEffect(() => {
+    if (!city) return;
+    sb().from("restaurants")
+      .select("id, name, food_score, neighborhood, cuisine")
+      .ilike("address", `%${city}%`)
+      .not("food_score", "is", null)
+      .gte("food_score", 7.0)
+      .order("food_score", { ascending: false })
+      .limit(30)
+      .then(({ data }) => {
+        if (!data?.length) return;
+        type NearRest = { id: string; name: string; food_score: number; neighborhood: string | null; cuisine: string | null };
+        const shuffled = shuffleSeeded(data as NearRest[], Date.now());
+        setNearYouRests(shuffled.slice(0, 6));
+      });
+  }, [city]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-search from URL params (dashboard → re-search)
   useEffect(() => {
@@ -1948,58 +1993,64 @@ function DishIntel() {
                 </div>
               )}
 
-              {/* ── SECTION 3: NEAR YOU NOW — 2×3 square-card grid ────── */}
-              {suggestions.length > 0 && (
+              {/* ── SECTION 3: NEAR YOU NOW — compact 2×3 light-card grid ── */}
+              {nearYouRests.length > 0 && (
                 <section style={{ paddingTop: 28, paddingBottom: 24 }}>
                   <div style={{
                     fontFamily: "'IBM Plex Mono',monospace",
                     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
                     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
-                  textAlign: "center" }}>NEAR YOU NOW</div>
-                  {/* Match CategoryBrowse card style exactly: same radius, padding, minHeight, fonts */}
-                  <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" as const }}>
-                    {suggestions.slice(0, 6).map((s, i) => (
-                      <div
-                        key={i}
-                        onClick={() => handleBrowse(s.text)}
+                    textAlign: "center",
+                  }}>NEAR YOU NOW</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {nearYouRests.slice(0, 6).map(r => (
+                      <button
+                        key={r.id}
+                        onClick={() => handleDeepDive(r.name, city, r.food_score, r.id)}
                         style={{
                           background: LC_BG, border: `1px solid ${LC_BDR}`,
-                          borderRadius: 12, padding: 14,
-                          minHeight: 140, width: 160, flexShrink: 0,
-                          cursor: "pointer",
-                          display: "flex", flexDirection: "column",
-                          transition: "border-color 0.15s, box-shadow 0.15s",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                          borderRadius: 10, padding: "10px 11px",
+                          textAlign: "left", cursor: "pointer",
+                          transition: "border-color 0.15s",
+                          display: "flex", flexDirection: "column", gap: 4,
+                          minHeight: 80,
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = LC_TEXT; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px rgba(28,59,53,0.12)"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = LC_BDR; (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)"; }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = LC_TEXT; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = LC_BDR; }}
                       >
-                        {/* Initial */}
+                        {/* Top row: category label + score */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div style={{
+                            fontFamily: "'IBM Plex Mono',monospace",
+                            fontSize: "0.4375rem", color: "#4a6b64", letterSpacing: "0.10em",
+                            textTransform: "uppercase", lineHeight: 1.2,
+                            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                            maxWidth: "62%",
+                          }}>{r.cuisine || "Restaurant"}</div>
+                          <div style={{
+                            fontFamily: "'IBM Plex Mono',monospace",
+                            fontSize: "0.875rem", fontWeight: 700, lineHeight: 1,
+                            color: lightScoreColor(r.food_score), flexShrink: 0,
+                          }}>{r.food_score.toFixed(1)}</div>
+                        </div>
+                        {/* Restaurant name */}
                         <div style={{
-                          fontFamily: "var(--font-orbitron),'Courier New',monospace",
-                          fontSize: "1.75rem", fontWeight: 900, lineHeight: 1,
-                          color: "rgba(28,59,53,0.18)", letterSpacing: "0.02em", marginBottom: 8,
-                        }}>{s.initial}</div>
-                        {/* Query text */}
-                        <div style={{
-                          fontFamily: "'IBM Plex Mono','Courier New',monospace",
-                          fontSize: "0.75rem", fontWeight: 700, lineHeight: 1.2,
-                          color: LC_TEXT, letterSpacing: "0.02em", marginBottom: 4,
+                          fontFamily: "'Playfair Display',serif",
+                          fontSize: "0.75rem", fontWeight: 600, lineHeight: 1.25,
+                          color: "#1c3b35", flex: 1,
                           overflow: "hidden", display: "-webkit-box",
                           WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-                        }}>{s.text.split(" near ")[0]}</div>
-                        {/* Descriptor */}
-                        <div style={{
-                          fontFamily: "'DM Sans','Inter',sans-serif",
-                          fontSize: "0.72rem", color: "#4a6962", lineHeight: 1.3, flex: 1,
-                        }}>{s.text.includes(" near ") ? `near ${s.text.split(" near ")[1]}` : "tap to search"}</div>
-                        {/* Hint */}
-                        <div style={{
-                          fontFamily: "'IBM Plex Mono',monospace",
-                          fontSize: 8, color: LC_TEXT, opacity: 0.45,
-                          textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 10,
-                        }}>Tap to search</div>
-                      </div>
+                        }}>{r.name}</div>
+                        {/* Neighborhood */}
+                        {r.neighborhood && (
+                          <div style={{
+                            fontFamily: "'IBM Plex Mono',monospace",
+                            fontSize: 7, color: "#5f857d", letterSpacing: "0.07em",
+                            textTransform: "uppercase", lineHeight: 1.2,
+                            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                          }}>{r.neighborhood}</div>
+                        )}
+                      </button>
                     ))}
                   </div>
                 </section>
@@ -2011,6 +2062,7 @@ function DishIntel() {
                 isSearching={isSearching}
                 handleBrowse={handleBrowse}
                 onDishPreFill={handleDishPreFill}
+                onExplorerSearchNow={(term) => term ? handleBrowse(term) : setShowTerminal(true)}
               />
             </>
           )}
