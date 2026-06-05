@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter, IBM_Plex_Mono, DM_Sans, Orbitron } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const playfair  = Playfair_Display({ subsets: ["latin"], weight: ["400", "700"],            variable: "--font-playfair",  display: "swap" });
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${playfair.variable} ${inter.variable} ${mono.variable} ${dmSans.variable} ${orbitron.variable}`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );

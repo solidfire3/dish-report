@@ -23,6 +23,7 @@ import { Browse }                                   from "@/components/CategoryB
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
 import { getTilesForLocation, normalizeLocation, getMetroForLocation, detectRegionFromNeighborhood, type MetroConfig } from "@/lib/metro-tiles";
 import { applyFontSize, persistFontSize, getStoredFontSize, type FontSize } from "@/lib/font-scale";
+import { track } from "@vercel/analytics";
 import {
   Clock, ShoppingBag, Moon, Sparkles, Warehouse,
   MapPin, UtensilsCrossed, Globe,
@@ -1204,6 +1205,10 @@ function DishIntel() {
     const trimmed = q.trim();
     if (!trimmed) return;
 
+    // Track search submission for all users (anon + signed-in)
+    // Vercel Analytics captures this without any DB or PII risk.
+    track("search_submitted", { query: trimmed.slice(0, 80), city });
+
     // ── Pre-flight validation ────────────────────────────────────────────────
     // Catch obviously malformed queries before they consume an Anthropic call.
     if (trimmed.length < 2) {
@@ -1325,6 +1330,7 @@ function DishIntel() {
     restaurantId?: string, googlePlaceId?: string, address?: string
   ) => {
     if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
+    track("deep_dive", { restaurant: name.slice(0, 80), city: cityStr || ddCity });
     const c = cityStr || ddCity;
     // Cache key priority: google place_id > internal restaurant_id > name+city
     const cacheKey = googlePlaceId
