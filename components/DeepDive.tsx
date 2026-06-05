@@ -6,6 +6,15 @@ import type {
 } from "@/lib/types";
 import { gURL, dirURL } from "@/lib/dish-shared";
 import { ScoreRing, PriceTag, VenueBadge, PlacesPhotoStrip } from "@/components/RestaurantCard";
+import { ChefHat, Lightbulb, Info, type LucideIcon } from "lucide-react";
+import { IC_STROKE, IC_XS } from "@/lib/icons";
+
+// Badge icon map — used in QUICK READ badges
+const BADGE_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
+  "#1 DISH":     { Icon: ChefHat,   color: "#3fd98a" },
+  "TOP INSIGHT": { Icon: Lightbulb, color: "#e8b133" },
+  "BEST ADVICE": { Icon: Info,      color: "#e07b5c" },
+};
 
 // ─── THEME — Lumon palette (dark teal surfaces always) ────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -485,8 +494,12 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
                     fontFamily: "'IBM Plex Mono',monospace",
                     fontSize: "0.5rem", fontWeight: 700,
                     color: b.color, letterSpacing: "0.18em",
-                    textTransform: "uppercase", marginBottom: 5, opacity: 0.8,
-                  }}>{b.label}</div>
+                    textTransform: "uppercase", marginBottom: 5, opacity: 0.85,
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    {(() => { const bi = BADGE_ICONS[b.label]; return bi ? <bi.Icon size={IC_XS} strokeWidth={IC_STROKE} color={bi.color} /> : null; })()}
+                    {b.label}
+                  </div>
                   <div style={{
                     fontFamily: "'Inter',sans-serif",
                     fontSize: "0.8rem", fontWeight: 500,

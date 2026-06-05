@@ -2,52 +2,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import {
+  ChevronLeft, ChevronRight, Menu, X, User as UserIcon,
+  Home, Heart, BookMarked, Search, Info, HelpCircle,
+} from "lucide-react";
 import type { FontSize } from "@/lib/font-scale";
-
-// ─── ICONS ───────────────────────────────────────────────────────────────────
-const SunIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="5" />
-    <line x1="12" y1="1"  x2="12" y2="3"  /><line x1="12" y1="21" x2="12" y2="23" />
-    <line x1="1"  y1="12" x2="3"  y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
-    <line x1="4.22" y1="4.22"   x2="5.64"  y2="5.64"  />
-    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-    <line x1="4.22"  y1="19.78" x2="5.64"  y2="18.36" />
-    <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"  />
-  </svg>
-);
-const MoonIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-  </svg>
-);
-const ChevronLeftIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
-const HamburgerIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round">
-    <line x1="3" y1="6"  x2="21" y2="6"  />
-    <line x1="3" y1="12" x2="21" y2="12" />
-    <line x1="3" y1="18" x2="21" y2="18" />
-  </svg>
-);
-const XIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round">
-    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-const ChevronRightNav = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round">
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-);
+import { IC_STROKE } from "@/lib/icons";
 
 // ─── BACK BUTTON ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -64,7 +24,7 @@ export function BackBtn({ onBack, dark: _dark = false }: { onBack: () => void; d
       }}
       onMouseEnter={e => { e.currentTarget.style.color = "#7fe3c8"; e.currentTarget.style.borderColor = "#7fe3c8"; }}
       onMouseLeave={e => { e.currentTarget.style.color = "#7a8e8a"; e.currentTarget.style.borderColor = "#b9c4bf"; }}
-    ><ChevronLeftIcon /></button>
+    ><ChevronLeft size={18} strokeWidth={IC_STROKE} /></button>
   );
 }
 
@@ -115,13 +75,13 @@ export function Header({
   const shadow       = "0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)";
 
   // ── Nav panel items ─────────────────────────────────────────────────────────
-  const navItems: { label: string; sub: string; onClick: () => void }[] = [
-    { label: "Home",        sub: "Back to search",       onClick: () => { setShowNav(false); router.push("/"); } },
-    { label: "Favorites",   sub: "Saved spots",          onClick: () => { setShowNav(false); onFavsClick?.(); } },
-    { label: "My Lists",    sub: "Saved collections",    onClick: () => { setShowNav(false); router.push("/dashboard/lists"); } },
-    { label: "My Searches", sub: "Recent searches",      onClick: () => { setShowNav(false); router.push("/dashboard/searches"); } },
-    { label: "About",       sub: "How Dish Report works",onClick: () => { setShowNav(false); router.push("/about"); } },
-    { label: "Help",        sub: "Report an issue",      onClick: () => { setShowNav(false); router.push("/help"); } },
+  const navItems: { label: string; sub: string; onClick: () => void; Icon: typeof Home }[] = [
+    { label: "Home",        sub: "Back to search",        onClick: () => { setShowNav(false); router.push("/"); },                 Icon: Home },
+    { label: "Favorites",   sub: "Saved spots",           onClick: () => { setShowNav(false); onFavsClick?.(); },                  Icon: Heart },
+    { label: "My Lists",    sub: "Saved collections",     onClick: () => { setShowNav(false); router.push("/dashboard/lists"); },    Icon: BookMarked },
+    { label: "My Searches", sub: "Recent searches",       onClick: () => { setShowNav(false); router.push("/dashboard/searches"); }, Icon: Search },
+    { label: "About",       sub: "How Dish Report works", onClick: () => { setShowNav(false); router.push("/about"); },             Icon: Info },
+    { label: "Help",        sub: "Report an issue",       onClick: () => { setShowNav(false); router.push("/help"); },              Icon: HelpCircle },
   ];
 
   return (
@@ -221,10 +181,7 @@ export function Header({
                 onMouseEnter={e => { e.currentTarget.style.background = "#24433e"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = accentLight; }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
+                <UserIcon size={12} strokeWidth={IC_STROKE} />
                 <span className="dr-signin-label">ACCOUNT</span>
               </button>
             ) : (
@@ -293,7 +250,7 @@ export function Header({
               }}
               onMouseEnter={e => { e.currentTarget.style.color = accent; e.currentTarget.style.borderColor = accent; }}
               onMouseLeave={e => { e.currentTarget.style.color = secondary; e.currentTarget.style.borderColor = borderStrong; }}
-            ><HamburgerIcon /></button>
+            ><Menu size={20} strokeWidth={IC_STROKE} /></button>
           </div>
         </div>
       </header>
@@ -346,7 +303,7 @@ export function Header({
             }}
             onMouseEnter={e => { e.currentTarget.style.color = "#7fe3c8"; e.currentTarget.style.borderColor = "#7fe3c8"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "#8aa9a2"; e.currentTarget.style.borderColor = "#2c4a44"; }}
-          ><XIcon /></button>
+          ><X size={20} strokeWidth={IC_STROKE} /></button>
         </div>
 
         {/* User info */}
@@ -405,15 +362,17 @@ export function Header({
               onClick={item.onClick}
               style={{
                 width: "100%", background: "none", border: "none",
-                padding: "14px 20px", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "13px 20px", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 12,
                 borderBottom: "1px solid #111",
                 transition: "background 0.15s",
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1b332e"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
             >
-              <div style={{ textAlign: "left" }}>
+              {/* Nav icon — teal on dark */}
+              <item.Icon size={16} strokeWidth={IC_STROKE} style={{ color: "#7fe3c8", flexShrink: 0 }} />
+              <div style={{ textAlign: "left", flex: 1 }}>
                 <div style={{
                   fontFamily: "'IBM Plex Mono','Courier New',monospace",
                   fontSize: "0.8rem", fontWeight: 500, color: "#f0f4f1",
@@ -425,7 +384,7 @@ export function Header({
                   textTransform: "uppercase",
                 }}>{item.sub}</div>
               </div>
-              <ChevronRightNav />
+              <ChevronRight size={14} strokeWidth={IC_STROKE} style={{ color: "#5f857d", flexShrink: 0 }} />
             </button>
           ))}
         </nav>

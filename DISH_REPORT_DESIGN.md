@@ -566,5 +566,69 @@ When building any frontend component for Dish Report:
 
 ---
 
-*Last updated: May 2026*
+---
+
+## Icon System (from v1.4.0)
+
+**Library:** `lucide-react` — thin monoline at `strokeWidth={1.5}`.
+
+**Rule:** Icons appear on navigation, section headers, chips, and action/badge elements. They NEVER appear on result cards or score displays (the score is the hero there).
+
+### Semantic Color Palette
+
+| Token | Hex | Meaning | Used on |
+|---|---|---|---|
+| **teal** (light surface) | `#2f6b5c` | Base / default | Nav, Near You, general actions |
+| **teal** (dark surface) | `#7fe3c8` | Base / default | Dark-card nav, deep-dive badges (#1 Dish) |
+| **amber** | `#b9772e` | Food halls / warmth / markets | Food Halls chip, Top Rated, #1 Dish badge background |
+| **terracotta** | `#c1572f` | Trending / heat / spice | Trending section, BBQ/Flame cuisines, Best Advice badge |
+| **plum** | `#7e5a86` | Explore / global / discovery | Cuisine Explorer, Date Night chip, Top Insight badge |
+
+Color reinforces the icon + label — never the sole signal.
+
+### Size Scale
+
+| Constant | px | Use |
+|---|---|---|
+| `IC_XS` | 14 | Inside chips, inline labels |
+| `IC_SM` | 16 | Section headers, standard inline |
+| `IC_MD` | 18 | Button-level actions |
+| `IC_LG` | 22 | Prominent card-level icons |
+
+### Icon Assignments
+
+**Navigation (nav panel):**
+`Home`, `Heart` (Favorites), `BookMarked` (Lists), `Search` (My Searches), `Info` (About), `HelpCircle` (Help), `ChevronRight` (row arrow), `Menu` (hamburger), `X` (close)
+
+**Home section headers:**
+`MapPin` (Near You Now — teal), `UtensilsCrossed` (Common Dishes — teal), `Globe` (Cuisine Explorer — plum)
+
+**Hero filter chips:**
+`Clock` (Open now), `ShoppingBag` (Takeout), `Moon` (Late night), `Sparkles` (Date night — plum), `Warehouse` (Food halls — amber)
+
+**Deep-dive quick-read badges:**
+`ChefHat` (#1 Dish — vivid green), `Lightbulb` (Top Insight — amber), `Info` (Best Advice — terracotta)
+
+### Cuisine Explorer Icon Mapping
+
+~15 distinct mappings; all other cuisines use the `Utensils` default.
+
+| Icon | Cuisines |
+|---|---|
+| `Pizza` | Italian, Pizza |
+| `Croissant` | French |
+| `Fish` | Japanese, Seafood |
+| `Beef` | Korean, Argentine, Burgers, Steakhouse |
+| `Flame` | BBQ, Cajun / Creole |
+| `CookingPot` | Ethiopian |
+| `Drumstick` | Southern / Soul |
+| `Sandwich` | Sandwiches & Delis |
+| `Coffee` | Breakfast & Brunch |
+| `Leaf` | Vegan / Plant-based |
+| `Warehouse` | Food Halls & Markets |
+| `Utensils` | All other cuisines (default) |
+
+---
+
+*Last updated: June 2026*
 *Version: applies from v1.2.0 onwards*

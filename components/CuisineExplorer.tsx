@@ -1,6 +1,27 @@
 'use client';
 import { useState } from "react";
+import {
+  Utensils, Pizza, Fish, Beef, Sandwich, Croissant, Coffee, Leaf,
+  Flame, Warehouse, CookingPot, Drumstick, type LucideIcon,
+} from "lucide-react";
 import { CUISINE_EXPLORER } from "@/lib/cuisine-explorer";
+import { IC_STROKE, IC_XS } from "@/lib/icons";
+
+// Distinct cuisine → Lucide icon (genuinely fitting food icons only).
+// All unmapped cuisines fall back to the Utensils default.
+const CUISINE_ICON_MAP: Record<string, LucideIcon> = {
+  Pizza:      Pizza,
+  Croissant:  Croissant,
+  Fish:       Fish,
+  Beef:       Beef,
+  Flame:      Flame,
+  CookingPot: CookingPot,
+  Warehouse:  Warehouse,
+  Sandwich:   Sandwich,
+  Coffee:     Coffee,
+  Leaf:       Leaf,
+  Drumstick:  Drumstick,
+};
 
 // Light card palette — home / browse surfaces (not result cards)
 const LC_BG    = "#dde6e2";
@@ -36,24 +57,32 @@ export function CuisineExplorer({ onDishSelect, onSearchNow }: Props) {
     display: "inline-flex", alignItems: "center",
   };
 
-  const Chip = ({ label, active, onClick }: { label: string; active?: boolean; onClick: () => void }) => (
-    <button
-      onClick={onClick}
-      style={{
-        ...chipBase,
-        background: active ? LC_TEXT  : LC_CHIP,
-        color:      active ? LC_BG    : LC_TEXT,
-        borderColor: active ? LC_TEXT : LC_BDR,
-        fontWeight: active ? 700 : 400,
-      }}
-      onMouseEnter={e => {
-        if (!active) { e.currentTarget.style.background = LC_BG; e.currentTarget.style.borderColor = LC_TEXT; }
-      }}
-      onMouseLeave={e => {
-        if (!active) { e.currentTarget.style.background = LC_CHIP; e.currentTarget.style.borderColor = LC_BDR; }
-      }}
-    >{label}</button>
-  );
+  const Chip = ({ label, active, onClick, iconName }: { label: string; active?: boolean; onClick: () => void; iconName?: string }) => {
+    const IconComp: LucideIcon = iconName ? (CUISINE_ICON_MAP[iconName] ?? Utensils) : Utensils;
+    return (
+      <button
+        onClick={onClick}
+        style={{
+          ...chipBase,
+          background: active ? LC_TEXT  : LC_CHIP,
+          color:      active ? LC_BG    : LC_TEXT,
+          borderColor: active ? LC_TEXT : LC_BDR,
+          fontWeight: active ? 700 : 400,
+          gap: iconName ? 5 : 0,
+          paddingLeft: iconName ? 10 : 14,
+        }}
+        onMouseEnter={e => {
+          if (!active) { e.currentTarget.style.background = LC_BG; e.currentTarget.style.borderColor = LC_TEXT; }
+        }}
+        onMouseLeave={e => {
+          if (!active) { e.currentTarget.style.background = LC_CHIP; e.currentTarget.style.borderColor = LC_BDR; }
+        }}
+      >
+        {iconName && <IconComp size={IC_XS} strokeWidth={IC_STROKE} style={{ flexShrink: 0 }} />}
+        {label}
+      </button>
+    );
+  };
 
   const DishChip = ({ label }: { label: string }) => (
     <button
@@ -145,7 +174,7 @@ export function CuisineExplorer({ onDishSelect, onSearchNow }: Props) {
         <>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
             {regionData.cuisines.map(c => (
-              <Chip key={c.label} label={c.label} onClick={() => setCuisine(c.label)} />
+              <Chip key={c.label} label={c.label} onClick={() => setCuisine(c.label)} iconName={c.icon} />
             ))}
           </div>
           <StartOver onClick={() => { setRegion(null); setCuisine(null); }} />

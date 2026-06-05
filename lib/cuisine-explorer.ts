@@ -1,12 +1,15 @@
-export type CuisineEntry = { label: string; dishes: string[] };
+// icon: Lucide icon name. Omit to use the default (Utensils).
+// Only set when Lucide has a genuinely fitting food icon — ~15 distinct
+// out of ~83 cuisines. All others inherit the Utensils default.
+export type CuisineEntry = { label: string; dishes: string[]; icon?: string };
 export type RegionEntry  = { label: string; cuisines: CuisineEntry[] };
 
 export const CUISINE_EXPLORER: RegionEntry[] = [
   {
     label: "East Asian",
     cuisines: [
-      { label: "Japanese",    dishes: ["Ramen", "Sushi", "Tonkatsu", "Yakitori", "Tempura", "Udon", "Okonomiyaki"] },
-      { label: "Korean",      dishes: ["Korean BBQ", "Bibimbap", "Bulgogi", "Sundubu Jjigae", "Japchae", "Tteokbokki", "Doenjang Jjigae"] },
+      { label: "Japanese",    dishes: ["Ramen", "Sushi", "Tonkatsu", "Yakitori", "Tempura", "Udon", "Okonomiyaki"], icon: "Fish" },
+      { label: "Korean",      dishes: ["Korean BBQ", "Bibimbap", "Bulgogi", "Sundubu Jjigae", "Japchae", "Tteokbokki", "Doenjang Jjigae"], icon: "Beef" },
       { label: "Chinese",     dishes: ["Dim Sum", "Peking Duck", "Mapo Tofu", "Kung Pao Chicken", "Hot Pot", "Xiaolongbao", "Dan Dan Noodles"] },
       { label: "Taiwanese",   dishes: ["Beef Noodle Soup", "Scallion Pancake", "Pork Chop Rice", "Braised Pork Rice", "Oyster Vermicelli", "Stinky Tofu"] },
       { label: "Mongolian",   dishes: ["Mongolian BBQ", "Buuz", "Tsuivan", "Khuushuur", "Bantan"] },
@@ -66,8 +69,8 @@ export const CUISINE_EXPLORER: RegionEntry[] = [
   {
     label: "European (West)",
     cuisines: [
-      { label: "Italian",       dishes: ["Pizza", "Pasta Carbonara", "Cacio e Pepe", "Osso Buco", "Risotto", "Bistecca Fiorentina"] },
-      { label: "French",        dishes: ["Steak Frites", "Bouillabaisse", "Coq au Vin", "Croque Monsieur", "Crêpes", "Escargot"] },
+      { label: "Italian",       dishes: ["Pizza", "Pasta Carbonara", "Cacio e Pepe", "Osso Buco", "Risotto", "Bistecca Fiorentina"], icon: "Pizza" },
+      { label: "French",        dishes: ["Steak Frites", "Bouillabaisse", "Coq au Vin", "Croque Monsieur", "Crêpes", "Escargot"], icon: "Croissant" },
       { label: "Spanish",       dishes: ["Paella", "Tapas", "Jamón Ibérico", "Gambas al Ajillo", "Gazpacho", "Patatas Bravas"] },
       { label: "Portuguese",    dishes: ["Bacalhau", "Pastéis de Nata", "Francesinha", "Caldo Verde", "Piri Piri Chicken", "Arroz de Marisco"] },
       { label: "German",        dishes: ["Schnitzel", "Bratwurst", "Spaetzle", "Pretzels", "Sauerbraten", "Currywurst"] },
@@ -106,7 +109,7 @@ export const CUISINE_EXPLORER: RegionEntry[] = [
   {
     label: "African",
     cuisines: [
-      { label: "Ethiopian",   dishes: ["Injera", "Doro Wat", "Kitfo", "Tibs", "Shiro", "Misir Wat", "Gomen"] },
+      { label: "Ethiopian",   dishes: ["Injera", "Doro Wat", "Kitfo", "Tibs", "Shiro", "Misir Wat", "Gomen"], icon: "CookingPot" },
       { label: "Eritrean",    dishes: ["Injera", "Zigni", "Tsebhi Derho", "Ful", "Shiro", "Hilbet"] },
       { label: "Nigerian",    dishes: ["Jollof Rice", "Egusi Soup", "Suya", "Puff Puff", "Pepper Soup", "Fufu & Soup"] },
       { label: "Ghanaian",    dishes: ["Jollof Rice", "Fufu & Light Soup", "Kelewele", "Kontomire Stew", "Waakye", "Red Red"] },
@@ -119,9 +122,9 @@ export const CUISINE_EXPLORER: RegionEntry[] = [
   {
     label: "North American",
     cuisines: [
-      { label: "Southern / Soul", dishes: ["Fried Chicken", "Collard Greens", "Mac & Cheese", "Biscuits & Gravy", "Catfish", "Cornbread"] },
-      { label: "BBQ",             dishes: ["Brisket", "Pulled Pork", "Baby Back Ribs", "Burnt Ends", "Smoked Sausage", "Carolina Pulled Pork"] },
-      { label: "Cajun / Creole",  dishes: ["Gumbo", "Jambalaya", "Crawfish Étouffée", "Po'boys", "Beignets", "Muffuletta"] },
+      { label: "Southern / Soul", dishes: ["Fried Chicken", "Collard Greens", "Mac & Cheese", "Biscuits & Gravy", "Catfish", "Cornbread"], icon: "Drumstick" },
+      { label: "BBQ",             dishes: ["Brisket", "Pulled Pork", "Baby Back Ribs", "Burnt Ends", "Smoked Sausage", "Carolina Pulled Pork"], icon: "Flame" },
+      { label: "Cajun / Creole",  dishes: ["Gumbo", "Jambalaya", "Crawfish Étouffée", "Po'boys", "Beignets", "Muffuletta"], icon: "Flame" },
       { label: "Tex-Mex",         dishes: ["Fajitas", "Queso", "Breakfast Tacos", "Nachos", "Chili", "Enchiladas"] },
       { label: "Hawaiian",        dishes: ["Poke Bowl", "Plate Lunch", "Kalua Pig", "Lomi Lomi Salmon", "Spam Musubi", "Malasadas"] },
       { label: "New American",    dishes: ["Farm-to-Table Tasting", "Craft Burgers", "Lobster Rolls", "Seasonal Small Plates", "Charcuterie"] },
@@ -131,14 +134,14 @@ export const CUISINE_EXPLORER: RegionEntry[] = [
   {
     label: "Specialty",
     cuisines: [
-      { label: "Pizza",               dishes: ["Neapolitan", "NY Slice", "Detroit Style", "Sicilian", "Chicago Deep Dish", "Margherita"] },
-      { label: "Burgers",             dishes: ["Smash Burger", "Classic Pub Burger", "Wagyu Burger", "Double Double", "Mushroom Swiss", "Turkey Burger"] },
-      { label: "Sandwiches & Delis",  dishes: ["Pastrami on Rye", "Italian Sub", "Cubano", "French Dip", "Lobster Roll", "Muffuletta"] },
-      { label: "Seafood",             dishes: ["Oysters", "Lobster", "Dungeness Crab", "Fish Tacos", "Ceviche", "Clam Chowder"] },
-      { label: "Steakhouse",          dishes: ["Ribeye", "Filet Mignon", "Wagyu", "Dry-Aged NY Strip", "Tomahawk", "Surf & Turf"] },
-      { label: "Breakfast & Brunch",  dishes: ["Eggs Benedict", "Chilaquiles", "Avocado Toast", "French Toast", "Shakshuka", "Pancakes"] },
-      { label: "Vegan / Plant-based", dishes: ["Jackfruit Tacos", "Beyond Burger", "Grain Bowls", "Vegan Ramen", "Cauliflower Wings", "Vegan Sushi"] },
-      { label: "Food Halls & Markets", dishes: ["Food hall", "Food market", "Food court", "Street food market", "Artisan food hall"] },
+      { label: "Pizza",               dishes: ["Neapolitan", "NY Slice", "Detroit Style", "Sicilian", "Chicago Deep Dish", "Margherita"], icon: "Pizza" },
+      { label: "Burgers",             dishes: ["Smash Burger", "Classic Pub Burger", "Wagyu Burger", "Double Double", "Mushroom Swiss", "Turkey Burger"], icon: "Beef" },
+      { label: "Sandwiches & Delis",  dishes: ["Pastrami on Rye", "Italian Sub", "Cubano", "French Dip", "Lobster Roll", "Muffuletta"], icon: "Sandwich" },
+      { label: "Seafood",             dishes: ["Oysters", "Lobster", "Dungeness Crab", "Fish Tacos", "Ceviche", "Clam Chowder"], icon: "Fish" },
+      { label: "Steakhouse",          dishes: ["Ribeye", "Filet Mignon", "Wagyu", "Dry-Aged NY Strip", "Tomahawk", "Surf & Turf"], icon: "Beef" },
+      { label: "Breakfast & Brunch",  dishes: ["Eggs Benedict", "Chilaquiles", "Avocado Toast", "French Toast", "Shakshuka", "Pancakes"], icon: "Coffee" },
+      { label: "Vegan / Plant-based", dishes: ["Jackfruit Tacos", "Beyond Burger", "Grain Bowls", "Vegan Ramen", "Cauliflower Wings", "Vegan Sushi"], icon: "Leaf" },
+      { label: "Food Halls & Markets", dishes: ["Food hall", "Food market", "Food court", "Street food market", "Artisan food hall"], icon: "Warehouse" },
     ],
   },
 ];

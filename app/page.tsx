@@ -23,6 +23,11 @@ import { Browse }                                   from "@/components/CategoryB
 import { DeepDiveResult, MarketGuideResult, CompareResult } from "@/components/DeepDive";
 import { getTilesForLocation, normalizeLocation, getMetroForLocation, detectRegionFromNeighborhood, type MetroConfig } from "@/lib/metro-tiles";
 import { applyFontSize, persistFontSize, getStoredFontSize, type FontSize } from "@/lib/font-scale";
+import {
+  Clock, ShoppingBag, Moon, Sparkles, Warehouse,
+  MapPin, UtensilsCrossed, Globe,
+} from "lucide-react";
+import { IC_STROKE, IC_XS, IC_SM, IC_TEAL_L, IC_AMBER_L, IC_PLUM_L } from "@/lib/icons";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 // FIX 1: defensive client-side sort — ensures food_score DESC regardless of server order
@@ -162,12 +167,14 @@ const HERO_EXAMPLES = [
 ];
 
 // ─── QUICK HERO FILTERS ───────────────────────────────────────────────────────
+// Hero filter chip definitions — icon + color pair for each chip
+// Icons only on these browse/action chips, NOT on data/result cards
 const HERO_FILTERS = [
-  { label: "Open now",   query: "open now restaurants near me" },
-  { label: "Takeout",    query: "best takeout near me" },
-  { label: "Late night", query: "late night food near me" },
-  { label: "Date night", query: "date night restaurant near me" },
-  { label: "Food halls", query: "food hall food market" },
+  { label: "Open now",   query: "open now restaurants near me",  Icon: Clock,      color: IC_TEAL_L  },
+  { label: "Takeout",    query: "best takeout near me",          Icon: ShoppingBag, color: IC_TEAL_L  },
+  { label: "Late night", query: "late night food near me",       Icon: Moon,        color: IC_TEAL_L  },
+  { label: "Date night", query: "date night restaurant near me", Icon: Sparkles,    color: IC_PLUM_L  },
+  { label: "Food halls", query: "food hall food market",         Icon: Warehouse,   color: IC_AMBER_L },
 ];
 
 // ─── NEAR YOU CARD ────────────────────────────────────────────────────────────
@@ -338,7 +345,10 @@ function SectionContent({ dark: _dark, isSearching: _isSearching, handleBrowse, 
 
       {/* ── Common Dishes quick-launch chips ─────────────────────────────── */}
       <section style={{ paddingBottom: 28 }}>
-        <div style={sectionTitle}>COMMON DISHES</div>
+        <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 6 }}>
+          <UtensilsCrossed size={IC_SM} strokeWidth={IC_STROKE} color={IC_TEAL_L} />
+          COMMON DISHES
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
           {COMMON_DISHES_PRIMARY.map(dishChip)}
         </div>
@@ -1588,17 +1598,20 @@ function DishIntel() {
                       onClick={() => runSearch(f.query)}
                       style={{
                         background: LC_CHIP, border: `1px solid ${LC_BDR}`,
-                        borderRadius: 20, padding: "0 14px", height: 30,
+                        borderRadius: 20, padding: "0 12px 0 10px", height: 30,
                         fontFamily: "'IBM Plex Mono',monospace",
                         fontSize: 10, color: LC_TEXT,
                         letterSpacing: "0.10em",
                         cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
                         transition: "background 0.12s, border-color 0.12s",
-                        display: "flex", alignItems: "center",
+                        display: "flex", alignItems: "center", gap: 5,
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background = LC_BG; e.currentTarget.style.borderColor = LC_TEXT; }}
                       onMouseLeave={e => { e.currentTarget.style.background = LC_CHIP; e.currentTarget.style.borderColor = LC_BDR; }}
-                    >{f.label}</button>
+                    >
+                      <f.Icon size={IC_XS} strokeWidth={IC_STROKE} color={f.color} />
+                      {f.label}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -2019,7 +2032,11 @@ function DishIntel() {
                     fontSize: "0.75rem", fontWeight: 700, color: "#23413b",
                     textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 12,
                     textAlign: "center",
-                  }}>NEAR YOU NOW</div>
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  }}>
+                    <MapPin size={IC_SM} strokeWidth={IC_STROKE} color={IC_TEAL_L} />
+                    NEAR YOU NOW
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {nearYouRests.slice(0, 6).map(r => (
                       <button
