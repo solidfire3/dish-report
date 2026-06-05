@@ -25,8 +25,9 @@ export type DeepDiveData = {
 };
 
 export type Vendor = {
-  name?: string; specialty?: string; food_score?: number; price_range?: string;
+  name?: string; specialty?: string; price_range?: string;
   the_order?: string; why?: string; insider_note?: string;
+  // food_score intentionally omitted — per-vendor scoring removed (thin data, unreliable)
 };
 
 export type MarketData = {

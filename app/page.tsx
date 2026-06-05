@@ -1676,6 +1676,7 @@ function DishIntel() {
                 onAddToList={openAddToList}
                 onBack={goBack}
                 searchQuery={searchedDish || undefined}
+                isMarket={confirmIsMarket}
               />
             </div>
           ) : (

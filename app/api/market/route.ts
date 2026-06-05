@@ -3,38 +3,38 @@ import { NextResponse } from "next/server";
 import { extractJson } from "@/lib/extract-json";
 
 
-const MARKET_PROMPT = `You are a food market guide generator. The user is visiting a food court, public market, or multi-vendor food destination. Your job: find every vendor at this location and identify THE one thing worth ordering at each — using only food-quality signal from reviews, blogs, and social media.
+// No scores are generated for vendors — per-vendor review data is too thin for reliable grading.
+// This endpoint returns a factual vendor directory: who's inside and what they serve.
+const MARKET_PROMPT = `You are a food hall directory generator. The user wants to know who is inside this food hall, food court, or market and what each vendor serves. Your job: find every vendor at this location and describe their specialty and standout item.
 
-FILTER: INCLUDE food quality, specific items, preparation, freshness, texture, flavor. EXCLUDE service, decor, parking, generic praise.
-
-SCORING per vendor (0-10): same scale — be realistic. 9+ requires overwhelming evidence.
+DO NOT score or rank vendors. DO NOT output any numeric ratings. This is a factual "who's inside and what they serve" list, not a quality ranking.
 
 For each vendor:
-- Find their standout menu item — the one thing people specifically seek them out for
-- WHY it's the move: specific food reason (texture, preparation, freshness, uniqueness)
-- Any food-specific warning if relevant
+- Name and cuisine/concept (3-5 words)
+- The one item people come to this stall for specifically
+- A short specific reason why that item is notable (preparation, freshness, uniqueness) — based only on retrieved sources
+- Any practical note if worth mentioning (cash only, closes early, etc.)
 
-Market description: 2 punchy sentences about what makes this market worth visiting food-wise.
+Hall description: 2 punchy sentences about what makes this food hall worth visiting.
 
 Return ONLY valid JSON:
 {
   "market_name": "string",
   "location": "string (neighborhood, city)",
-  "vibe": "string (2 punchy sentences — food-focused, what's the overall food scene here)",
+  "vibe": "string (2 punchy sentences — what kind of food destination is this)",
   "hours": "string|null",
   "vendors": [
     {
       "name": "string",
-      "specialty": "string (cuisine/concept in 3-5 words, e.g. 'Oaxacan street tacos', 'wood-fired Neapolitan pizza')",
-      "the_order": "string (specific item name — the one thing to get)",
-      "why": "string (1-2 sentences: specific food reason this is THE move at this stall)",
+      "specialty": "string (cuisine/concept in 3-5 words, e.g. 'Oaxacan street tacos', 'wood-fired pizza')",
+      "the_order": "string (specific item name — what people seek out here)",
+      "why": "string (1-2 sentences: what makes this item worth getting — be specific)",
       "price_range": "$|$$|$$$|null",
-      "food_score": number (0-10, one decimal),
-      "insider_note": "string|null (optional: best time, freshness tip, what to ask for — null if nothing notable)"
+      "insider_note": "string|null"
     }
   ]
 }
-Order vendors by food_score descending. Include ALL vendors you can find — don't limit the count.`;
+Include ALL vendors you can find. Do NOT include food_score or any numeric rating.`;
 
 export async function POST(req: Request) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

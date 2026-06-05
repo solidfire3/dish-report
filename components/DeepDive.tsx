@@ -130,9 +130,10 @@ type DeepDiveResultProps = {
   onAddToList?: (target: AddToListTarget) => void;
   onBack?: () => void;
   searchQuery?: string;
+  isMarket?: boolean;  // explicit signal from the confirm step (is_market from deepdive API)
 };
 
-export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, onAddToList, onBack, searchQuery }: DeepDiveResultProps) {
+export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, onAddToList, onBack, searchQuery, isMarket }: DeepDiveResultProps) {
   const [dark, setDark] = useState(false);
   const [photoRefs, setPhotoRefs] = useState<string[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -187,7 +188,9 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
     }
   };
 
-  const showMarket = !!(data.venue_type?.toLowerCase().match(/market|hall|court|food hall/));
+  // Food-hall detection: explicit signal from confirm step OR venue_type from deep-dive analysis.
+  // Graceful fallback: if neither fires, treat as normal restaurant (no vendor list shown).
+  const isFoodHall = !!(isMarket || data.venue_type?.toLowerCase().match(/\bfood hall\b|\bfood court\b|\bmarket\b|\bhall\b|\bcourt\b/));
 
   const outlineBtn = (active = false): React.CSSProperties => ({
     height: 38, padding: "0 14px", borderRadius: 8, cursor: "pointer",
@@ -323,6 +326,25 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             )}
             {data.price_range && <PriceTag price={data.price_range} dark={dark} />}
           </div>
+
+          {/* Food-hall badge — only shown when isFoodHall is confirmed */}
+          {isFoodHall && (
+            <div style={{ marginBottom: 12 }}>
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: "0.625rem", fontWeight: 700,
+                background: "rgba(127,227,200,0.12)",
+                border: "1px solid #7fe3c8",
+                color: "#7fe3c8",
+                padding: "5px 12px", borderRadius: 4,
+                textTransform: "uppercase", letterSpacing: "0.14em",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}>
+                <span style={{ fontSize: "0.55rem", opacity: 0.8 }}>◈</span>
+                Food Hall / Market
+              </span>
+            </div>
+          )}
 
           {/* FIX 2: Vibe tags — solid dark chips */}
           {vibes.length > 0 && (
@@ -730,14 +752,14 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
             </div>
           </div>
 
-          {onMarket && (
+          {isFoodHall && onMarket && (
             <div style={{ paddingTop: 16, paddingBottom: 8 }}>
               <button
                 onClick={() => onMarket(data.name)}
-                style={{ width: "100%", height: 48, borderRadius: 10, background: t.accent, border: "none", color: "#10211e", fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = t.accentHover; }}
-                onMouseLeave={e => { e.currentTarget.style.background = t.accent; }}
-              >View Market Guide — all vendors</button>
+                style={{ width: "100%", height: 48, borderRadius: 10, background: "transparent", border: `1px solid ${t.accent}`, color: t.accent, fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer", transition: "background 0.15s, color 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = t.accentLight; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+              >See vendors inside →</button>
             </div>
           )}
 
@@ -811,7 +833,9 @@ export function DeepDiveResult({ data, city, isFav, onFav, onCompare, onMarket, 
   );
 }
 
-// ─── MARKET GUIDE RESULT ─────────────────────────────────────────────────────
+// ─── VENDOR LIST (replaces scored market guide) ───────────────────────────────
+// Per-vendor scoring removed — thin review data produces unreliable numbers.
+// This shows who's inside and what they serve, honestly, with no rankings.
 export function MarketGuideResult({ data }: { data: MarketData }) {
   const [dark, setDark] = useState(false);
   useEffect(() => { setDark(localStorage.getItem("dr-dark") === "1"); }, []);
@@ -823,61 +847,63 @@ export function MarketGuideResult({ data }: { data: MarketData }) {
     <div style={{ background: t.bg, minHeight: "100vh" }}>
       {/* Header */}
       <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "24px 16px" }}>
-        <div style={{
-          fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700,
-          color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
-        }}>Market Guide</div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.75rem", fontWeight: 700, color: t.text, lineHeight: 1.15, marginBottom: 6 }}>{data.market_name}</div>
-            {data.location && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, marginBottom: 4 }}>{data.location}</div>}
-            {data.hours && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.text }}><span style={{ color: t.tertiary, fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 6 }}>Hours</span>{data.hours}</div>}
-          </div>
-          <div style={{
-            background: t.greenBg, border: `1px solid ${t.greenBorder}`,
-            borderRadius: 10, padding: "10px 14px", textAlign: "center", flexShrink: 0,
-          }}>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "1.75rem", fontWeight: 700, color: t.green, lineHeight: 1 }}>{vendors.length}</div>
-            <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>Vendors</div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{
+            fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.625rem", fontWeight: 700,
+            color: t.accent, textTransform: "uppercase", letterSpacing: "0.14em",
+            background: "rgba(127,227,200,0.10)", border: `1px solid ${t.accentBorder}`,
+            padding: "4px 10px", borderRadius: 4,
+          }}>Food Hall · Vendors Inside</span>
         </div>
-        {data.vibe && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.6, marginTop: 12, padding: "10px 12px", background: t.card2, borderRadius: 8 }}>{data.vibe}</div>}
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.75rem", fontWeight: 700, color: t.text, lineHeight: 1.15, marginBottom: 6 }}>{data.market_name}</div>
+        {data.location && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, marginBottom: 4 }}>{data.location}</div>}
+        {data.hours && (
+          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.875rem", color: t.text, marginBottom: 8 }}>
+            <span style={{ color: t.tertiary, fontWeight: 600, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 6 }}>Hours</span>
+            {data.hours}
+          </div>
+        )}
+        {data.vibe && (
+          <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.875rem", color: t.secondary, lineHeight: 1.6, padding: "10px 12px", background: t.card2, borderRadius: 8 }}>
+            {data.vibe}
+          </div>
+        )}
       </div>
 
-      {/* Vendor list */}
+      {/* Vendor list — no scores, no rankings */}
       <div style={{ padding: "16px 16px 60px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.72rem", fontWeight: 700, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>
-          Best thing at each vendor — ranked by food quality
+        <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.65rem", fontWeight: 700, color: t.tertiary, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>
+          {vendors.length} vendor{vendors.length !== 1 ? "s" : ""} inside
         </div>
-        {vendors.map((v, i) => {
-          const sc = v.food_score ?? 0;
-          const clr = scoreColor(sc, dark);
-          return (
-            <div key={i} style={{ background: t.card, border: `1px solid ${i === 0 ? t.greenBorder : t.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: i === 0 ? t.s2 : t.s1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {i === 0 && <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.green, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Top Pick</div>}
-                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.1rem", fontWeight: 700, color: t.text, lineHeight: 1.2, marginBottom: 3 }}>{v.name || ""}</div>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: t.secondary }}>{v.specialty || ""}</div>
-                </div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: clr, lineHeight: 1 }}>{sc.toFixed(1)}</div>
-              </div>
-              <div style={{ background: t.card2, borderRadius: 8, padding: "10px 12px", marginBottom: v.insider_note ? 8 : 0 }}>
-                <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: t.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Order this</div>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: t.text, marginBottom: 4, lineHeight: 1.2 }}>{v.the_order || ""}</div>
-                <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.825rem", color: t.secondary, lineHeight: 1.55 }}>{v.why || ""}</div>
-              </div>
-              {v.insider_note && (
-                <div style={{
-                  fontSize: "0.825rem", color: t.blue,
-                  background: t.blueBg, border: `1px solid ${t.blueBorder}`,
-                  borderRadius: 6, padding: "8px 10px",
-                  fontFamily: "'DM Sans', 'Inter', sans-serif", lineHeight: 1.5,
-                }}>{v.insider_note}</div>
-              )}
+        {vendors.map((v, i) => (
+          <div key={i} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: t.s1 }}>
+            {/* Vendor name + specialty */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.05rem", fontWeight: 700, color: t.text, lineHeight: 1.2, marginBottom: 3 }}>{v.name || ""}</div>
+              {v.specialty && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: t.tertiary }}>{v.specialty}</div>}
             </div>
-          );
-        })}
+            {/* What to get */}
+            {(v.the_order || v.why) && (
+              <div style={{ background: t.card2, borderRadius: 8, padding: "10px 12px", marginBottom: v.insider_note ? 8 : 0 }}>
+                {v.the_order && (
+                  <>
+                    <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", color: t.accent, textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 4 }}>Order this</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.95rem", fontWeight: 700, color: t.text, marginBottom: v.why ? 4 : 0, lineHeight: 1.2 }}>{v.the_order}</div>
+                  </>
+                )}
+                {v.why && <div style={{ fontFamily: "'DM Sans', 'Inter', sans-serif", fontSize: "0.825rem", color: t.secondary, lineHeight: 1.55 }}>{v.why}</div>}
+              </div>
+            )}
+            {v.insider_note && (
+              <div style={{
+                fontSize: "0.825rem", color: t.blue,
+                background: t.blueBg, border: `1px solid ${t.blueBorder}`,
+                borderRadius: 6, padding: "8px 10px",
+                fontFamily: "'DM Sans', 'Inter', sans-serif", lineHeight: 1.5,
+              }}>{v.insider_note}</div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
