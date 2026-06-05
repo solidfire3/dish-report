@@ -167,6 +167,7 @@ const HERO_FILTERS = [
   { label: "Takeout",    query: "best takeout near me" },
   { label: "Late night", query: "late night food near me" },
   { label: "Date night", query: "date night restaurant near me" },
+  { label: "Food halls", query: "food hall food market" },
 ];
 
 // ─── NEAR YOU CARD ────────────────────────────────────────────────────────────
@@ -467,7 +468,8 @@ function DishIntel() {
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [backgrounded,  setBackgrounded] = useState(false);   // search demoted to banner
-  const [blockToast,    setBlockToast]   = useState(false);   // "search in progress" notice
+  const [blockToast,    setBlockToast]   = useState<string | false>(false); // notice message | false
+  const [queuedSearch,  setQueuedSearch] = useState<{ q: string; filters: FilterState } | null>(null);
   // Near You Now — real high-scored restaurants from DB, shuffled on each page load
   const [nearYouRests, setNearYouRests] = useState<Array<{
     id: string; name: string; food_score: number;
@@ -889,18 +891,20 @@ function DishIntel() {
     abortRef.current = null;
     setApiComplete(false); setPendingPhase("");
     setPhase("idle");
-    // Also cancel any background poll
+    // Also cancel any background poll and queued search
     if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
     setBackgrounded(false);
+    setQueuedSearch(null);
     try { localStorage.removeItem("dr-background-search"); } catch {}
   };
 
-  // Show a brief "search in progress" toast — auto-dismisses in 3.5s
-  const showBlockNotice = () => {
-    setBlockToast(true);
+  // Show a brief notice toast — auto-dismisses in 3.5s
+  const showNotice = (msg: string) => {
+    setBlockToast(msg);
     if (blockToastTimer.current) clearTimeout(blockToastTimer.current);
     blockToastTimer.current = setTimeout(() => setBlockToast(false), 3500);
   };
+  const showBlockNotice = () => showNotice("Search queue full — cancel the running or queued search first.");
 
   // User tapped "↓ LET IT RUN IN BACKGROUND" on the loading screen
   const handleBackground = () => {
@@ -939,6 +943,12 @@ function DishIntel() {
     setBackgrounded(false); setPendingPhase(""); setApiComplete(false);
     setPhase(target);
     try { localStorage.removeItem("dr-active-search"); } catch {}
+    // Auto-start queued search after results are visible
+    if (queuedSearch) {
+      const { q, filters } = queuedSearch;
+      setQueuedSearch(null);
+      setTimeout(() => handleSearchFromBar(q, filters), 120);
+    }
   };
 
   // Run search with explicitly selected regions (from the Refine step).
@@ -1184,7 +1194,16 @@ function DishIntel() {
 
   // Unified search handler — called by SearchBar with (query, filters)
   const handleSearchFromBar = async (q: string, filters: FilterState, skipClassify = false) => {
-    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
+    if (phase === "analyzing" || backgrounded) {
+      // Queue one search while another is running; block a third
+      if (!queuedSearch) {
+        setQueuedSearch({ q, filters });
+        showNotice("Queued — will start when the current search finishes.");
+      } else {
+        showBlockNotice();
+      }
+      return;
+    }
     const trimmed = q.trim();
     if (!trimmed) return;
 
@@ -1259,9 +1278,9 @@ function DishIntel() {
     handleSearchFromBar(d, DEFAULT_FILTERS);
   };
 
-  // Cuisine explorer dish tap: pre-fill the terminal so the user can review/edit before running
+  // Cuisine explorer dish tap: pre-fill the terminal so the user can review/edit before running.
+  // Opening the terminal is always allowed; the search-submission guard is in handleSearchFromBar.
   const handleDishPreFill = (dish: string) => {
-    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     setTerminalInitialQuery(dish);
     setShowTerminal(true);
   };
@@ -2309,7 +2328,7 @@ function DishIntel() {
                 {hasBack && <BackBtn onBack={goBack} dark={dark} />}
                 <button onClick={reset} style={{ marginLeft: "auto", background: "none", border: `1px solid ${border}`, borderRadius: 6, color: secondary, fontFamily: "'Inter',sans-serif", fontSize: "0.75rem", padding: "5px 10px", cursor: "pointer" }}>New search</button>
               </div>
-              <CompareResult data={compareData} originalScore={compareData._originalScore} onDeepDive={(name, _city, score) => handleDeepDive(name, ddCity, score, undefined)} />
+              <CompareResult data={compareData} originalScore={compareData._originalScore} onDeepDive={(name, _city, score) => handleDeepDive(name, ddCity, score, undefined)} city={ddCity} isFav={isFav} onToggleFav={toggleFav} />
             </div>
           )}
 
@@ -2378,7 +2397,7 @@ function DishIntel() {
         />
       )}
 
-      {/* ── "Search in progress" block toast ──────────────────────── */}
+      {/* ── Search notice toast (queued / blocked) ─────────────────── */}
       {blockToast && (
         <div style={{
           position: "fixed",
@@ -2386,7 +2405,7 @@ function DishIntel() {
           left: "50%", transform: "translateX(-50%)",
           zIndex: 9200,
           background: "#10211e",
-          border: "1px solid #e8b133",
+          border: `1px solid ${typeof blockToast === "string" && blockToast.startsWith("Queued") ? "#7fe3c8" : "#e8b133"}`,
           borderRadius: 8,
           padding: "11px 18px",
           maxWidth: "min(380px, calc(100vw - 32px))",
@@ -2396,11 +2415,11 @@ function DishIntel() {
           animation: "toast-in 0.22s cubic-bezier(0.4,0,0.2,1) both",
           pointerEvents: "none",
         }}>
-          <div style={{ fontSize: "0.5rem", color: "#e8b133", letterSpacing: "0.20em", textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
-            SEARCH IN PROGRESS
+          <div style={{ fontSize: "0.5rem", color: typeof blockToast === "string" && blockToast.startsWith("Queued") ? "#7fe3c8" : "#e8b133", letterSpacing: "0.20em", textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
+            {typeof blockToast === "string" && blockToast.startsWith("Queued") ? "QUEUED" : "SEARCH IN PROGRESS"}
           </div>
           <div style={{ fontSize: "0.75rem", color: "#d4e4df", lineHeight: 1.4 }}>
-            Cancel the running search first, or wait for the banner.
+            {typeof blockToast === "string" ? blockToast : "Cancel the running search first."}
           </div>
         </div>
       )}
@@ -2412,6 +2431,7 @@ function DishIntel() {
           isReady={apiComplete}
           onTap={handleBannerTap}
           onCancel={handleBannerCancel}
+          queuedLabel={queuedSearch ? queuedSearch.q.slice(0, 20) : undefined}
         />
       )}
 

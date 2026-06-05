@@ -5,7 +5,7 @@ import type {
   AddToListTarget, AlsoTry,
 } from "@/lib/types";
 import { gURL, dirURL } from "@/lib/dish-shared";
-import { ScoreRing, PriceTag, VenueBadge } from "@/components/RestaurantCard";
+import { ScoreRing, PriceTag, VenueBadge, PlacesPhotoStrip } from "@/components/RestaurantCard";
 
 // ─── THEME — Lumon palette (dark teal surfaces always) ────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -914,12 +914,31 @@ type CompareResultProps = {
   data: CompareData;
   originalScore?: number;
   onDeepDive: (name: string, city: string, score?: number) => void;
+  city?: string;
+  isFav?: (name: string) => boolean;
+  onToggleFav?: (r: { name: string; neighborhood?: string; food_score?: number }) => void;
 };
 
-export function CompareResult({ data, originalScore, onDeepDive }: CompareResultProps) {
+export function CompareResult({ data, originalScore, onDeepDive, city, isFav, onToggleFav }: CompareResultProps) {
   const [dark, setDark] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   useEffect(() => { setDark(localStorage.getItem("dr-dark") === "1"); }, []);
   const t = th(dark);
+
+  const handleShare = (a: Alternative, i: number) => {
+    if (!a.name) return;
+    const p = new URLSearchParams({ deepDive: a.name });
+    if (city) p.set("city", city);
+    const url = `${window.location.origin}/?${p.toString()}`;
+    if (navigator.share) {
+      navigator.share({ title: a.name, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedIdx(i);
+        setTimeout(() => setCopiedIdx(null), 2200);
+      }).catch(() => {});
+    }
+  };
 
   const alts = (Array.isArray(data.alternatives) ? data.alternatives : []).filter((a): a is Alternative => a != null);
   const isAny = data._mode === "any";
@@ -958,8 +977,13 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
           const deltaLabel = delta != null ? (delta > 0.2 ? `+${delta.toFixed(1)}` : delta < -0.2 ? delta.toFixed(1) : "similar") : null;
           const deltaColor = (delta ?? 0) > 0.2 ? t.green : (delta ?? 0) < -0.2 ? t.red : t.tertiary;
 
+          const favd = isFav?.(a.name || "");
           return (
-            <div key={i} style={{ background: t.card, border: `1px solid ${i === 0 ? accentBorder : t.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: i === 0 ? t.s2 : t.s1 }}>
+            <div key={i} style={{ background: t.card, border: `1px solid ${i === 0 ? accentBorder : t.border}`, borderRadius: 12, overflow: "hidden", boxShadow: i === 0 ? t.s2 : t.s1 }}>
+              {/* Photo strip — same height/treatment as normal result-card headers */}
+              <PlacesPhotoStrip name={a.name} city={city} />
+
+              <div style={{ padding: "12px 16px 14px" }}>
               {i === 0 && <div style={{ fontFamily: "'Sevastopol', Georgia, serif", fontSize: "0.5625rem", fontWeight: 400, color: accentClr, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Top alternative</div>}
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
@@ -1004,10 +1028,24 @@ export function CompareResult({ data, originalScore, onDeepDive }: CompareResult
                 {(a.address || a.name) && (
                   <a
                     href={dirURL(a.address, a.name ?? "", "")} target="_blank" rel="noopener noreferrer"
-                    style={{ flex: 1, height: 38, borderRadius: 8, background: t.card2, border: `1px solid ${t.border}`, color: t.secondary, fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}
-                  >Directions</a>
+                    style={{ height: 38, width: 38, borderRadius: 8, background: t.card2, border: `1px solid ${t.border}`, color: t.secondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}
+                  ><DirIcon /></a>
+                )}
+                {onToggleFav && a.name && (
+                  <button
+                    onClick={() => onToggleFav({ name: a.name!, neighborhood: a.neighborhood, food_score: a.food_score })}
+                    style={{ height: 38, width: 38, borderRadius: 8, background: t.card2, border: `1px solid ${t.border}`, color: favd ? t.accent : t.tertiary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  ><HeartIcon filled={!!favd} /></button>
+                )}
+                {a.name && (
+                  <button
+                    onClick={() => handleShare(a, i)}
+                    style={{ height: 38, width: 38, borderRadius: 8, background: t.card2, border: `1px solid ${t.border}`, color: copiedIdx === i ? t.green : t.tertiary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  >{copiedIdx === i ? <span style={{ fontSize: "0.65rem", fontFamily: "'IBM Plex Mono',monospace" }}>✓</span> : <ShareIcon />}</button>
                 )}
               </div>
+
+              </div>{/* end inner padding */}
             </div>
           );
         })}

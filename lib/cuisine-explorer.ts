@@ -138,6 +138,7 @@ export const CUISINE_EXPLORER: RegionEntry[] = [
       { label: "Steakhouse",          dishes: ["Ribeye", "Filet Mignon", "Wagyu", "Dry-Aged NY Strip", "Tomahawk", "Surf & Turf"] },
       { label: "Breakfast & Brunch",  dishes: ["Eggs Benedict", "Chilaquiles", "Avocado Toast", "French Toast", "Shakshuka", "Pancakes"] },
       { label: "Vegan / Plant-based", dishes: ["Jackfruit Tacos", "Beyond Burger", "Grain Bowls", "Vegan Ramen", "Cauliflower Wings", "Vegan Sushi"] },
+      { label: "Food Halls & Markets", dishes: ["Food hall", "Food market", "Food court", "Street food market", "Artisan food hall"] },
     ],
   },
 ];
