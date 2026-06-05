@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient as createSupabase } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { extractJson } from "@/lib/extract-json";
+import { makeIdentityKey } from "@/lib/search-signature";
 
 const RESTAURANT_TTL_MS = 120 * 24 * 60 * 60 * 1000;
 const STAMPEDE_GUARD_MS = 2 * 60 * 1000;
@@ -146,35 +147,118 @@ export async function POST(req: Request) {
       return NextResponse.json({ ...fresh, food_score: durableScore });
     }
 
-    // Cold open (no restaurant_id) — try to find by name in restaurants table first
-    console.log("[deepdive] cold open (no restaurant_id) — name:", name, "| checking DB by name");
+    // ── Cold open (no restaurant_id) ─────────────────────────────────────────
+    // Shared durable-score system: look up by identity_key first, then name ILIKE.
+    // When generating a fresh score, upsert a row keyed by identity_key so the
+    // search pipeline (processRestaurant) finds the same durable score later.
+    // This fixes the divergence where a direct deep dive and a search scored the
+    // same venue independently (the cold open used to write nothing to the DB).
+    //
+    // Unified freshness rule (consistent with restaurant_id path above):
+    //   fresh row  → return stored deep_dive + durable food_score, no Claude call
+    //   stale row  → serve existing immediately, background-refresh deep_dive,
+    //                preserve existing food_score (search pipeline is the score authority)
+    //   no row     → run Claude, upsert new row with Claude's score as initial anchor
+    console.log("[deepdive] cold open — name:", name, "| checking DB");
     try {
-      const { data: byName } = await db
-        .from("restaurants")
-        .select("id, food_score, deep_dive, refreshed_at, refreshing_at")
-        .ilike("name", name.trim())
-        .maybeSingle();
-      const byNameRow = byName as { id: string; food_score: number | null; deep_dive: Record<string, unknown> | null; refreshed_at: string; refreshing_at: string | null } | null;
+      type DeepRow = { id: string; food_score: number | null; deep_dive: Record<string, unknown> | null; refreshed_at: string; refreshing_at: string | null };
 
-      if (byNameRow?.deep_dive) {
-        const ageMs = Date.now() - new Date(byNameRow.refreshed_at).getTime();
-        if (ageMs < RESTAURANT_TTL_MS) {
-          console.log("[deepdive] DB HIT by name — returning stored deep dive");
-          return NextResponse.json({ ...byNameRow.deep_dive, food_score: byNameRow.food_score });
-        }
+      // Step 1: identity_key lookup (precise — matches search pipeline's key derivation)
+      let row: DeepRow | null = null;
+      const lookupIkey = address ? makeIdentityKey(name, address) : null;
+      if (lookupIkey && lookupIkey !== "|") {
+        const { data: byKey } = await db
+          .from("restaurants")
+          .select("id, food_score, deep_dive, refreshed_at, refreshing_at")
+          .eq("identity_key", lookupIkey)
+          .maybeSingle();
+        if (byKey) row = byKey as DeepRow;
       }
 
-      // Not in DB or stale — call Anthropic
+      // Step 2: name ILIKE fallback (catches rows written before address was available,
+      //         or cases where Google Places address differs from Claude's address)
+      if (!row) {
+        const { data: byName } = await db
+          .from("restaurants")
+          .select("id, food_score, deep_dive, refreshed_at, refreshing_at")
+          .ilike("name", name.trim())
+          .maybeSingle();
+        if (byName) row = byName as DeepRow;
+      }
+
+      // Step 3: unified freshness check (same pattern as restaurant_id path)
+      if (row?.deep_dive) {
+        const ageMs = Date.now() - new Date(row.refreshed_at).getTime();
+        const isFresh = ageMs < RESTAURANT_TTL_MS;
+        const isRefreshing = !!row.refreshing_at &&
+          (Date.now() - new Date(row.refreshing_at).getTime() < STAMPEDE_GUARD_MS);
+
+        if (isFresh) {
+          console.log("[deepdive] DB HIT (cold open, fresh) — id:", row.id);
+          return NextResponse.json({ ...row.deep_dive, food_score: row.food_score });
+        }
+
+        if (!isRefreshing) {
+          console.log("[deepdive] DB HIT (cold open, stale) — id:", row.id, "| backgrounding");
+          db.from("restaurants")
+            .update({ refreshing_at: new Date().toISOString() })
+            .eq("id", row.id)
+            .then(() => {
+              runDeepDivePipeline(client, name, city, address).then(fresh => {
+                db.from("restaurants").update({
+                  deep_dive: fresh,
+                  refreshed_at: new Date().toISOString(),
+                  refreshing_at: null,
+                  // Preserve existing food_score — search pipeline is score authority
+                  ...(row!.food_score == null ? { food_score: (fresh as Record<string, unknown>).food_score } : {}),
+                }).eq("id", row!.id).then(() => {}, () => {});
+              });
+            });
+        }
+
+        return NextResponse.json({ ...row.deep_dive, food_score: row.food_score });
+      }
+
+      // Step 4: no fresh deep_dive — run Claude pipeline
+      console.log("[deepdive] DB MISS (cold open) — name:", name, "| running pipeline");
       const fresh = await runDeepDivePipeline(client, name, city, address) as Record<string, unknown>;
 
-      // If we found a restaurant row, stamp the deep dive back (name-based cold open)
-      if (byNameRow?.id) {
-        db.from("restaurants").update({
+      // Compute the canonical identity_key from Claude's returned name+address —
+      // this matches what processRestaurant would compute from the same venue in
+      // a search result, ensuring both paths share one durable row.
+      const freshName    = String(fresh.name    ?? name);
+      const freshAddress = (fresh.address as string | null) || address || null;
+      const writeIkey    = makeIdentityKey(freshName, freshAddress);
+
+      if (row?.id) {
+        // Row exists but has no deep_dive — update it (backfill identity_key too)
+        await db.from("restaurants").update({
           deep_dive: fresh,
           refreshed_at: new Date().toISOString(),
           refreshing_at: null,
-          ...(byNameRow.food_score == null ? { food_score: fresh.food_score } : {}),
-        }).eq("id", byNameRow.id).then(() => {}, () => {});
+          ...(row.food_score == null ? { food_score: fresh.food_score } : {}),
+          ...(writeIkey && writeIkey !== "|" ? { identity_key: writeIkey } : {}),
+        }).eq("id", row.id);
+        return NextResponse.json({ ...fresh, food_score: row.food_score ?? fresh.food_score });
+      }
+
+      // No row at all — upsert with identity_key so the search pipeline finds
+      // this durable score on its next encounter with the same venue.
+      if (writeIkey && writeIkey !== "|") {
+        await db.from("restaurants").upsert({
+          identity_key: writeIkey,
+          name:            freshName,
+          address:         freshAddress,
+          neighborhood:    (fresh.neighborhood    as string | null) || null,
+          venue_type:      (fresh.venue_type      as string | null) || null,
+          price_range:     (fresh.price_range     as string | null) || null,
+          website_domain:  (fresh.website_domain  as string | null) || null,
+          verdict:         (fresh.verdict         as string | null) || null,
+          food_score:      fresh.food_score,
+          deep_dive:       fresh,
+          refreshed_at:    new Date().toISOString(),
+        }, { onConflict: "identity_key" });
+        console.log("[deepdive] upserted durable row — ikey:", writeIkey);
       }
 
       return NextResponse.json(fresh);
