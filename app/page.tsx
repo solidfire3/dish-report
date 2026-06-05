@@ -468,8 +468,7 @@ function DishIntel() {
   const [apiComplete,   setApiComplete]  = useState(false);   // true when API returns
   const [pendingPhase,  setPendingPhase] = useState("");      // phase to set on tracker done
   const [backgrounded,  setBackgrounded] = useState(false);   // search demoted to banner
-  const [blockToast,    setBlockToast]   = useState<string | false>(false); // notice message | false
-  const [queuedSearch,  setQueuedSearch] = useState<{ q: string; filters: FilterState } | null>(null);
+  const [blockToast,    setBlockToast]   = useState(false);   // "search in progress" notice
   // Near You Now — real high-scored restaurants from DB, shuffled on each page load
   const [nearYouRests, setNearYouRests] = useState<Array<{
     id: string; name: string; food_score: number;
@@ -784,7 +783,7 @@ function DishIntel() {
 
   // ─── NAVIGATION ───────────────────────────────────────────────────────────
   const pushNav = () => {
-    if (["done", "deepdone", "marketdone", "comparedone"].includes(phase)) {
+    if (["done", "deepdone", "marketdone", "comparedone", "comparing"].includes(phase)) {
       setNavStack(prev => [...prev, {
         phase, restaurants: [...restaurants], meta, searchedDish,
         deepData, compareData, marketData, expanded, tab: "search",
@@ -808,6 +807,11 @@ function DishIntel() {
   };
 
   const reset = () => {
+    // Abort any running search and clear all transient state
+    abortRef.current?.abort(); abortRef.current = null;
+    if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
+    try { localStorage.removeItem("dr-background-search"); } catch {}
+    setBackgrounded(false); setApiComplete(false); setPendingPhase("");
     setPhase("idle"); setNarrowQuestions(null); setRestaurants([]); setMeta(null);
     setSearchedDish(""); setDeepData(null); setCompareData(null); setMarketData(null);
     setConfirmIsMarket(false); setErrMsg(""); setExpanded(null);
@@ -891,20 +895,17 @@ function DishIntel() {
     abortRef.current = null;
     setApiComplete(false); setPendingPhase("");
     setPhase("idle");
-    // Also cancel any background poll and queued search
     if (bgPollRef.current) { clearInterval(bgPollRef.current); bgPollRef.current = null; }
     setBackgrounded(false);
-    setQueuedSearch(null);
     try { localStorage.removeItem("dr-background-search"); } catch {}
   };
 
-  // Show a brief notice toast — auto-dismisses in 3.5s
-  const showNotice = (msg: string) => {
-    setBlockToast(msg);
+  // Show the "search in progress" block notice — auto-dismisses in 3.5s
+  const showBlockNotice = () => {
+    setBlockToast(true);
     if (blockToastTimer.current) clearTimeout(blockToastTimer.current);
     blockToastTimer.current = setTimeout(() => setBlockToast(false), 3500);
   };
-  const showBlockNotice = () => showNotice("Search queue full — cancel the running or queued search first.");
 
   // User tapped "↓ LET IT RUN IN BACKGROUND" on the loading screen
   const handleBackground = () => {
@@ -943,12 +944,6 @@ function DishIntel() {
     setBackgrounded(false); setPendingPhase(""); setApiComplete(false);
     setPhase(target);
     try { localStorage.removeItem("dr-active-search"); } catch {}
-    // Auto-start queued search after results are visible
-    if (queuedSearch) {
-      const { q, filters } = queuedSearch;
-      setQueuedSearch(null);
-      setTimeout(() => handleSearchFromBar(q, filters), 120);
-    }
   };
 
   // Run search with explicitly selected regions (from the Refine step).
@@ -997,7 +992,7 @@ function DishIntel() {
       abortRef.current = null;
       if (e instanceof Error && e.name === "AbortError") {
         if (!userAbortedRef.current) {
-          setApiComplete(false); setPendingPhase("");
+          setApiComplete(false); setPendingPhase(""); setBackgrounded(false);
           setErrMsg("Connection interrupted. Tap Retry — if the search completed server-side, results load instantly.");
           setPhase("error");
         }
@@ -1005,7 +1000,7 @@ function DishIntel() {
         return;
       }
       userAbortedRef.current = false;
-      setApiComplete(false); setPendingPhase("");
+      setApiComplete(false); setPendingPhase(""); setBackgrounded(false);
       setErrMsg(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
     }
@@ -1040,6 +1035,7 @@ function DishIntel() {
     } catch (e) {
       abortRef.current = null;
       if (e instanceof Error && e.name === "AbortError") return;
+      setBackgrounded(false);
       setErrMsg(e instanceof Error ? e.message : "Refresh failed"); setPhase("error");
     }
   };
@@ -1156,7 +1152,7 @@ function DishIntel() {
       if (e instanceof Error && e.name === "AbortError") {
         if (!userAbortedRef.current) {
           // Network/backgrounding interruption — show recovery on the screen
-          setApiComplete(false); setPendingPhase("");
+          setApiComplete(false); setPendingPhase(""); setBackgrounded(false);
           setErrMsg("Connection interrupted. Tap Retry — if the search completed server-side, results load instantly.");
           setPhase("error");
         }
@@ -1164,7 +1160,7 @@ function DishIntel() {
         return;
       }
       userAbortedRef.current = false;
-      setApiComplete(false); setPendingPhase("");
+      setApiComplete(false); setPendingPhase(""); setBackgrounded(false);
       setErrMsg(e instanceof Error ? e.message : "Analysis failed");
       setPhase("error");
     }
@@ -1194,16 +1190,7 @@ function DishIntel() {
 
   // Unified search handler — called by SearchBar with (query, filters)
   const handleSearchFromBar = async (q: string, filters: FilterState, skipClassify = false) => {
-    if (phase === "analyzing" || backgrounded) {
-      // Queue one search while another is running; block a third
-      if (!queuedSearch) {
-        setQueuedSearch({ q, filters });
-        showNotice("Queued — will start when the current search finishes.");
-      } else {
-        showBlockNotice();
-      }
-      return;
-    }
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     const trimmed = q.trim();
     if (!trimmed) return;
 
@@ -1286,8 +1273,14 @@ function DishIntel() {
   };
 
   // ─── DEEP DIVE ─────────────────────────────────────────────────────────────
+  // Compare uses its own "comparing" phase so it doesn't trigger the new-search
+  // block guard (which only checks phase==="analyzing"). This prevents Compare
+  // from appearing as a "search is running" to the guard and wedging the state.
   const handleCompare = async (r: number, currentData: DeepDiveData, mode = "similar") => {
-    pushNav(); setPhase("analyzing"); setApiComplete(false); setCompareData(null); setNarrowQuestions(null);
+    // Block if a real search is already running in the background
+    if (backgrounded) { showBlockNotice(); return; }
+    pushNav();
+    setPhase("comparing"); setCompareData(null); setNarrowQuestions(null);
     setLoadingQuery(`Comparing near ${currentData?.name || "this spot"}`);
     const loc = currentData?.address || currentData?.neighborhood
       ? `within ${r} miles of ${currentData?.address || currentData?.neighborhood}`
@@ -1298,11 +1291,15 @@ function DishIntel() {
         cuisine: currentData?.cuisine || "various", radius: r, location: loc, mode,
       });
       setCompareData({ ...data, _originalScore: currentData?.food_score, _mode: mode });
-      setPendingPhase("comparedone"); setApiComplete(true);
-    } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Comparison failed"); setPhase("error"); }
+      setPhase("comparedone");  // direct transition — no shared LoadingTracker
+    } catch (e) {
+      setErrMsg(e instanceof Error ? e.message : "Comparison failed");
+      setPhase("error");
+    }
   };
 
   const handleMarketGuide = async (name: string | undefined, cityStr?: string) => {
+    if (phase === "analyzing" || backgrounded) { showBlockNotice(); return; }
     pushNav(); const c = cityStr || ddCity;
     setConfirmMatches(null); setPhase("analyzing"); setApiComplete(false); setNarrowQuestions(null);
     setLoadingQuery(name || "Market guide");
@@ -1310,7 +1307,7 @@ function DishIntel() {
       const data = await apiFetch("/api/market", { name, city: c });
       setMarketData({ ...data, vendors: Array.isArray(data.vendors) ? data.vendors : [] });
       setPendingPhase("marketdone"); setApiComplete(true);
-    } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
+    } catch (e) { setApiComplete(false); setPendingPhase(""); setBackgrounded(false); setErrMsg(e instanceof Error ? e.message : "Market guide failed"); setPhase("error"); }
   };
 
   const handleDeepDive = async (
@@ -1347,7 +1344,7 @@ function DishIntel() {
       deepDiveCache.current[cacheKey] = data;
       setDeepData(data);
       setPendingPhase("deepdone"); setApiComplete(true);
-    } catch (e) { setApiComplete(false); setPendingPhase(""); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
+    } catch (e) { setApiComplete(false); setPendingPhase(""); setBackgrounded(false); setErrMsg(e instanceof Error ? e.message : "Deep dive failed"); setPhase("error"); }
   };
 
   // ─── PLACE SELECTION (from typeahead dropdown) ─────────────────────────────
@@ -2321,6 +2318,24 @@ function DishIntel() {
           )}
 
           {/* ── Deep dive ────────────────────────────────────────────── */}
+          {/* ── Compare loading (uses own phase, no LoadingTracker) ──── */}
+          {phase === "comparing" && (
+            <div style={{ paddingTop: 48, textAlign: "center" }}>
+              <div className="spin" style={{ borderColor: boxBorder, borderTopColor: accent, width: 24, height: 24, margin: "0 auto 16px" }} />
+              <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "0.6875rem", color: accent, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>
+                Analyzing alternatives
+              </div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: secondary }}>
+                Finding nearby spots to compare
+              </div>
+              {hasBack && (
+                <button onClick={goBack} style={{ marginTop: 24, background: "none", border: `1px solid ${accentBdr}`, borderRadius: 8, color: tertiary, fontFamily: "'Inter',sans-serif", fontSize: "0.8rem", padding: "8px 16px", cursor: "pointer" }}>
+                  Cancel comparison
+                </button>
+              )}
+            </div>
+          )}
+
           {/* ── Compare ──────────────────────────────────────────────── */}
           {phase === "comparedone" && compareData && (
             <div style={{ marginLeft: -16, marginRight: -16 }}>
@@ -2397,7 +2412,7 @@ function DishIntel() {
         />
       )}
 
-      {/* ── Search notice toast (queued / blocked) ─────────────────── */}
+      {/* ── "Search in progress" block toast ──────────────────────── */}
       {blockToast && (
         <div style={{
           position: "fixed",
@@ -2405,7 +2420,7 @@ function DishIntel() {
           left: "50%", transform: "translateX(-50%)",
           zIndex: 9200,
           background: "#10211e",
-          border: `1px solid ${typeof blockToast === "string" && blockToast.startsWith("Queued") ? "#7fe3c8" : "#e8b133"}`,
+          border: "1px solid #e8b133",
           borderRadius: 8,
           padding: "11px 18px",
           maxWidth: "min(380px, calc(100vw - 32px))",
@@ -2415,11 +2430,11 @@ function DishIntel() {
           animation: "toast-in 0.22s cubic-bezier(0.4,0,0.2,1) both",
           pointerEvents: "none",
         }}>
-          <div style={{ fontSize: "0.5rem", color: typeof blockToast === "string" && blockToast.startsWith("Queued") ? "#7fe3c8" : "#e8b133", letterSpacing: "0.20em", textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
-            {typeof blockToast === "string" && blockToast.startsWith("Queued") ? "QUEUED" : "SEARCH IN PROGRESS"}
+          <div style={{ fontSize: "0.5rem", color: "#e8b133", letterSpacing: "0.20em", textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
+            SEARCH IN PROGRESS
           </div>
           <div style={{ fontSize: "0.75rem", color: "#d4e4df", lineHeight: 1.4 }}>
-            {typeof blockToast === "string" ? blockToast : "Cancel the running search first."}
+            Tap the banner to view it when ready, or cancel it first.
           </div>
         </div>
       )}
@@ -2431,7 +2446,6 @@ function DishIntel() {
           isReady={apiComplete}
           onTap={handleBannerTap}
           onCancel={handleBannerCancel}
-          queuedLabel={queuedSearch ? queuedSearch.q.slice(0, 20) : undefined}
         />
       )}
 

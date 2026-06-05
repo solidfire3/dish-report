@@ -2,11 +2,10 @@
 import { useEffect, useState } from "react";
 
 export type BackgroundBannerProps = {
-  dish:          string;
-  isReady:       boolean;
-  onTap:         () => void;
-  onCancel:      () => void;
-  queuedLabel?:  string;   // short label of the queued search, if any
+  dish:     string;
+  isReady:  boolean;
+  onTap:    () => void;
+  onCancel: () => void;
 };
 
 const CSS = `
@@ -25,7 +24,7 @@ const CANCEL_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export function BackgroundBanner({ dish, isReady, onTap, onCancel, queuedLabel }: BackgroundBannerProps) {
+export function BackgroundBanner({ dish, isReady, onTap, onCancel }: BackgroundBannerProps) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { const t = requestAnimationFrame(() => setVisible(true)); return () => cancelAnimationFrame(t); }, []);
 
@@ -118,16 +117,13 @@ export function BackgroundBanner({ dish, isReady, onTap, onCancel, queuedLabel }
             <div style={{
               fontSize: "0.5625rem", letterSpacing: "0.22em",
               color: "#5f857d", marginBottom: 3,
-            }}>
-              RUNNING IN BACKGROUND{queuedLabel ? " · 1 QUEUED" : ""}
-            </div>
+            }}>RUNNING IN BACKGROUND</div>
             <div style={{
               fontSize: "0.75rem", letterSpacing: "0.05em",
               color: "#7fe3c8",
               overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
             }}>
               ANALYZING {label}
-              {queuedLabel && <span style={{ color: "#5f857d", marginLeft: 8 }}>→ {queuedLabel.toUpperCase()}</span>}
             </div>
           </div>
 
