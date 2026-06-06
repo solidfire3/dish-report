@@ -11,6 +11,27 @@ const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
 const RESTAURANT_TTL_MS  = 120 * 24 * 60 * 60 * 1000;
 const STAMPEDE_GUARD_MS  = 2 * 60 * 1000;
 
+// ─── COST LOGGING ──────────────────────────────────────────────────────────────
+
+type TileUsage = { inputTokens: number; outputTokens: number; webSearches: number; costUSD: number };
+
+function calcUsage(msg: Anthropic.Message): TileUsage {
+  const inputTokens  = msg.usage.input_tokens;
+  const outputTokens = msg.usage.output_tokens;
+  const u = msg.usage as { input_tokens: number; output_tokens: number; server_tool_use?: { web_search_requests?: number } };
+  const webSearches = u.server_tool_use?.web_search_requests
+    ?? (msg.content as unknown as Array<Record<string, unknown>>).filter(b => b["name"] === "web_search").length;
+  const costUSD = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15 + webSearches * 0.01;
+  return { inputTokens, outputTokens, webSearches, costUSD };
+}
+
+function logCost(label: string, u: TileUsage): void {
+  console.log(
+    `[cost] ${label} — in:${u.inputTokens} out:${u.outputTokens}` +
+    ` web_searches:${u.webSearches} est:$${u.costUSD.toFixed(4)}`
+  );
+}
+
 // ─── PROMPTS ──────────────────────────────────────────────────────────────────
 
 const CLASSIFY_PROMPT = `You are a food search intent classifier. Determine the type of query and respond accordingly.
@@ -79,80 +100,48 @@ const makeSearchPrompt = (excl: string[] = []) =>
   `Brutally honest food intelligence. Extract ONLY food-quality signal from reviews.
 INCLUDE: flavor, texture, freshness, preparation, specific dishes, technique, consistency.
 EXCLUDE: service, décor, parking, generic praise without specifics.
-EXPERIENCE NOTE: ONLY if a non-food pattern (AYCE slowness drying food, etc.) is heavily documented AND directly degrades food quality. null otherwise.
+EXPERIENCE NOTE: Only if a non-food pattern directly degrades food quality AND is heavily documented. null otherwise.
 VENUE TYPES: hole-in-the-wall | counter service | food truck | casual dine-in | upscale casual | fine dining
 
-SCORING (food quality only — be genuinely critical; fight the instinct to be agreeable):
-DEFAULT ASSUMPTION: a restaurant is AVERAGE. Average = 6.0, not 8.0. Most places are unremarkable.
-HIGH SCORES ARE EARNED AND RARE. Do not inflate to be agreeable. Being "fine" or "popular" is not enough for 8+.
-USE THE FULL SCALE — including low scores. A disappointing place scores in the 4s-5s without hesitation. Resist rounding up or softening.
-If review signal is mixed, the score reflects that. It does not get the benefit of the doubt.
+SCORING (food quality only — be genuinely critical):
+DEFAULT: Average = 6.0, not 8.0. High scores are earned — being "fine" or "popular" is not enough for 8+. Use the full scale; resist rounding up. Mixed signal → score reflects that, no benefit of the doubt.
 
-Score tiers (anchor every score against these named bands):
+Score tiers — anchor every score here:
 9.2-10.0: Michelin level. Internationally recognized or technically exceptional. Extremely rare.
-8.7-9.1:  Local legend. A true destination repeatedly cited as among the city's very best. Rare.
+8.7-9.1:  Local legend. True destination, repeatedly cited as among the city's very best. Rare.
 8.1-8.6:  Always great. Consistently excellent; specific dishes that earn repeat visits.
-7.5-8.0:  Solid spot. Reliable neighborhood restaurant; positive but no citywide standout reputation.
-6.9-7.4:  Hit and miss. Inconsistent quality or one standout dish on an otherwise ordinary menu.
+7.5-8.0:  Solid spot. Reliable neighborhood restaurant; positive but no citywide reputation.
+6.9-7.4:  Hit and miss. Inconsistent quality or one standout dish on an ordinary menu.
 6.0-6.8:  Convenience. Acceptable; chosen for location or price, not quality.
 5.0-5.9:  Compromise. Below expectations; noticeable quality issues.
 2.5-4.9:  Disappointment. Significant problems documented across reviews.
 0.1-2.4:  Disgust. Repeated serious food-quality failures.
+Good local spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6. 9.0+ for true standouts only.
 
-The typical good local neighborhood spot: 7.5-8.0. Mediocre: 6-something. Bad: below 6.
-9.0+ is for true standouts only — do not award for popularity alone.
-
-QUERY RELEVANCE — strict destination gate, controls inclusion not scores:
-A venue MUST be a genuine destination for the searched dish — a PRIMARY reason people go there.
-The test: "Is this place specifically known FOR [dish]?"
-INCLUDE only when the dish is a core offering that people seek out at this specific venue.
-EXCLUDE strictly:
-- A sushi restaurant that has poke bowls on the menu → EXCLUDED from a "poke" search, unless
-  the restaurant is specifically and widely known for its poke (rare; not just "offers poke").
-- Any venue where the dish is a secondary item, side offering, or equal-among-many.
-- Multi-cuisine spots where the dish is one of ten equal-priority offerings.
-- A fine-dining tasting-menu restaurant in a "pizza" or "tacos" search.
-- Any café or general restaurant in a "burger" or "ramen" search unless it's a burger/ramen
-  destination specifically.
-Return fewer genuinely-relevant results rather than padding with venues that merely have
-the dish on the menu. Quality of relevance over quantity.
-This gate applies independently per tile; each tile must meet this standard.
+QUERY RELEVANCE — strict destination gate:
+INCLUDE only venues where the dish is a PRIMARY reason people go there. "Is this place specifically known FOR [dish]?"
+EXCLUDE: secondary/side/equal-among-many offerings; a sushi restaurant that merely offers poke → excluded from a "poke" search unless widely known for poke specifically; fine-dining tasting menus in pizza/tacos searches; any general restaurant in a burger/ramen search unless it's a destination specifically.
+Return fewer genuinely-relevant results rather than padding. Quality of relevance over quantity. Gate applies per tile.
 
 GEOGRAPHIC CONTAINMENT — non-negotiable:
-Only include venues physically located in or within reasonable proximity of the searched location.
-Do NOT include venues from a different city or region simply because they are well-reviewed for this dish.
-A venue just across a neighborhood boundary within the same metro area is acceptable.
-A venue in a clearly different city or region is NOT acceptable, even if the web search surfaced it.
-Verify that each returned venue's address actually places it in or near the searched area.
-Location accuracy matters as much as dish quality — a confident wrong-location result is worse than no result.
+Only include venues physically in or within reasonable proximity of the searched area. A wrong-location result is worse than none. Verify each venue's address.
 
-SOURCE GROUNDING — every claim must be traceable to retrieved sources:
-Ground all factual claims in actually retrieved review/source material, NOT general knowledge.
-- Do NOT invent restaurants, addresses, specific dishes, or quotes not supported by sources.
-- If a restaurant's existence or relevance cannot be confirmed from retrieved sources, omit it.
-- must_orders items must appear in retrieved reviews as notable dishes at this specific location.
-- best_quote must be from an actual retrieved review. If none available, use "".
-- If unsure a place is real and relevant, omit it rather than guess.
+SOURCE GROUNDING:
+Ground all claims in retrieved sources. Do NOT invent restaurants, addresses, dishes, or quotes. must_orders must appear in retrieved reviews as notable dishes. best_quote must be from an actual review; use "" if none. Omit anything unconfirmed.
 
-CONFIDENCE — honest signal assessment, do NOT use to reduce candidate count:
+CONFIDENCE:
 "high" = strong, consistent signal from multiple independent sources.
-"medium" = some signal but limited or inconsistent.
-"low" = thin signal, very few reviews, or conflicting information.
-Include ALL "high" and "medium" confidence results in the ranked output — they deserve a rank.
-Exclude "low" confidence venues only if you already have 10 qualifying results without them.
-Do NOT artificially cap the result count. Return every venue with meaningful evidence up to the maximum.
+"medium" = limited or inconsistent signal.
+"low" = thin or conflicting information.
+Include ALL high/medium results. Exclude low only if you already have 10 qualifying. Do NOT cap result count.
 
-DISH BADGE (contextual label — no effect on score or ranking):
-- dish_badge: 2-5 word string, or null. Only populate if this restaurant is genuinely CELEBRATED by locals for the searched dish/category — e.g. "local birria legend", "destination for ramen", "known for carnitas".
-- Most results should be null. Only award when the evidence is specific and clear.
-- Never invent a badge. No badge is better than a vague one.
-- If the query is a restaurant name (not a dish), all badges should be null.
+DISH BADGE: Only if genuinely celebrated for the searched dish — e.g. "local birria legend". Most results: null. Never invent.
 
 ${excl.length ? `EXCLUDE already shown: ${excl.join(", ")}.` : ""}
 Return ONLY valid JSON: {"dish":"string","city":"string","results":[{"rank":number,"name":"string","neighborhood":"string","address":"string|null","venue_type":"string","what_it_is":"string","food_score":number,"dish_badge":"string|null","confidence":"high|medium|low","dish_mentions":number,"price_range":"$|$$|$$$|$$$$|null","website_domain":"string|null","hours":"string|null","specials":"string|null","experience_note":"string|null","must_orders":[{"item":"string","differentiator":"string","why":"string"}],"win_reason":"string","top_descriptors":["string"],"also_try":["string"],"best_quote":"string","warnings":["string"],"verdict":"string"}]}
 ${excl.length
   ? "Return up to 5 results not in the excluded list, strictly sorted food_score descending."
-  : "Return up to 16 results — include every venue you have meaningful review evidence for, strictly sorted food_score descending. Do not pad with invented or uncertain venues; quality over quantity. If only 9 venues genuinely qualify, return 9."
+  : "Return up to 16 results — include every venue with meaningful evidence, strictly sorted food_score descending. If only 9 qualify, return 9."
 }`;
 
 // ─── SERVICE CLIENT ────────────────────────────────────────────────────────────
@@ -167,20 +156,22 @@ async function runPipeline(
   client: Anthropic, dish: string, city: string, area: string,
   locMode: string, radius: number, exclude: string[],
   locStrOverride?: string   // used by tile queries to specify the tile sub-area
-): Promise<unknown> {
+): Promise<{ data: unknown; usage: TileUsage }> {
   const effectiveRadius = radius && radius > 0 && radius < 20 ? radius : null;
   const locStr = locStrOverride ?? (locMode === "area" && area
     ? `within ${radius} miles of ${area}`
     : effectiveRadius ? `within ${effectiveRadius} miles of ${city}` : `in ${city}`);
-  const userMsg = `Best places for "${dish}" ${locStr}. GEOGRAPHIC REQUIREMENT: Only include venues physically located ${locStr} — exclude any venue whose address is not in or near this area, even if the web search surfaced it.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
+  const userMsg = `Best places for "${dish}" ${locStr}. Use targeted searches — query precisely for this dish in this exact area, not broadly. GEOGRAPHIC REQUIREMENT: Only include venues physically located ${locStr}.${exclude.length ? ` Exclude: ${exclude.join(", ")}.` : ""} Return JSON.`;
   const msg = await client.messages.create({
     model: "claude-sonnet-4-6", max_tokens: 8000,
     system: makeSearchPrompt(exclude),
     // @ts-ignore
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
     messages: [{ role: "user", content: userMsg }],
   });
-  return extractJson(msg.content);
+  const usage = calcUsage(msg);
+  logCost(`tile "${locStr}"`, usage);
+  return { data: extractJson(msg.content), usage };
 }
 
 // ─── GEOGRAPHIC TILING ────────────────────────────────────────────────────────
@@ -210,9 +201,20 @@ async function gatherCandidates(
     const tileResponses = await Promise.all(
       tiles.map(tile => runPipeline(client, dish, city, area, locMode, radius, [], `in ${tile}`))
     );
+    // Log search total across all tiles
+    const totalUsage = tileResponses.reduce(
+      (acc, r) => ({
+        inputTokens:  acc.inputTokens  + r.usage.inputTokens,
+        outputTokens: acc.outputTokens + r.usage.outputTokens,
+        webSearches:  acc.webSearches  + r.usage.webSearches,
+        costUSD:      acc.costUSD      + r.usage.costUSD,
+      }),
+      { inputTokens: 0, outputTokens: 0, webSearches: 0, costUSD: 0 }
+    );
+    logCost(`SEARCH TOTAL (${tiles.length} tiles)`, totalUsage);
     // Merge all tile candidates
     const allRaw = tileResponses.flatMap(
-      r => ((r as Record<string, unknown>).results || []) as Record<string, unknown>[]
+      r => ((r.data as Record<string, unknown>).results || []) as Record<string, unknown>[]
     );
     // Dedupe by identity_key: same venue from overlapping tiles → keep first occurrence.
     // First tile wins — tiles are ordered center-first, so central results get priority.
@@ -227,10 +229,11 @@ async function gatherCandidates(
   }
 
   // Single query — existing behavior
-  const rawResult = await runPipeline(client, dish, city, area, locMode, radius, []);
+  const singleResult = await runPipeline(client, dish, city, area, locMode, radius, []);
+  logCost("SEARCH TOTAL (1 tile)", singleResult.usage);
   return {
-    rawResults: ((rawResult as Record<string, unknown>).results || []) as Record<string, unknown>[],
-    baseFields: rawResult as Record<string, unknown>,
+    rawResults: ((singleResult.data as Record<string, unknown>).results || []) as Record<string, unknown>[],
+    baseFields: singleResult.data as Record<string, unknown>,
   };
 }
 
@@ -399,9 +402,9 @@ export async function POST(req: Request) {
 
     // Load more — skip cache entirely, no normalization write
     if (isLoadMore) {
-      const result = await runPipeline(client, dish, city, area, locMode, radius, exclude as string[]);
+      const { data } = await runPipeline(client, dish, city, area, locMode, radius, exclude as string[]);
       logUserSearch(dish, city, area, locMode, radius, null).catch(() => {});
-      return NextResponse.json(result);
+      return NextResponse.json(data);
     }
 
     const tags = buildTags({ dish, city, area, locMode, radius, regionKey: effectiveRegionKey });

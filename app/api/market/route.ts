@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       max_tokens: 10000,
       system: MARKET_PROMPT,
       // @ts-ignore
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
       messages: [
         {
           role: "user",
@@ -54,6 +54,14 @@ export async function POST(req: Request) {
         },
       ],
     });
+
+    const inputTokens  = msg.usage.input_tokens;
+    const outputTokens = msg.usage.output_tokens;
+    const u = msg.usage as { input_tokens: number; output_tokens: number; server_tool_use?: { web_search_requests?: number } };
+    const webSearches = u.server_tool_use?.web_search_requests
+      ?? (msg.content as unknown as Array<Record<string, unknown>>).filter(b => b["name"] === "web_search").length;
+    const costUSD = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15 + webSearches * 0.01;
+    console.log(`[cost] market "${name}" — in:${inputTokens} out:${outputTokens} web_searches:${webSearches} est:$${costUSD.toFixed(4)}`);
 
     return NextResponse.json(extractJson(msg.content));
   } catch (e: unknown) {
