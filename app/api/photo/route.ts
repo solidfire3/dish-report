@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
+import { maintenanceResponse } from "@/lib/maintenance";
 
 export async function GET(req: NextRequest) {
-  if (isMaintenanceMode()) return maintenanceResponse();
+  console.log("[maint] MAINTENANCE_MODE=", process.env.MAINTENANCE_MODE);
+  if (process.env.MAINTENANCE_MODE === "true") return maintenanceResponse();
   const { searchParams } = new URL(req.url);
   const name = searchParams.get("name");
 

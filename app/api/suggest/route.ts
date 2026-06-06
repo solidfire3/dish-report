@@ -2,7 +2,7 @@ import { createClient as createSupabase } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
+import { maintenanceResponse } from "@/lib/maintenance";
 
 function makeSvc() {
   return createSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -16,7 +16,8 @@ export type SuggestItem = {
 };
 
 export async function POST(req: Request) {
-  if (isMaintenanceMode()) return maintenanceResponse();
+  console.log("[maint] MAINTENANCE_MODE=", process.env.MAINTENANCE_MODE);
+  if (process.env.MAINTENANCE_MODE === "true") return maintenanceResponse();
   try {
     const { q } = await req.json();
     const query = String(q ?? "").trim();
