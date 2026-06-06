@@ -61,9 +61,16 @@ async function runDeepDivePipeline(client: Anthropic, name: string, city: string
     model: "claude-sonnet-4-6", max_tokens: 8000,
     system: DEEP_PROMPT,
     // @ts-ignore
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
     messages: [{ role: "user", content: `"${name}" ${location}. Food cheat sheet. Return JSON.` }],
   });
+  const inputTokens  = msg.usage.input_tokens;
+  const outputTokens = msg.usage.output_tokens;
+  const u = msg.usage as { input_tokens: number; output_tokens: number; server_tool_use?: { web_search_requests?: number } };
+  const webSearches = u.server_tool_use?.web_search_requests
+    ?? (msg.content as unknown as Array<Record<string, unknown>>).filter(b => b["name"] === "web_search").length;
+  const costUSD = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15 + webSearches * 0.01;
+  console.log(`[cost] deepdive "${name}" — in:${inputTokens} out:${outputTokens} web_searches:${webSearches} est:$${costUSD.toFixed(4)}`);
   return extractJson(msg.content);
 }
 
@@ -78,7 +85,7 @@ export async function POST(req: Request) {
         model: "claude-sonnet-4-6", max_tokens: 700,
         system: CONFIRM_PROMPT,
         // @ts-ignore
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
         messages: [{ role: "user", content: `Find: "${name}" in ${city}.` }],
       });
       return NextResponse.json(extractJson(msg.content));
