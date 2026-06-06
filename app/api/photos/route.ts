@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
 
 // ─── NAME-MATCH HELPERS ───────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ function foodLikelihood(w: number | undefined, h: number | undefined): number {
 // ─── ROUTE ────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  if (isMaintenanceMode()) return maintenanceResponse();
   const { searchParams } = new URL(req.url);
   const name = searchParams.get("name");
   const city = searchParams.get("city") || "";

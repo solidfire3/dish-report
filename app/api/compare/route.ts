@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { extractJson } from "@/lib/extract-json";
+import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
 
 
 const COMPARE_PROMPT = `You are a food comparison analyst. A user just looked at a specific restaurant and wants to know if there's something similar — or better — nearby. Search for comparable restaurants within the specified radius and compare them on food quality only.
@@ -41,6 +42,7 @@ Return ONLY valid JSON:
 Include 4-6 alternatives ordered by food_score desc.`;
 
 export async function POST(req: Request) {
+  if (isMaintenanceMode()) return maintenanceResponse();
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { name, foodScore, cuisine, radius, location, mode } =

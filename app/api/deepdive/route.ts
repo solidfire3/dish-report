@@ -3,6 +3,7 @@ import { createClient as createSupabase } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { extractJson } from "@/lib/extract-json";
 import { makeIdentityKey } from "@/lib/search-signature";
+import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
 
 const RESTAURANT_TTL_MS = 120 * 24 * 60 * 60 * 1000;
 const STAMPEDE_GUARD_MS = 2 * 60 * 1000;
@@ -75,6 +76,7 @@ async function runDeepDivePipeline(client: Anthropic, name: string, city: string
 }
 
 export async function POST(req: Request) {
+  if (isMaintenanceMode()) return maintenanceResponse();
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { mode, name, city, restaurant_id, address } = await req.json();

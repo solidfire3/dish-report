@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { buildTags, computeSignature, makeIdentityKey } from "@/lib/search-signature";
 import { getTilesForLocation, getMetroForLocation, normalizeLocation } from "@/lib/metro-tiles";
 import { extractJson } from "@/lib/extract-json";
+import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
 
 const CACHE_TTL_MS       = 120 * 24 * 60 * 60 * 1000;
 const RESTAURANT_TTL_MS  = 120 * 24 * 60 * 60 * 1000;
@@ -347,6 +348,7 @@ async function triggerBackgroundRefresh(cachedId: string, pipelineFn: () => Prom
 // ─── ROUTE ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  if (isMaintenanceMode()) return maintenanceResponse();
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const {

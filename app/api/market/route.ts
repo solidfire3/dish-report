@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { extractJson } from "@/lib/extract-json";
+import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
 
 
 // No scores are generated for vendors — per-vendor review data is too thin for reliable grading.
@@ -37,6 +38,7 @@ Return ONLY valid JSON:
 Include ALL vendors you can find. Do NOT include food_score or any numeric rating.`;
 
 export async function POST(req: Request) {
+  if (isMaintenanceMode()) return maintenanceResponse();
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
     const { name, city } = await req.json();

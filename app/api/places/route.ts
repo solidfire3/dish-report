@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isMaintenanceMode, maintenanceResponse } from "@/lib/maintenance";
 
 const KEY = process.env.GOOGLE_PLACES_API_KEY!;
 
@@ -18,6 +19,7 @@ type TsResult = {
 };
 
 export async function GET(req: Request) {
+  if (isMaintenanceMode()) return maintenanceResponse();
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get("mode") ?? "";
 
